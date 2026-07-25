@@ -5,8 +5,6 @@ run_daily.py -- the one command you run each day.
 
 import argparse
 import logging
-import re as _re
-import unicodedata as _ud
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
@@ -23,6 +21,17 @@ from data.standings import get_all_team_records
 from data.rosters import get_team_batters
 from data.lineups import get_confirmed_lineup, get_confirmed_pitcher
 from data.hr_odds import fetch_hr_odds
+import re as _re
+import unicodedata as _ud
+
+
+def _norm_player(name):
+    if not name:
+        return ""
+    n = _ud.normalize("NFKD", name).encode("ascii", "ignore").decode("ascii").lower()
+    n = _re.sub(r"[.\,']", "", n)
+    n = _re.sub(r"\b(jr|sr|ii|iii|iv)\b", "", n)
+    return _re.sub(r"\s+", " ", n).strip()
 from data.celestial import celestial_signal_for, moon_phase_for, moon_sign_for
 from data.numerology import numerology_signal_for, reduce_date
 
@@ -42,15 +51,6 @@ from backtest.grader import grade_pending
 logging.basicConfig(level=getattr(logging, config.LOG_LEVEL, logging.INFO),
                      format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("run_daily")
-
-
-def _norm_player(name):
-    if not name:
-        return ""
-    n = _ud.normalize("NFKD", name).encode("ascii", "ignore").decode("ascii").lower()
-    n = _re.sub(r"[.\,']", "", n)
-    n = _re.sub(r"\b(jr|sr|ii|iii|iv)\b", "", n)
-    return _re.sub(r"\s+", " ", n).strip()
 
 
 def main(argv=None):
@@ -241,17 +241,16 @@ def main(argv=None):
 
 
 def _build_history(db):
-    """All past graded slates grouped by date (newest first) for the History
-    tab. Seeded with July 24, 2026 so the archive starts from yesterday."""
+    """All past graded slates grouped by date (newest first) for the History tab."""
     seed = [{
         "date": "2026-07-24",
         "picks": [
             {"label": "ARI ML (-124)", "status": "won", "kind": "moneyline"},
             {"label": "MIL ML (-122)", "status": "lost", "kind": "moneyline"},
             {"label": "MIN ML (-144)", "status": "lost", "kind": "moneyline"},
-            {"label": "Christian Encarnacion-Strand to hit a HR", "status": "won", "kind": "hr_prop"},
-            {"label": "Drake Baldwin to hit a HR", "status": "won", "kind": "hr_prop"},
-            {"label": "Matt Olson to hit a HR", "status": "won", "kind": "hr_prop"},
+            {"label": "Christian Encarnacion-Strand to hit a HR (+450)", "status": "won", "kind": "hr_prop"},
+            {"label": "Drake Baldwin to hit a HR (+422)", "status": "won", "kind": "hr_prop"},
+            {"label": "Matt Olson to hit a HR (+310)", "status": "won", "kind": "hr_prop"},
         ],
     }]
     by_date = {}
@@ -265,7 +264,8 @@ def _build_history(db):
             odds = r["odds_american"]
             label = f"{r['team']} ML ({odds:+d})" if odds is not None else f"{r['team']} ML"
         elif r["kind"] == "hr_prop":
-            label = f"{r['side_or_player']} to hit a HR"
+            odds = r["odds_american"]
+            label = f"{r['side_or_player']} to hit a HR ({odds:+d})" if odds is not None else f"{r['side_or_player']} to hit a HR"
         else:
             continue
         by_date[d].append({"label": label, "status": r["status"], "kind": r["kind"]})
@@ -285,7 +285,8 @@ def _build_results_recap(db, date_str):
             odds = r["odds_american"]
             label = f"{r['team']} ML ({odds:+d})" if odds is not None else f"{r['team']} ML"
         elif r["kind"] == "hr_prop":
-            label = f"{r['side_or_player']} to hit a HR"
+            odds = r["odds_american"]
+            label = f"{r['side_or_player']} to hit a HR ({odds:+d})" if odds is not None else f"{r['side_or_player']} to hit a HR"
         else:
             continue
         items.append({"label": label, "status": r["status"], "kind": r["kind"]})
