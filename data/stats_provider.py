@@ -2,17 +2,8 @@
 data/stats_provider.py
 =======================
 Advanced pitching/batting metrics via pybaseball (free, wraps FanGraphs +
-Baseball Savant). This is the most fragile external dependency in the
-project -- pybaseball scrapes public leaderboards that occasionally change
-shape, and Statcast pulls are slow. Every call in this file is wrapped so a
-single failed lookup degrades that ONE factor (data_quality="degraded")
-instead of killing the whole daily run.
-
-Results are cached in SQLite (stats_cache table) for CACHE_TTL_HOURS so you
-don't re-scrape the same season leaderboard every time you run the tool.
-
-If pybaseball changes a function name/column on you, this is the only file
-you should need to touch.
+Baseball Savant). Every call is wrapped so a single failed lookup degrades
+that ONE factor instead of killing the whole daily run.
 """
 
 import logging
@@ -36,8 +27,8 @@ patch_requests_for_scraping()
 @dataclass
 class PitcherProfile:
     name: str
-    era: float = None          # from MLB's own Stats API (official, reliable) -- the PRIMARY matchup metric now
-    fip: float = None          # from pybaseball/FanGraphs -- best-effort bonus, often unavailable, never blocks grading
+    era: float = None
+    fip: float = None
     k_pct: float = None
     bb_pct: float = None
     barrel_pct_allowed: float = None
@@ -63,15 +54,11 @@ class BatterProfile:
     hard_hit_pct: float = None
     iso: float = None
     hr_count: int = None
-    recent_barrel_trend: float = None  # last-15-day barrel% minus season barrel%
+    recent_barrel_trend: float = None
     data_quality: str = "ok"
 
 
 class _StatsCache:
-    """Tiny key/value cache table living in the same SQLite file as
-    everything else, so repeated runs in one day don't re-hit
-    pybaseball/Savant."""
-
     def __init__(self, db_path=None):
         import sqlite3
         self.conn = sqlite3.connect(str(db_path or config.DB_PATH))
@@ -122,17 +109,10 @@ class PyBaseballStatsProvider(StatsProvider):
         self.cache = _StatsCache()
         self._pitching_table = None
         self._batting_table = None
-        self._pitcher_barrel_table = None   # season-long Statcast LEADERBOARD (one fast call), not per-player pulls
+        self._pitcher_barrel_table = None
         self._batter_barrel_table = None
 
-    # -- pitchers -------------------------------------------------------
     def get_pitcher_profile(self, pitcher_name, player_id=None):
-        """player_id (MLB Stats API person id) is optional but strongly
-        preferred -- run_daily.py already has it from the probable-pitcher
-        hydrate, and MLB's own stats endpoint (official, JSON, no scraping)
-        is what actually populates ERA/HR-9 reliably. FIP layers on top from
-        pybaseball/FanGraphs on a best-effort basis only -- if that scrape
-        is degraded, ERA alone is enough for matchup grading to work."""
         if not pitcher_name or pitcher_name == "TBD":
             return PitcherProfile(name=pitcher_name or "TBD", data_quality="missing")
 
@@ -166,8 +146,7 @@ class PyBaseballStatsProvider(StatsProvider):
             profile.barrel_pct_allowed = barrel
             profile.hard_hit_pct_allowed = hard_hit
         except Exception as exc:
-            logger.debug("FanGraphs/Statcast bonus lookup failed for %s (ERA-based grading still works): %s",
-                         pitcher_name, exc)
+            logger.debug("FanGraphs/Statcast bonus lookup failed for %s: %s", pitcher_name, exc)
 
         if profile.era is None and profile.fip is None:
             profile.data_quality = "not_found"
@@ -176,9 +155,7 @@ class PyBaseballStatsProvider(StatsProvider):
         return profile
 
     def _lookup_pitcher_row(self, pitcher_name):
-        import pybaseball as pyb  # imported lazily so a broken pybaseball
-        # install doesn't block the whole program from starting.
-
+        import pybaseball as pyb
         if self._pitching_table is None:
             pyb.cache.enable()
             season = _season()
@@ -193,21 +170,13 @@ class PyBaseballStatsProvider(StatsProvider):
         return matches.iloc[0].to_dict()
 
     def _statcast_barrel_hard_hit_allowed(self, pitcher_name):
-        """Barrel%/hard-hit% allowed, from Baseball Savant's precomputed
-        season leaderboard (one bulk call, cached) instead of pulling every
-        pitch the pitcher threw all season (statcast_pitcher) -- that raw
-        per-player pull is what was silently timing out/erroring for most
-        pitchers. Returns (None, None) on any failure -- callers treat that
-        as 'unavailable', not fatal."""
         try:
             import pybaseball as pyb
-
             if self._pitcher_barrel_table is None:
-                self._pitcher_barrel_table = pyb.statcast_pitcher_exitvelo_barrels(_season(), minBBE=0)
+                self._pitcher_barrel_table = pyb.statcast_pitcher_exitvelo_barrels(_season(), minBBE=30)
             table = self._pitcher_barrel_table
             if table is None or table.empty:
                 return None, None
-
             row = _match_savant_name(table, pitcher_name)
             if row is None:
                 return None, None
@@ -218,7 +187,6 @@ class PyBaseballStatsProvider(StatsProvider):
             logger.debug("statcast pitcher leaderboard lookup failed for %s: %s", pitcher_name, exc)
             return None, None
 
-    # -- team offense -----------------------------------------------------
     def get_team_offense_profile(self, team_abbr):
         cache_key = f"team_offense:{team_abbr}:{_season()}"
         cached = self.cache.get(cache_key)
@@ -226,7 +194,6 @@ class PyBaseballStatsProvider(StatsProvider):
             return TeamOffenseProfile(**cached)
         try:
             import pybaseball as pyb
-
             season = _season()
             table = pyb.team_batting(season, season)
             row = table[table["Team"].str.contains(team_abbr, case=False, na=False)]
@@ -236,7 +203,7 @@ class PyBaseballStatsProvider(StatsProvider):
                 r = row.iloc[0].to_dict()
                 profile = TeamOffenseProfile(
                     team=team_abbr, woba=_safe_float(r.get("wOBA")),
-                    data_quality="partial",  # FanGraphs team_batting doesn't include barrel/hard-hit directly
+                    data_quality="partial",
                 )
         except Exception as exc:
             logger.warning("team offense lookup failed for %s: %s", team_abbr, exc)
@@ -244,7 +211,6 @@ class PyBaseballStatsProvider(StatsProvider):
         self.cache.set(cache_key, asdict(profile))
         return profile
 
-    # -- batters (used by HR prop workflow) --------------------------------
     def get_batter_profile(self, batter_name, team_abbr=None):
         cache_key = f"batter:{batter_name}:{_season()}"
         cached = self.cache.get(cache_key)
@@ -252,11 +218,10 @@ class PyBaseballStatsProvider(StatsProvider):
             return BatterProfile(**cached)
         try:
             import pybaseball as pyb
-
             if self._batter_barrel_table is None:
                 # minBBE=30: exclude tiny batted-ball samples. With minBBE=0 a
                 # hitter with 1 batted ball and 1 barrel reads as a 100% barrel
-                # rate (the Bryan De La Cruz bug), which is impossible and was
+                # rate (the Bryan De La Cruz bug) -- impossible, and it was
                 # inflating HR scores. 30 keeps regulars, kills the noise.
                 self._batter_barrel_table = pyb.statcast_batter_exitvelo_barrels(_season(), minBBE=30)
             table = self._batter_barrel_table
@@ -294,9 +259,6 @@ def _season():
 
 
 def _mlb_stats_api_batter_hr(player_id):
-    """Season HR total straight from MLB's own Stats API (official JSON, no
-    scraping), keyed by the player_id Baseball Savant's barrel table already
-    gives us. Returns int HR count or None on any failure."""
     import requests
     url = f"https://statsapi.mlb.com/api/v1/people/{player_id}/stats"
     params = {"stats": "season", "group": "hitting", "season": _season()}
@@ -310,11 +272,6 @@ def _mlb_stats_api_batter_hr(player_id):
 
 
 def _mlb_stats_api_pitcher_season(player_id):
-    """ERA/HR-9/K%/BB% straight from MLB's own Stats API, keyed by the exact
-    player_id the schedule fetch already gave us -- official source, JSON,
-    no scraping/blocking/name-matching involved. Returns None on any failure
-    (network hiccup, rookie with no games yet) -- caller falls back to the
-    FanGraphs scrape below for FIP/barrel only."""
     try:
         url = f"{MLB_STATS_API}/people/{player_id}/stats"
         resp = requests.get(url, params={"stats": "season", "group": "pitching", "season": _season()}, timeout=15)
@@ -341,9 +298,6 @@ def _mlb_stats_api_pitcher_season(player_id):
 
 
 def _match_savant_name(table, full_name):
-    """Baseball Savant leaderboard tables key players by 'Last, First' in a
-    'last_name, first_name' column -- convert our 'First Last' and match,
-    falling back to a last-name-only contains match for suffixes/accents."""
     if "last_name, first_name" not in table.columns:
         return None
     first, last = _split_name(full_name)
@@ -359,11 +313,9 @@ def _match_savant_name(table, full_name):
 
 
 def _plausible_barrel(v):
-    """Reject impossible/absurd barrel rates. Real MLB barrel% tops out around
-    26% even for elite sluggers; anything above 35 (or below 0) is a bad data
-    read -- a name mismatch or a tiny-sample row -- so return None rather than
-    let it score. None flows through as 'unavailable' (neutral), never as an
-    elite signal."""
+    """Reject impossible/absurd barrel rates. Real MLB barrel% tops out ~26%;
+    anything above 35 (or below 0) is a bad read (name mismatch or tiny
+    sample) -- return None so it flows through as neutral, never elite."""
     if v is None:
         return None
     if v < 0 or v > 35:
@@ -388,9 +340,6 @@ def _split_name(full_name):
 
 
 class _MockStatsProvider(StatsProvider):
-    """Neutral placeholder stats so the pipeline runs with STATS_MODE=mock --
-    useful for a quick, network-free smoke test of the whole pipeline."""
-
     def get_pitcher_profile(self, pitcher_name, player_id=None):
         return PitcherProfile(name=pitcher_name or "TBD", fip=4.20, era=4.20, k_pct=22.0,
                                bb_pct=8.0, barrel_pct_allowed=7.5, hard_hit_pct_allowed=38.0,
