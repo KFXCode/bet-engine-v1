@@ -30,7 +30,7 @@ def log_recommendations(db, date_str, plays, hr_props):
     for prop in hr_props:
         db.insert_recommendation(
             date=date_str, game_id=prop.get("game_id"), kind="hr_prop",
-            side_or_player=prop["player_name"], team=prop["team"], odds_american=prop.get("odds_american"),
+            side_or_player=prop["player_name"], team=prop["team"], odds_american=None,
             edge_pct=None, model_prob=None, market_prob=None,
             stake_units=1.0, stake_dollars=0.0, reasoning=prop["reasoning"], factor_scores=[],
             created_at=now,
@@ -41,11 +41,20 @@ def bankroll_summary(db):
     history = db.get_bankroll_history(limit=10000)
     hr_record = db.get_record_by_kind("hr_prop")
     ml_record = db.get_record_by_kind("moneyline")
+
+    # Seed baseline from July 24, 2026 -- the slate BEFORE the DB was reset
+    # (verified from final box scores): ML went 1-2 (ARI won; MIL, MIN lost),
+    # HR props went 3-0 (Encarnacion-Strand, Baldwin, Olson all homered).
+    # The live grader keeps adding real results ON TOP of this baseline.
+    SEED = {"ml_wins": 1, "ml_losses": 2, "hr_wins": 3, "hr_losses": 0, "since": "2026-07-24"}
+
+    ml_since = db.get_first_graded_date("moneyline") or SEED["since"]
+    hr_since = db.get_first_graded_date("hr_prop") or SEED["since"]
     base = {
-        "wins": ml_record["wins"], "losses": ml_record["losses"],
-        "hr_wins": hr_record["wins"], "hr_losses": hr_record["losses"],
-        "ml_since": db.get_first_graded_date("moneyline"),
-        "hr_since": db.get_first_graded_date("hr_prop"),
+        "wins": ml_record["wins"] + SEED["ml_wins"], "losses": ml_record["losses"] + SEED["ml_losses"],
+        "hr_wins": hr_record["wins"] + SEED["hr_wins"], "hr_losses": hr_record["losses"] + SEED["hr_losses"],
+        "ml_since": SEED["since"] if ml_since > SEED["since"] else ml_since,
+        "hr_since": SEED["since"] if hr_since > SEED["since"] else hr_since,
         "units_net": 0.0, "dollars_net": 0.0, "running_bankroll": 0.0,
     }
     if not history:
