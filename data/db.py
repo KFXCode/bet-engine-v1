@@ -2,9 +2,7 @@
 data/db.py
 ==========
 Single SQLite database for the whole engine: games, odds snapshots, public
-betting splits, recommendations, results, and bankroll history. Everything
-the output layer and backtest/grader.py need lives here so "post-game
-review" and P&L tracking work without re-fetching anything.
+betting splits, recommendations, results, and bankroll history.
 """
 
 import sqlite3
@@ -53,7 +51,7 @@ CREATE TABLE IF NOT EXISTS recommendations (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     date TEXT NOT NULL,
     game_id TEXT,
-    kind TEXT NOT NULL DEFAULT 'moneyline',   -- 'moneyline' | 'hr_prop' | 'parlay_leg'
+    kind TEXT NOT NULL DEFAULT 'moneyline',
     side_or_player TEXT NOT NULL,
     team TEXT,
     odds_american INTEGER,
@@ -64,7 +62,7 @@ CREATE TABLE IF NOT EXISTS recommendations (
     stake_dollars REAL,
     reasoning_json TEXT,
     factor_scores_json TEXT,
-    status TEXT NOT NULL DEFAULT 'pending',   -- pending | won | lost | push | void
+    status TEXT NOT NULL DEFAULT 'pending',
     created_at TEXT NOT NULL
 );
 
@@ -96,10 +94,6 @@ CREATE TABLE IF NOT EXISTS stats_cache (
 
 
 class Database:
-    """Thin, dependency-free wrapper around sqlite3. One instance per process
-    is fine -- sqlite3 connections in this project are always used from a
-    single thread (the daily run or the scheduler tick)."""
-
     def __init__(self, path=None):
         self.path = str(path or DB_PATH)
         self._conn = sqlite3.connect(self.path)
@@ -116,7 +110,6 @@ class Database:
         finally:
             cur.close()
 
-    # -- games -----------------------------------------------------------
     def upsert_game(self, game):
         with self.cursor() as cur:
             cur.execute(
@@ -133,7 +126,6 @@ class Database:
                  game.game_time_utc),
             )
 
-    # -- odds ----------------------------------------------------------------
     def record_odds_snapshot(self, game_id, odds, captured_at, is_opening=False):
         with self.cursor() as cur:
             cur.execute(
@@ -163,7 +155,6 @@ class Database:
             )
             return cur.fetchone()
 
-    # -- public splits ---------------------------------------------------
     def record_public_split(self, game_id, split, captured_at):
         with self.cursor() as cur:
             cur.execute(
@@ -175,7 +166,6 @@ class Database:
                  split.source, split.data_quality),
             )
 
-    # -- recommendations ---------------------------------------------------
     def insert_recommendation(self, date, game_id, kind, side_or_player, team,
                                odds_american, edge_pct, model_prob, market_prob,
                                stake_units, stake_dollars, reasoning, factor_scores,
@@ -193,8 +183,6 @@ class Database:
             )
 
     def get_recent_team_picks(self, before_date, lookback_days, kind="moneyline"):
-        """Which teams were recommended on each of the last N days before
-        `before_date`? Used by the diversification rule."""
         with self.cursor() as cur:
             cur.execute(
                 """SELECT date, team FROM recommendations
@@ -205,11 +193,6 @@ class Database:
             return [dict(r) for r in cur.fetchall()]
 
     def delete_pending_recommendations_for_date(self, date):
-        """Remove this date's still-PENDING picks before re-inserting them, so
-        running the pipeline more than once on the same day REPLACES that
-        day's picks instead of piling up duplicate rows (which was inflating
-        the win/loss record). Already-graded rows (won/lost/push) are left
-        untouched."""
         with self.cursor() as cur:
             cur.execute("DELETE FROM recommendations WHERE date=? AND status='pending'", (date,))
 
@@ -226,8 +209,6 @@ class Database:
             cur.execute("UPDATE recommendations SET status=? WHERE id=?", (status, rec_id))
 
     def get_record_by_kind(self, kind):
-        """Win/loss tally for graded (non-pending) recommendations of a given
-        kind. HR props are tracked separately from moneyline this way."""
         with self.cursor() as cur:
             cur.execute(
                 "SELECT status, COUNT(*) c FROM recommendations WHERE kind=? AND status IN ('won','lost','push') GROUP BY status",
@@ -237,8 +218,6 @@ class Database:
         return {"wins": counts.get("won", 0), "losses": counts.get("lost", 0), "pushes": counts.get("push", 0)}
 
     def get_first_graded_date(self, kind):
-        """Earliest date this kind has a graded (won/lost/push) pick -- powers
-        the 'Since <date>' label so it reflects real tracking, not a hardcode."""
         with self.cursor() as cur:
             cur.execute(
                 "SELECT MIN(date) d FROM recommendations WHERE kind=? AND status IN ('won','lost','push')",
@@ -256,8 +235,6 @@ class Database:
             return [dict(r) for r in cur.fetchall()]
 
     def get_last_slate_date(self, before_date):
-        """Most recent date STRICTLY BEFORE before_date that has any graded
-        pick -- the slate whose results we recap with check/X marks."""
         with self.cursor() as cur:
             cur.execute(
                 "SELECT MAX(date) d FROM recommendations WHERE date < ? AND status IN ('won','lost','push')",
@@ -265,9 +242,8 @@ class Database:
             )
             row = cur.fetchone()
             return row["d"] if row and row["d"] else None
-def get_graded_history(self):
-        """All graded (won/lost/push) picks across every date, newest date
-        first, for the History tab. Returns list of dicts."""
+
+    def get_graded_history(self):
         with self.cursor() as cur:
             cur.execute(
                 "SELECT date, kind, team, side_or_player, odds_american, status "
@@ -275,7 +251,7 @@ def get_graded_history(self):
                 "ORDER BY date DESC, id ASC"
             )
             return [dict(r) for r in cur.fetchall()]
-    # -- results & grading -------------------------------------------------
+
     def record_result(self, game_id, home_score, away_score, graded_at):
         with self.cursor() as cur:
             cur.execute(
@@ -287,7 +263,6 @@ def get_graded_history(self):
                 (game_id, home_score, away_score, graded_at),
             )
 
-    # -- bankroll ------------------------------------------------------------
     def upsert_bankroll_day(self, date, **fields):
         existing = self.get_bankroll_day(date)
         merged = {**(existing or {}), **fields}
