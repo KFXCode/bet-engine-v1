@@ -143,10 +143,10 @@
   </div>
   {% endif %}
 
-  {% if results_recap and results_recap.items %}
+  {% if results_recap and results_recap.picks %}
   <div class="section-title">Last Slate Results &middot; {{ results_recap.date }}</div>
   <div class="dropped" style="margin-bottom:24px;">
-    {% for item in results_recap.items %}
+    {% for item in results_recap.picks %}
     <div style="display:flex; align-items:center; gap:12px; {{ 'margin-bottom:12px;' if not loop.last else '' }}">
       <span style="font-size:20px; line-height:1; flex-shrink:0; color:{{ '#2fd07a' if item.status == 'won' else ('#e5484d' if item.status == 'lost' else 'var(--muted)') }};">{% if item.status == 'won' %}&#10003;{% elif item.status == 'lost' %}&#10007;{% else %}&ndash;{% endif %}</span>
       <span style="color:var(--fg); font-size:15px; font-weight:600;">{{ item.label }}</span>
@@ -243,12 +243,12 @@
       {% for day in history %}
       <div class="section-title" style="margin-top:24px;">{{ day.date }}
         <span style="color:var(--muted); font-weight:400; text-transform:none; letter-spacing:0;">
-          &middot; ML {{ day.items|selectattr('kind','equalto','moneyline')|selectattr('status','equalto','won')|list|length }}-{{ day.items|selectattr('kind','equalto','moneyline')|selectattr('status','equalto','lost')|list|length }}
-          &middot; HR {{ day.items|selectattr('kind','equalto','hr_prop')|selectattr('status','equalto','won')|list|length }}-{{ day.items|selectattr('kind','equalto','hr_prop')|selectattr('status','equalto','lost')|list|length }}
+          &middot; ML {{ day.items|selectattr('kind','equalto','moneyline')|selectattr('status','equalto','won')|list|length }}-{{ day['picks']|selectattr('kind','equalto','moneyline')|selectattr('status','equalto','lost')|list|length }}
+          &middot; HR {{ day.items|selectattr('kind','equalto','hr_prop')|selectattr('status','equalto','won')|list|length }}-{{ day['picks']|selectattr('kind','equalto','hr_prop')|selectattr('status','equalto','lost')|list|length }}
         </span>
       </div>
       <div class="dropped">
-        {% for item in day.items %}
+        {% for item in day.['picks'] %}
         <div style="display:flex; align-items:center; gap:12px; {{ 'margin-bottom:12px;' if not loop.last else '' }}">
           <span style="font-size:20px; line-height:1; flex-shrink:0; color:{{ '#2fd07a' if item.status == 'won' else ('#e5484d' if item.status == 'lost' else 'var(--muted)') }};">{% if item.status == 'won' %}&#10003;{% elif item.status == 'lost' %}&#10007;{% else %}&ndash;{% endif %}</span>
           <span style="color:var(--fg); font-size:15px; font-weight:600;">{{ item.label }}</span>
