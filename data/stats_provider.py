@@ -211,7 +211,7 @@ class PyBaseballStatsProvider(StatsProvider):
             row = _match_savant_name(table, pitcher_name)
             if row is None:
                 return None, None
-            barrel = _safe_float(row.get("brl_percent"))
+            barrel = _plausible_barrel(_safe_float(row.get("brl_percent")))
             hard_hit = _safe_float(row.get("ev95percent"))
             return barrel, hard_hit
         except Exception as exc:
@@ -254,7 +254,11 @@ class PyBaseballStatsProvider(StatsProvider):
             import pybaseball as pyb
 
             if self._batter_barrel_table is None:
-                self._batter_barrel_table = pyb.statcast_batter_exitvelo_barrels(_season(), minBBE=0)
+                # minBBE=30: exclude tiny batted-ball samples. With minBBE=0 a
+                # hitter with 1 batted ball and 1 barrel reads as a 100% barrel
+                # rate (the Bryan De La Cruz bug), which is impossible and was
+                # inflating HR scores. 30 keeps regulars, kills the noise.
+                self._batter_barrel_table = pyb.statcast_batter_exitvelo_barrels(_season(), minBBE=30)
             table = self._batter_barrel_table
             if table is None or table.empty:
                 profile = BatterProfile(name=batter_name, team=team_abbr, data_quality="degraded")
@@ -263,10 +267,18 @@ class PyBaseballStatsProvider(StatsProvider):
                 if row is None:
                     profile = BatterProfile(name=batter_name, team=team_abbr, data_quality="not_found")
                 else:
-                    barrel = _safe_float(row.get("brl_percent"))
+                    barrel = _plausible_barrel(_safe_float(row.get("brl_percent")))
                     hard_hit = _safe_float(row.get("ev95percent"))
+                    hr_count = None
+                    pid = row.get("player_id")
+                    if pid is not None:
+                        try:
+                            hr_count = _mlb_stats_api_batter_hr(int(pid))
+                        except Exception:
+                            hr_count = None
                     profile = BatterProfile(
                         name=batter_name, team=team_abbr, barrel_pct=barrel, hard_hit_pct=hard_hit,
+                        hr_count=hr_count,
                         data_quality="ok" if barrel is not None else "partial",
                     )
         except Exception as exc:
@@ -279,6 +291,22 @@ class PyBaseballStatsProvider(StatsProvider):
 def _season():
     from datetime import datetime
     return datetime.now().year
+
+
+def _mlb_stats_api_batter_hr(player_id):
+    """Season HR total straight from MLB's own Stats API (official JSON, no
+    scraping), keyed by the player_id Baseball Savant's barrel table already
+    gives us. Returns int HR count or None on any failure."""
+    import requests
+    url = f"https://statsapi.mlb.com/api/v1/people/{player_id}/stats"
+    params = {"stats": "season", "group": "hitting", "season": _season()}
+    resp = requests.get(url, params=params, timeout=15)
+    resp.raise_for_status()
+    splits = resp.json().get("stats", [{}])[0].get("splits", [])
+    if not splits:
+        return None
+    hr = splits[0]["stat"].get("homeRuns")
+    return int(hr) if hr is not None else None
 
 
 def _mlb_stats_api_pitcher_season(player_id):
@@ -330,6 +358,19 @@ def _match_savant_name(table, full_name):
     return None
 
 
+def _plausible_barrel(v):
+    """Reject impossible/absurd barrel rates. Real MLB barrel% tops out around
+    26% even for elite sluggers; anything above 35 (or below 0) is a bad data
+    read -- a name mismatch or a tiny-sample row -- so return None rather than
+    let it score. None flows through as 'unavailable' (neutral), never as an
+    elite signal."""
+    if v is None:
+        return None
+    if v < 0 or v > 35:
+        return None
+    return v
+
+
 def _safe_float(v):
     try:
         if v is None:
@@ -360,7 +401,7 @@ class _MockStatsProvider(StatsProvider):
 
     def get_batter_profile(self, batter_name, team_abbr=None):
         return BatterProfile(name=batter_name, team=team_abbr, barrel_pct=7.5, hard_hit_pct=38.0,
-                              iso=0.16, hr_count=10, recent_barrel_trend=0.0, data_quality="mock")
+                              iso=0.16, hr_count=20, recent_barrel_trend=0.0, data_quality="mock")
 
 
 def get_stats_provider():
