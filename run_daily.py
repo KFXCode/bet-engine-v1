@@ -245,7 +245,7 @@ def _build_history(db):
     tab. Seeded with July 24, 2026 so the archive starts from yesterday."""
     seed = [{
         "date": "2026-07-24",
-        "items": [
+        "picks": [
             {"label": "ARI ML (-124)", "status": "won", "kind": "moneyline"},
             {"label": "MIL ML (-122)", "status": "lost", "kind": "moneyline"},
             {"label": "MIN ML (-144)", "status": "lost", "kind": "moneyline"},
@@ -269,7 +269,7 @@ def _build_history(db):
         else:
             continue
         by_date[d].append({"label": label, "status": r["status"], "kind": r["kind"]})
-    db_days = [{"date": d, "items": by_date[d]} for d in order if d != "2026-07-24"]
+    db_days = [{"date": d, "picks": by_date[d]} for d in order if d != "2026-07-24"]
     return db_days + seed
 
 
@@ -289,7 +289,7 @@ def _build_results_recap(db, date_str):
         else:
             continue
         items.append({"label": label, "status": r["status"], "kind": r["kind"]})
-    return {"date": recap_date, "items": items}
+    return {"date": recap_date, "picks": items}
 
 
 def _celestial_dict(run_date):
