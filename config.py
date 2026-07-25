@@ -62,7 +62,8 @@ FLAT_STAKE_UNITS = 1.0             # non-negotiable: every play is exactly 1 uni
 # ---------------------------------------------------------------------------
 # Strategy engine thresholds (Section: Core Rules)
 # ---------------------------------------------------------------------------
-MIN_EDGE = 0.0001                   # any positive model-vs-market edge qualifies (was 0.05)
+MIN_EDGE = 0.02                     # 2% floor: cuts near-zero-edge 'market noise' picks that hurt
+                                     # accuracy, while still allowing 2-3 real plays/day (was 0.0001)
 MAX_PLAYS_PER_DAY = 3                # top 2-3 across ALL enabled sports combined, not per-sport
 SECOND_PLAY_TOLERANCE = 0.0         # unused now that plays are picked cross-sport by target-edge closeness -- kept for reference
 
