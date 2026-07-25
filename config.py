@@ -142,14 +142,15 @@ PARLAY_MIN_LEGS = 2
 # told us to start logging fresh), so start conservative and retune these
 # once backtest/grader.py has a few weeks of graded results behind it.
 FACTOR_WEIGHTS = {
-    "public_sharp_split": 0.07,   # heavily weighted per your rules
-    "matchup_pitching": 0.06,
-    "advanced_analytics": 0.05,
-    "talent_gap": 0.03,
-    "situational": 0.03,
-    "motivation": 0.03,
-    "moon_zodiac": 0.015,
-    "numerology": 0.015,
+    "matchup_pitching": 0.07,     # starting pitching is the #1 real driver of an MLB game
+    "public_sharp_split": 0.06,   # heavily weighted per your rules (sharp money)
+    "advanced_analytics": 0.055,  # barrel/xERA/hard-hit -- strongest batted-ball signal
+    "historical_form": 0.05,      # real season W-L win% + recent streak
+    "talent_gap": 0.025,
+    "situational": 0.02,
+    "motivation": 0.01,
+    "moon_zodiac": 0.01,          # kept, but trimmed -- no predictive value on real results
+    "numerology": 0.01,           # kept, but trimmed
 }
 assert abs(sum(FACTOR_WEIGHTS.values()) - 0.30) < 1e-9
 
