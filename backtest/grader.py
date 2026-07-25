@@ -6,30 +6,63 @@ recommendations, mark each recommendation won/lost, and roll the result into
 bankroll_log. run_daily.py calls this automatically at the start of each run
 (it grades YESTERDAY's plays before making today's).
 
-HR props are not auto-graded here -- there's no free, easy source for
-per-player HR settlement by box score line alone without extra parsing, so
-those stay "pending" for manual review (log your own results if you want
-them counted in the bankroll).
+HR props are auto-graded here too, from the final boxscore (each batter's
+batting.homeRuns via data/lineups.get_hr_settled_players): the pick is a WIN
+if that player hit >=1 HR, else a loss. They're tracked as a SEPARATE record
+from moneyline (different bet type, different hit-rate expectation) rather
+than blended into one number.
 """
 
 import logging
+import re
+import unicodedata
 from datetime import datetime, timezone
 
 import requests
 
 import config
+from data.lineups import get_hr_settled_players
 
 logger = logging.getLogger(__name__)
+
+
+def _norm_name(name):
+    """Normalize a player name for reliable HR-settlement matching: strip
+    accents, punctuation, and Jr/Sr/II/III suffixes, collapse to lowercase.
+    Without this a boxscore 'Jose Ramirez' won't match a stored 'Jose Ramirez'
+    that differs only by an accent, silently grading a real winner as a loss."""
+    if not name:
+        return ""
+    n = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode("ascii")
+    n = n.lower()
+    n = re.sub(r"[.\,']", "", n)
+    n = re.sub(r"\b(jr|sr|ii|iii|iv)\b", "", n)
+    return re.sub(r"\s+", " ", n).strip()
 
 
 def grade_pending(db):
     pending = db.get_pending_recommendations()
     if not pending:
-        return {"graded": 0}
+        return {"graded": 0, "hr_graded": 0}
 
     graded_count = 0
+    hr_graded = 0
+    hr_settlement_cache = {}   # game_id -> set(names who homered) | None
     by_date = {}
     for rec in pending:
+        if rec["kind"] == "hr_prop" and rec["game_id"]:
+            if rec["game_id"] not in hr_settlement_cache:
+                hr_settlement_cache[rec["game_id"]] = get_hr_settled_players(rec["game_id"])
+            homered = hr_settlement_cache[rec["game_id"]]
+            if homered is None:
+                continue  # game not final yet -- leave pending
+            homered_norm = {_norm_name(n) for n in homered}
+            status = "won" if _norm_name(rec["side_or_player"]) in homered_norm else "lost"
+            db.set_recommendation_status(rec["id"], status)
+            hr_graded += 1
+            logger.info("HR prop graded %s: %s -> %s", rec["date"], rec["side_or_player"], status)
+            continue
+
         if rec["kind"] != "moneyline" or not rec["game_id"]:
             continue
         result = _get_final_score(rec["game_id"])
@@ -69,7 +102,7 @@ def grade_pending(db):
             bets_graded=totals["graded"], wins=totals["wins"],
         )
 
-    return {"graded": graded_count}
+    return {"graded": graded_count, "hr_graded": hr_graded}
 
 
 def _get_final_score(game_id):
