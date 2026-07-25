@@ -204,6 +204,15 @@ class Database:
             )
             return [dict(r) for r in cur.fetchall()]
 
+    def delete_pending_recommendations_for_date(self, date):
+        """Remove this date's still-PENDING picks before re-inserting them, so
+        running the pipeline more than once on the same day REPLACES that
+        day's picks instead of piling up duplicate rows (which was inflating
+        the win/loss record). Already-graded rows (won/lost/push) are left
+        untouched."""
+        with self.cursor() as cur:
+            cur.execute("DELETE FROM recommendations WHERE date=? AND status='pending'", (date,))
+
     def get_pending_recommendations(self, date=None):
         with self.cursor() as cur:
             if date:
@@ -215,6 +224,47 @@ class Database:
     def set_recommendation_status(self, rec_id, status):
         with self.cursor() as cur:
             cur.execute("UPDATE recommendations SET status=? WHERE id=?", (status, rec_id))
+
+    def get_record_by_kind(self, kind):
+        """Win/loss tally for graded (non-pending) recommendations of a given
+        kind. HR props are tracked separately from moneyline this way."""
+        with self.cursor() as cur:
+            cur.execute(
+                "SELECT status, COUNT(*) c FROM recommendations WHERE kind=? AND status IN ('won','lost','push') GROUP BY status",
+                (kind,),
+            )
+            counts = {r["status"]: r["c"] for r in cur.fetchall()}
+        return {"wins": counts.get("won", 0), "losses": counts.get("lost", 0), "pushes": counts.get("push", 0)}
+
+    def get_first_graded_date(self, kind):
+        """Earliest date this kind has a graded (won/lost/push) pick -- powers
+        the 'Since <date>' label so it reflects real tracking, not a hardcode."""
+        with self.cursor() as cur:
+            cur.execute(
+                "SELECT MIN(date) d FROM recommendations WHERE kind=? AND status IN ('won','lost','push')",
+                (kind,),
+            )
+            row = cur.fetchone()
+            return row["d"] if row and row["d"] else None
+
+    def get_recommendations_for_date(self, date, kind=None):
+        with self.cursor() as cur:
+            if kind:
+                cur.execute("SELECT * FROM recommendations WHERE date=? AND kind=? ORDER BY id", (date, kind))
+            else:
+                cur.execute("SELECT * FROM recommendations WHERE date=? ORDER BY id", (date,))
+            return [dict(r) for r in cur.fetchall()]
+
+    def get_last_slate_date(self, before_date):
+        """Most recent date STRICTLY BEFORE before_date that has any graded
+        pick -- the slate whose results we recap with check/X marks."""
+        with self.cursor() as cur:
+            cur.execute(
+                "SELECT MAX(date) d FROM recommendations WHERE date < ? AND status IN ('won','lost','push')",
+                (before_date,),
+            )
+            row = cur.fetchone()
+            return row["d"] if row and row["d"] else None
 
     # -- results & grading -------------------------------------------------
     def record_result(self, game_id, home_score, away_score, graded_at):
