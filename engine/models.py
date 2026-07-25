@@ -119,4 +119,5 @@ class DailyReport:
     bankroll_summary: dict
     data_warnings: List[str]
     results_recap: dict = field(default_factory=dict)
-    history: list = field(default_factory=list)          # all past graded slates for the History tab
+    history: list = field(default_factory=list)
+    daily_parlay: dict = field(default_factory=dict)
