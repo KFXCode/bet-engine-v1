@@ -1,14 +1,8 @@
 """
 output/html_report.py
 =======================
-Renders the dark sportsbook-style, mobile/PWA-ready HTML daily report from a
-DailyReport, using the Jinja2 template in output/templates/daily_report.html.
-Fully self-contained output (inline <style>, system fonts) -- open the file
-straight from disk or a phone browser, no server needed.
-
-Writes TWO copies every run:
-  - report_<date>.html  -- dated archive, one per day
-  - latest.html         -- always overwritten with today's report
+Renders the dark sportsbook-style, mobile/PWA-ready HTML daily report.
+Writes report_<date>.html (archive) and latest.html (always overwritten).
 """
 
 import shutil
@@ -44,6 +38,7 @@ def render_daily_report(report):
         bankroll=report.bankroll_summary,
         results_recap=report.results_recap,
         history=report.history,
+        daily_parlay=report.daily_parlay,
         unit_size=config.FLAT_STAKE_UNITS,
     )
     _ensure_pwa_assets()
@@ -58,9 +53,6 @@ def render_daily_report(report):
 
 
 def _ensure_pwa_assets():
-    """Copies manifest.json + home-screen icons next to the generated
-    reports (once) so latest.html's relative <link> tags resolve wherever
-    REPORTS_DIR ends up being opened from or hosted."""
     for name in PWA_ASSETS:
         src = config.BASE_DIR / name
         dest = config.REPORTS_DIR / name
