@@ -9,11 +9,6 @@ straight from disk or a phone browser, no server needed.
 Writes TWO copies every run:
   - report_<date>.html  -- dated archive, one per day
   - latest.html         -- always overwritten with today's report
-
-latest.html is the one to point a phone home-screen icon / bookmark / any
-hosting setup at -- the filename never changes, only its contents do, so
-"one link" always shows the newest report. See README.md's "Mobile access"
-section for ways to turn that into an actual phone-reachable link.
 """
 
 import shutil
@@ -47,6 +42,8 @@ def render_daily_report(report):
         hr_props=report.hr_props,
         dropped_notes=report.dropped_notes,
         bankroll=report.bankroll_summary,
+        results_recap=report.results_recap,
+        history=report.history,
         unit_size=config.FLAT_STAKE_UNITS,
     )
     _ensure_pwa_assets()
