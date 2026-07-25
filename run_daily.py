@@ -113,17 +113,10 @@ def main(argv=None):
         if result.get("hr_graded"):
             logger.info("Graded %s HR prop(s) from prior days.", result["hr_graded"])
 
-    data_warnings = []
-
-    if not games:
-        logger.info("No games found across enabled sports (%s) for %s.", ", ".join(config.ENABLED_SPORTS), date_str)
-        report = DailyReport(date=date_str, slate_size=0, plays=[], fade_teams=[], hr_props=[], parlay=None,
-                              dropped_notes=[], celestial=_celestial_dict(run_date),
-                              numerology=_numerology_dict(run_date),
-                              bankroll_summary=bankroll_summary(db),
-                              data_warnings=["No games on today's schedule across enabled sports."],
-                              results_recap=_build_results_recap(db, date_str))
-        _emit(report)
+      data_warnings=data_warnings, results_recap=_build_results_recap(db, date_str),
+        history=_build_history(db),
+    )
+    _emit(report)
         if args.auto:
             auto_gate.mark_published(date_str)
         return
@@ -263,6 +256,38 @@ def main(argv=None):
     if args.auto:
         auto_gate.mark_published(date_str)
 
+def _build_history(db):
+    """All past graded slates grouped by date (newest first) for the History
+    tab. Seeded with July 24, 2026 -- the slate before the DB reset -- so the
+    archive starts from yesterday even though those rows were wiped."""
+    seed = [{
+        "date": "2026-07-24",
+        "items": [
+            {"label": "ARI ML (-124)", "status": "won", "kind": "moneyline"},
+            {"label": "MIL ML (-122)", "status": "lost", "kind": "moneyline"},
+            {"label": "MIN ML (-144)", "status": "lost", "kind": "moneyline"},
+            {"label": "Christian Encarnacion-Strand to hit a HR", "status": "won", "kind": "hr_prop"},
+            {"label": "Drake Baldwin to hit a HR", "status": "won", "kind": "hr_prop"},
+            {"label": "Matt Olson to hit a HR", "status": "won", "kind": "hr_prop"},
+        ],
+    }]
+    by_date = {}
+    order = []
+    for r in db.get_graded_history():
+        d = r["date"]
+        if d not in by_date:
+            by_date[d] = []
+            order.append(d)
+        if r["kind"] == "moneyline":
+            odds = r["odds_american"]
+            label = f"{r['team']} ML ({odds:+d})" if odds is not None else f"{r['team']} ML"
+        elif r["kind"] == "hr_prop":
+            label = f"{r['side_or_player']} to hit a HR"
+        else:
+            continue
+        by_date[d].append({"label": label, "status": r["status"], "kind": r["kind"]})
+    db_days = [{"date": d, "items": by_date[d]} for d in order if d != "2026-07-24"]
+    return db_days + seed
 
 def _build_results_recap(db, date_str):
     """The most recent COMPLETED slate's scorecard (green check / red X per
