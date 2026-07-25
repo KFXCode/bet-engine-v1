@@ -265,7 +265,16 @@ class Database:
             )
             row = cur.fetchone()
             return row["d"] if row and row["d"] else None
-
+def get_graded_history(self):
+        """All graded (won/lost/push) picks across every date, newest date
+        first, for the History tab. Returns list of dicts."""
+        with self.cursor() as cur:
+            cur.execute(
+                "SELECT date, kind, team, side_or_player, odds_american, status "
+                "FROM recommendations WHERE status IN ('won','lost','push') "
+                "ORDER BY date DESC, id ASC"
+            )
+            return [dict(r) for r in cur.fetchall()]
     # -- results & grading -------------------------------------------------
     def record_result(self, game_id, home_score, away_score, graded_at):
         with self.cursor() as cur:
