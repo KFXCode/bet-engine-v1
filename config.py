@@ -52,6 +52,13 @@ ODDS_API_KEY = os.getenv("ODDS_API_KEY", "")
 ODDS_API_BOOKMAKER = "fanduel"          # primary book chosen for this build
 ODDS_API_BASE_URL = "https://api.the-odds-api.com/v4"
 
+# HR prop odds (FanDuel) for the chosen HR picks. Fetched ONLY for the games
+# that actually have an HR pick (<=HR_PROP_MAX_PER_DAY, ~3), via The Odds API
+# event player-props endpoint -- so it costs ~3 API credits/day, not one per
+# game on the slate. Set False to skip entirely (shows 'odds n/a').
+HR_ODDS_ENABLED = True
+ODDS_API_HR_MARKET = "batter_home_runs"
+
 # ---------------------------------------------------------------------------
 # Bankroll & staking (Section: Risk Management)
 # ---------------------------------------------------------------------------
@@ -64,7 +71,8 @@ FLAT_STAKE_UNITS = 1.0             # non-negotiable: every play is exactly 1 uni
 # ---------------------------------------------------------------------------
 MIN_EDGE = 0.02                     # 2% floor: cuts near-zero-edge 'market noise' picks that hurt
                                      # accuracy, while still allowing 2-3 real plays/day (was 0.0001)
-MAX_PLAYS_PER_DAY = 3                # top 2-3 across ALL enabled sports combined, not per-sport
+MAX_PLAYS_PER_DAY = 5                # up to 5 ML plays/day across ALL enabled sports combined (was 3);
+                                     # still ranked by the 4.5-5% target-edge band, so a thin day yields fewer
 SECOND_PLAY_TOLERANCE = 0.0         # unused now that plays are picked cross-sport by target-edge closeness -- kept for reference
 
 # Preferred edge "sweet spot" -- when ranking today's qualifying plays across
@@ -108,7 +116,7 @@ HEAVY_MONEY_HANDLE_THRESHOLD = 0.65  # handle% on one side above this = "heavy" 
 # coin-flip lean. Independent of whether that other side became an official
 # play (capped at MAX_PLAYS_PER_DAY) -- this list is comprehensive so you
 # can cross-check ANY team you're considering betting elsewhere.
-FADE_ENABLED = True
+FADE_ENABLED = False         # 'Avoid Today' section removed at user request (was a distraction)
 FADE_MIN_EDGE = 0.05         # opponent's edge must be >= 5% for this team to be listed
 FADE_MAX_PER_DAY = 5
 
@@ -119,9 +127,13 @@ HR_PROPS_ENABLED = True
 HR_PROP_MIN_SCORE = 0               # effectively no floor -- mirrors MIN_EDGE for ML: rank + cap
                                      # decide quality, not a hard bar, so a real slate of MLB games
                                      # almost never returns zero props (was 70)
-HR_PROP_MAX_PER_DAY = 3             # show up to the best 4-5 each day, not just one
+HR_PROP_MAX_PER_DAY = 3             # show only the best 3 each day
 HR_PROP_ROSTER_LIMIT = 9            # cap batters evaluated per team (perf -- see data/rosters.py)
 HR_PROP_STRONG_SCORE = 70           # candidates below this still get shown, but flagged as a thinner-signal day
+HR_PROP_MIN_SEASON_HR = 12          # season HR floor: a batter under this is NOT eligible for an HR prop, no
+                                     # matter how hot -- fixes ranking a 7-HR hitter over an 18-HR slugger.
+                                     # Season HR total is also the single heaviest factor in the score (see
+                                     # engine/hr_props.py). Lower this if a thin slate leaves too few names.
 
 # ---------------------------------------------------------------------------
 # Optional parlay (Section: Output Layer)
