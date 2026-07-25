@@ -38,7 +38,7 @@ from data.numerology import numerology_signal_for, reduce_date
 from engine.scoring import evaluate_game
 from engine.strategy_rules import select_daily_plays, select_fade_teams, get_parlay_pool
 from engine.hr_props import evaluate_hr_prop_candidates
-from engine.parlay import maybe_build_parlay
+from engine.parlay import maybe_build_parlay, build_daily_parlay
 from engine.models import DailyReport, ProbablePitcher
 
 from output.terminal_report import print_daily_report
@@ -234,6 +234,7 @@ def main(argv=None):
         numerology=_numerology_dict(run_date), bankroll_summary=bankroll_summary(db),
         data_warnings=data_warnings, results_recap=_build_results_recap(db, date_str),
         history=_build_history(db),
+        daily_parlay=build_daily_parlay(plays, hr_props),
     )
     _emit(report)
     if args.auto:
