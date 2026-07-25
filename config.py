@@ -147,7 +147,7 @@ FACTOR_WEIGHTS = {
     "advanced_analytics": 0.055,  # barrel/xERA/hard-hit -- strongest batted-ball signal
     "historical_form": 0.05,      # real season W-L win% + recent streak
     "talent_gap": 0.025,
-    "situational": 0.02,
+    "situational": 0.01,
     "motivation": 0.01,
     "moon_zodiac": 0.01,          # kept, but trimmed -- no predictive value on real results
     "numerology": 0.01,           # kept, but trimmed
