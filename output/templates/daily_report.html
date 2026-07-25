@@ -130,6 +130,7 @@
 
   <div class="tabs" style="display:flex; gap:8px; justify-content:center; margin-bottom:24px;">
     <button id="tab-today" onclick="showView('today')" style="cursor:pointer; font:inherit; font-weight:700; font-size:13px; padding:8px 18px; border-radius:999px; border:1px solid var(--accent); background:var(--accent); color:oklch(0.16 0.01 155);">Today</button>
+    <button id="tab-parlay" onclick="showView('parlay')" style="cursor:pointer; font:inherit; font-weight:700; font-size:13px; padding:8px 18px; border-radius:999px; border:1px solid var(--card-border); background:transparent; color:var(--muted);">Best Parlay</button>
     <button id="tab-history" onclick="showView('history')" style="cursor:pointer; font:inherit; font-weight:700; font-size:13px; padding:8px 18px; border-radius:999px; border:1px solid var(--card-border); background:transparent; color:var(--muted);">History</button>
   </div>
 
@@ -238,6 +239,28 @@
   {% endif %}
   </div>
 
+  <div id="view-parlay" style="display:none;">
+    <div class="section-title">Best Parlay of the Day</div>
+    {% if daily_parlay and daily_parlay.legs %}
+    <div class="parlay">
+      <div class="legs">{{ daily_parlay.leg_count }}-Leg Parlay</div>
+      <div class="odds">Combined: {{ '%+d' | format(daily_parlay.combined_odds_american) }} &middot; {{ '%.1f' | format(daily_parlay.combined_prob * 100) }}% est. win probability</div>
+      <div style="margin-top:14px;">
+        {% for leg in daily_parlay.legs %}
+        <div style="display:flex; align-items:center; gap:10px; {{ 'margin-bottom:10px;' if not loop.last else '' }}">
+          <span style="color:var(--accent); font-weight:800; font-size:13px;">Leg {{ loop.index }}</span>
+          <span style="color:var(--fg); font-size:15px; font-weight:600;">{{ leg.label }}</span>
+          <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">{{ 'HR' if leg.kind == 'hr_prop' else 'ML' }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="note">Flat 1 unit. Built from the highest-confidence moneyline + HR legs the system graded today (totals/spreads/RBI/first-5 legs coming once their edge models are built).</div>
+    </div>
+    {% else %}
+    <div class="dropped">No parlay today &mdash; fewer than 2 legs cleared the system's confidence bar. Discipline over action.</div>
+    {% endif %}
+  </div>
+
   <div id="view-history" style="display:none;">
     {% if history %}
       {% for day in history %}
@@ -264,19 +287,16 @@
 
   <script>
     function showView(v) {
-      var today = document.getElementById('view-today');
-      var hist = document.getElementById('view-history');
-      var tT = document.getElementById('tab-today');
-      var tH = document.getElementById('tab-history');
+      var views = {today: 'view-today', parlay: 'view-parlay', history: 'view-history'};
+      var tabs = {today: 'tab-today', parlay: 'tab-parlay', history: 'tab-history'};
       var on = 'var(--accent)', onText = 'oklch(0.16 0.01 155)', off = 'transparent', offText = 'var(--muted)', border = 'var(--card-border)';
-      if (v === 'history') {
-        today.style.display = 'none'; hist.style.display = 'block';
-        tH.style.background = on; tH.style.color = onText; tH.style.borderColor = 'var(--accent)';
-        tT.style.background = off; tT.style.color = offText; tT.style.borderColor = border;
-      } else {
-        today.style.display = 'block'; hist.style.display = 'none';
-        tT.style.background = on; tT.style.color = onText; tT.style.borderColor = 'var(--accent)';
-        tH.style.background = off; tH.style.color = offText; tH.style.borderColor = border;
+      for (var key in views) {
+        var isActive = (key === v);
+        document.getElementById(views[key]).style.display = isActive ? 'block' : 'none';
+        var tab = document.getElementById(tabs[key]);
+        tab.style.background = isActive ? on : off;
+        tab.style.color = isActive ? onText : offText;
+        tab.style.borderColor = isActive ? 'var(--accent)' : border;
       }
     }
   </script>
