@@ -31,6 +31,8 @@ Flags:
 
 import argparse
 import logging
+import re as _re
+import unicodedata as _ud
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
@@ -45,6 +47,8 @@ from data.stats_provider import get_stats_provider
 from data.situational import park_and_situational_summary, ensure_injury_template, team_situational_summary
 from data.standings import get_all_team_records
 from data.rosters import get_team_batters
+from data.lineups import get_confirmed_lineup, get_confirmed_pitcher
+from data.hr_odds import fetch_hr_odds
 from data.celestial import celestial_signal_for, moon_phase_for, moon_sign_for
 from data.numerology import numerology_signal_for, reduce_date
 
@@ -52,7 +56,7 @@ from engine.scoring import evaluate_game
 from engine.strategy_rules import select_daily_plays, select_fade_teams, get_parlay_pool
 from engine.hr_props import evaluate_hr_prop_candidates
 from engine.parlay import maybe_build_parlay
-from engine.models import DailyReport
+from engine.models import DailyReport, ProbablePitcher
 
 from output.terminal_report import print_daily_report
 from output.html_report import render_daily_report
@@ -66,6 +70,15 @@ logging.basicConfig(level=getattr(logging, config.LOG_LEVEL, logging.INFO),
 logger = logging.getLogger("run_daily")
 
 
+def _norm_player(name):
+    if not name:
+        return ""
+    n = _ud.normalize("NFKD", name).encode("ascii", "ignore").decode("ascii").lower()
+    n = _re.sub(r"[.\,']", "", n)
+    n = _re.sub(r"\b(jr|sr|ii|iii|iv)\b", "", n)
+    return _re.sub(r"\s+", " ", n).strip()
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Run today's betting recommendation pipeline.")
     parser.add_argument("--date", default=None, help="Run as if it were this date (YYYY-MM-DD).")
@@ -75,8 +88,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     run_date = (datetime.strptime(args.date, "%Y-%m-%d").date() if args.date
-                else datetime.now(ZoneInfo(config.TIMEZONE)).date())  # "today" in config.TIMEZONE,
-                # not the machine's local date -- matters on a UTC cloud runner (see auto_gate.py)
+                else datetime.now(ZoneInfo(config.TIMEZONE)).date())
     date_str = run_date.strftime("%Y-%m-%d")
 
     games = []
@@ -97,7 +109,9 @@ def main(argv=None):
     if not args.skip_grading:
         result = grade_pending(db)
         if result.get("graded"):
-            logger.info("Graded %s pending recommendation(s) from prior days.", result["graded"])
+            logger.info("Graded %s moneyline pick(s) from prior days.", result["graded"])
+        if result.get("hr_graded"):
+            logger.info("Graded %s HR prop(s) from prior days.", result["hr_graded"])
 
     data_warnings = []
 
@@ -107,7 +121,8 @@ def main(argv=None):
                               dropped_notes=[], celestial=_celestial_dict(run_date),
                               numerology=_numerology_dict(run_date),
                               bankroll_summary=bankroll_summary(db),
-                              data_warnings=["No games on today's schedule across enabled sports."])
+                              data_warnings=["No games on today's schedule across enabled sports."],
+                              results_recap=_build_results_recap(db, date_str))
         _emit(report)
         if args.auto:
             auto_gate.mark_published(date_str)
@@ -188,15 +203,48 @@ def main(argv=None):
 
     rosters = {}
     situational_by_team = {}
+    lineup_source = {}
     for game in games:
-        for team in (game.home_team, game.away_team):
-            if team not in rosters:
+        if game.sport != "MLB":
+            continue
+        home_conf = get_confirmed_pitcher(game.game_id, "home")
+        away_conf = get_confirmed_pitcher(game.game_id, "away")
+        if home_conf and game.home_pitcher and home_conf != game.home_pitcher.name:
+            logger.info("Confirmed home starter %s overrides stale probable %s (game %s)",
+                        home_conf, game.home_pitcher.name, game.game_id)
+        if home_conf:
+            game.home_pitcher = ProbablePitcher(name=home_conf, player_id=None)
+        if away_conf:
+            game.away_pitcher = ProbablePitcher(name=away_conf, player_id=None)
+        game.pitchers_confirmed = bool(home_conf and away_conf)
+
+        for team, side in ((game.home_team, "home"), (game.away_team, "away")):
+            if team in rosters:
+                continue
+            confirmed = get_confirmed_lineup(game.game_id, side)
+            if confirmed:
+                rosters[team] = confirmed
+                lineup_source[team] = "confirmed"
+            else:
                 rosters[team] = get_team_batters(team)
-                situational_by_team[team] = team_situational_summary(team, date_str)
+                lineup_source[team] = "roster"
+            situational_by_team[team] = team_situational_summary(team, date_str)
+
+    if lineup_source and all(v == "roster" for v in lineup_source.values()):
+        data_warnings.append(
+            "Starting lineups haven't posted yet -- HR picks are drawn from active rosters "
+            "(may include players who end up benched). Re-run closer to first pitch for confirmed lineups."
+        )
 
     hr_props = []
     if config.HR_PROPS_ENABLED:
-        hr_props = evaluate_hr_prop_candidates(games, rosters, stats_provider, {}, situational_by_team)
+        mlb_games = [g for g in games if g.sport == "MLB"]
+        hr_props = evaluate_hr_prop_candidates(mlb_games, rosters, stats_provider, {},
+                                                situational_by_team, lineup_source)
+        hr_odds = fetch_hr_odds(hr_props, games)
+        for prop in hr_props:
+            key = (prop.get("game_id"), _norm_player(prop["player_name"]))
+            prop["odds_american"] = hr_odds.get(key)
 
     raw_celestial, _, _ = celestial_signal_for(run_date)
     raw_numerology, _, _ = numerology_signal_for(run_date)
@@ -209,11 +257,33 @@ def main(argv=None):
         date=date_str, slate_size=len(games), plays=plays, fade_teams=fade_teams, hr_props=hr_props, parlay=parlay,
         dropped_notes=dropped_notes, celestial=_celestial_dict(run_date),
         numerology=_numerology_dict(run_date), bankroll_summary=bankroll_summary(db),
-        data_warnings=data_warnings,
+        data_warnings=data_warnings, results_recap=_build_results_recap(db, date_str),
     )
     _emit(report)
     if args.auto:
         auto_gate.mark_published(date_str)
+
+
+def _build_results_recap(db, date_str):
+    """The most recent COMPLETED slate's scorecard (green check / red X per
+    pick), shown until the next day's picks replace it. Built from graded
+    recommendations in the DB, so it survives across runs."""
+    recap_date = db.get_last_slate_date(date_str)
+    if not recap_date:
+        return {}
+    items = []
+    for r in db.get_recommendations_for_date(recap_date):
+        if r["status"] not in ("won", "lost", "push"):
+            continue
+        if r["kind"] == "moneyline":
+            odds = r["odds_american"]
+            label = f"{r['team']} ML ({odds:+d})" if odds is not None else f"{r['team']} ML"
+        elif r["kind"] == "hr_prop":
+            label = f"{r['side_or_player']} to hit a HR"
+        else:
+            continue
+        items.append({"label": label, "status": r["status"], "kind": r["kind"]})
+    return {"date": recap_date, "items": items}
 
 
 def _celestial_dict(run_date):
