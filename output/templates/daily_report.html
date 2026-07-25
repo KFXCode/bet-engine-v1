@@ -137,15 +137,29 @@
   </div>
   {% endif %}
 
+  {% if results_recap and results_recap.items %}
+  <div class="section-title">Last Slate Results &middot; {{ results_recap.date }}</div>
+  <div class="dropped" style="margin-bottom:24px;">
+    {% for item in results_recap.items %}
+    <div style="display:flex; align-items:center; gap:12px; {{ 'margin-bottom:12px;' if not loop.last else '' }}">
+      <span style="font-size:20px; line-height:1; flex-shrink:0; color:{{ '#2fd07a' if item.status == 'won' else ('#e5484d' if item.status == 'lost' else 'var(--muted)') }};">{% if item.status == 'won' %}&#10003;{% elif item.status == 'lost' %}&#10007;{% else %}&ndash;{% endif %}</span>
+      <span style="color:var(--fg); font-size:15px; font-weight:600;">{{ item.label }}</span>
+      <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">{{ 'HR' if item.kind == 'hr_prop' else 'ML' }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
   {% if not plays %}
   <div class="nobet">
     <div class="big">NO BET TODAY</div>
     <div class="sub">Nothing across today's enabled sports cleared a real edge. Standing down is the system working as designed.</div>
   </div>
   {% else %}
-    {% for play in plays %}
+    {% for play in plays|sort(attribute='edge_pct', reverse=true) %}
+    {% set ml_conf = [((play.edge_pct * 100) + 5)|round(0)|int, 10]|min %}
     <div class="play">
-      <div class="label">Play #{{ loop.index }}</div>
+      <div class="label">Rank #{{ loop.index }} &middot; Confidence <span style="color:var(--accent);">{{ ml_conf }}/10</span></div>
       <div class="team">{{ play.team }} <span class="sport-tag">{{ play.sport }}</span> ML <span class="odds">({{ '%+d' | format(play.odds_american) }})</span>{% if play.odds_source != 'fanduel' %} <span class="flag" style="margin-left:4px;">SIMULATED ODDS</span>{% endif %}</div>
       <div class="metrics">
         <div class="metric"><div class="num">{{ '%.1f' | format(play.edge_pct * 100) }}%</div><div class="lbl">Edge</div></div>
@@ -166,22 +180,6 @@
     {% endfor %}
   {% endif %}
 
-  {% if fade_teams %}
-  <div class="section-title">Avoid Today</div>
-  <div class="dropped" style="margin-bottom:20px;">
-    <div style="color:var(--fg); font-weight:600; margin-bottom:8px;">Do NOT bet these teams' ML -- the system reads real value against them:</div>
-    {% for f in fade_teams %}
-    <div style="{{ 'margin-bottom:14px; padding-bottom:14px; border-bottom:1px solid var(--card-border);' if not loop.last else 'margin-bottom:2px;' }}">
-      <div style="color:var(--fg); font-size:15px; font-weight:700;">
-        {{ f.team }} <span class="sport-tag">{{ f.sport }}</span>
-        {% if f.odds_american is not none %}<span style="color:var(--muted); font-weight:400; font-family:'SF Mono','Roboto Mono',monospace; font-size:13px;">({{ '%+d' | format(f.odds_american) }})</span>{% endif %}{% if f.odds_source != 'fanduel' %} <span class="flag" style="margin-left:2px;">SIMULATED ODDS</span>{% endif %}
-      </div>
-      <div style="font-size:13px; margin-top:2px;">{{ f.reasoning[0] }}</div>
-    </div>
-    {% endfor %}
-  </div>
-  {% endif %}
-
   {% if parlay %}
   <div class="section-title">Optional Parlay</div>
   <div class="parlay">
@@ -198,9 +196,12 @@
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px 16px; width:100%;">
         <div>
           <div class="name">{{ prop.player_name }} to hit a HR <span style="color:var(--muted); font-weight:400;">({{ prop.team }})</span></div>
-          <div class="meta">vs {{ prop.opponent_pitcher }}</div>
+          <div class="meta">vs {{ prop.opponent_pitcher }}{% if prop.odds_american is not none %} &middot; FanDuel <b style="color:var(--accent);">{{ '%+d' | format(prop.odds_american) }}</b>{% else %} &middot; <span style="color:var(--muted);">odds n/a</span>{% endif %}</div>
         </div>
-        <div class="score">{{ '%.0f' | format(prop.score) }}</div>
+        <div style="text-align:right; flex-shrink:0;">
+          <div class="score">{{ [ (prop.score / 10)|round(0)|int, 10]|min }}/10</div>
+          <div style="font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em;">Rank #{{ loop.index }}</div>
+        </div>
       </div>
       <div class="why" style="margin-top:12px;">
         <div class="why-title">Full breakdown &mdash; why this HR was chosen:</div>
@@ -225,12 +226,10 @@
 
   {% if bankroll %}
   <div class="bankroll">
-    <div class="col"><div class="num">{{ bankroll.wins|default(0) }}-{{ bankroll.losses|default(0) }}</div><div class="lbl">Moneyline Record</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">Since Jul 18, 2026</div></div>
-    <div class="col"><div class="num">{{ bankroll.hr_wins|default(0) }}-{{ bankroll.hr_losses|default(0) }}</div><div class="lbl">HR Prop Record</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">Since Jul 20, 2026</div></div>
+    <div class="col"><div class="num">{{ bankroll.wins|default(0) }}-{{ bankroll.losses|default(0) }}</div><div class="lbl">Moneyline Record</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">{% if bankroll.ml_since %}Since {{ bankroll.ml_since }}{% else %}No graded picks yet{% endif %}</div></div>
+    <div class="col"><div class="num">{{ bankroll.hr_wins|default(0) }}-{{ bankroll.hr_losses|default(0) }}</div><div class="lbl">HR Prop Record</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">{% if bankroll.hr_since %}Since {{ bankroll.hr_since }}{% else %}No graded picks yet{% endif %}</div></div>
   </div>
   {% endif %}
-
-  <div class="footer-note">Generated by your MLB Betting Recommendation Engine &middot; 5% min edge &middot; for your own records, not financial advice</div>
 </div>
 </body>
 </html>
