@@ -164,7 +164,7 @@
   </div>
   {% else %}
     {% for play in plays|sort(attribute='edge_pct', reverse=true) %}
-    {% set ml_conf = [((play.edge_pct * 100) + 5)|round(0)|int, 10]|min %}
+    {% set ml_conf = [[((play.edge_pct * 100) + 2)|round(0)|int, 10]|min, 1]|max %}
     <div class="play">
       <div class="label">Rank #{{ loop.index }} &middot; Confidence <span style="color:var(--accent);">{{ ml_conf }}/10</span></div>
       <div class="team">{{ play.team }} <span class="sport-tag">{{ play.sport }}</span> ML <span class="odds">({{ '%+d' | format(play.odds_american) }})</span>{% if play.odds_source != 'fanduel' %} <span class="flag" style="margin-left:4px;">SIMULATED ODDS</span>{% endif %}</div>
