@@ -1,32 +1,6 @@
 #!/usr/bin/env python3
 """
-run_daily.py
-=============
-The one command you run each day:
-
-    python run_daily.py
-
-What it does, in order:
-  1. Grades yesterday's pending recommendations (backtest/grader.py).
-  2. Pulls today's MLB slate, odds, public splits, advanced stats, standings,
-     situational context, moon phase/zodiac, and numerology.
-  3. Scores every game through every grading factor (engine/grading_factors.py)
-     into one edge % per game (engine/scoring.py).
-  4. Applies the non-negotiable rules -- min edge, flat sizing, second-play,
-     diversification, line movement (engine/strategy_rules.py).
-  5. Runs the HR prop workflow (engine/hr_props.py) automatically.
-  6. Maybe builds a bonus parlay (engine/parlay.py).
-  7. Prints the terminal report and writes the HTML report.
-  8. Logs everything to SQLite for tomorrow's grading + P&L tracking.
-
-Flags:
-  --date YYYY-MM-DD   run as if it were this date (backtesting / testing)
-  --skip-grading      don't grade yesterday's picks first
-  --auto              scheduled/unattended mode -- only publish once, timed
-                      to ~1 hour before today's first pitch instead of
-                      running immediately (see auto_gate.py). This is what
-                      .github/workflows/daily.yml calls; a plain manual run
-                      never needs it.
+run_daily.py -- the one command you run each day.
 """
 
 import argparse
@@ -113,10 +87,18 @@ def main(argv=None):
         if result.get("hr_graded"):
             logger.info("Graded %s HR prop(s) from prior days.", result["hr_graded"])
 
-      data_warnings=data_warnings, results_recap=_build_results_recap(db, date_str),
-        history=_build_history(db),
-    )
-    _emit(report)
+    data_warnings = []
+
+    if not games:
+        logger.info("No games found across enabled sports (%s) for %s.", ", ".join(config.ENABLED_SPORTS), date_str)
+        report = DailyReport(date=date_str, slate_size=0, plays=[], fade_teams=[], hr_props=[], parlay=None,
+                              dropped_notes=[], celestial=_celestial_dict(run_date),
+                              numerology=_numerology_dict(run_date),
+                              bankroll_summary=bankroll_summary(db),
+                              data_warnings=["No games on today's schedule across enabled sports."],
+                              results_recap=_build_results_recap(db, date_str),
+                              history=_build_history(db))
+        _emit(report)
         if args.auto:
             auto_gate.mark_published(date_str)
         return
@@ -251,15 +233,16 @@ def main(argv=None):
         dropped_notes=dropped_notes, celestial=_celestial_dict(run_date),
         numerology=_numerology_dict(run_date), bankroll_summary=bankroll_summary(db),
         data_warnings=data_warnings, results_recap=_build_results_recap(db, date_str),
+        history=_build_history(db),
     )
     _emit(report)
     if args.auto:
         auto_gate.mark_published(date_str)
 
+
 def _build_history(db):
     """All past graded slates grouped by date (newest first) for the History
-    tab. Seeded with July 24, 2026 -- the slate before the DB reset -- so the
-    archive starts from yesterday even though those rows were wiped."""
+    tab. Seeded with July 24, 2026 so the archive starts from yesterday."""
     seed = [{
         "date": "2026-07-24",
         "items": [
@@ -289,10 +272,8 @@ def _build_history(db):
     db_days = [{"date": d, "items": by_date[d]} for d in order if d != "2026-07-24"]
     return db_days + seed
 
+
 def _build_results_recap(db, date_str):
-    """The most recent COMPLETED slate's scorecard (green check / red X per
-    pick), shown until the next day's picks replace it. Built from graded
-    recommendations in the DB, so it survives across runs."""
     recap_date = db.get_last_slate_date(date_str)
     if not recap_date:
         return {}
