@@ -95,6 +95,11 @@
   .bankroll .lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
   .bankroll .col { text-align: center; }
 
+  .hist-day { margin-top: 24px; }
+  .hist-cols { display: flex; gap: 16px; flex-wrap: wrap; }
+  .hist-cols .col { flex: 1 1 300px; }
+  .hist-cols .col h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0 0 8px; font-weight: 700; }
+
   .footer-note { text-align: center; color: var(--muted); font-size: 12px; margin-top: 40px; }
   a { color: var(--accent); }
   a:hover { color: var(--fg); }
@@ -120,7 +125,7 @@
   <div class="header">
     <h1>Daily Betting Report</h1>
     <p class="date">2026-07-26</p>
-    <p class="updated"><span class="dot"></span>Updated Jul 26, 2026 - 9:17 AM EDT</p>
+    <p class="updated"><span class="dot"></span>Updated Jul 26, 2026 - 9:33 AM EDT</p>
     <div class="strip">
       <div class="item">Slate: <b>15 games</b></div>
       <div class="item">Moon: <b>Waxing Gibbous</b> in <b>Sagittarius</b></div>
@@ -361,108 +366,158 @@
   <div id="view-history" style="display:none;">
     
       
-      <div class="section-title" style="margin-top:24px;">2026-07-25
-        <span style="color:var(--muted); font-weight:400; text-transform:none; letter-spacing:0;">
-          &middot; ML 4-1
-          &middot; HR 0-3
-        </span>
-      </div>
-      <div class="dropped">
-        
-        <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
-          <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
-          <span style="color:var(--fg); font-size:15px; font-weight:600;">ARI ML</span>
-          <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">ML</span>
+      <div class="hist-day">
+        <div class="section-title" style="margin:0 0 12px;">2026-07-25
+          <span style="color:var(--muted); font-weight:400; text-transform:none; letter-spacing:0;">
+            &middot; ML 4-1
+            &middot; HR 0-3
+          </span>
         </div>
-        
-        <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
-          <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
-          <span style="color:var(--fg); font-size:15px; font-weight:600;">WSH ML (-134)</span>
-          <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">ML</span>
+        <div class="hist-cols">
+          <div class="col">
+            <h4>Picks</h4>
+            <div class="dropped" style="margin-bottom:0;">
+              
+              <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+                <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
+                <span style="color:var(--fg); font-size:15px; font-weight:600;">ARI ML</span>
+                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">ML</span>
+              </div>
+              
+              <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+                <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
+                <span style="color:var(--fg); font-size:15px; font-weight:600;">WSH ML (-134)</span>
+                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">ML</span>
+              </div>
+              
+              <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+                <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
+                <span style="color:var(--fg); font-size:15px; font-weight:600;">STL ML (-112)</span>
+                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">ML</span>
+              </div>
+              
+              <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+                <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
+                <span style="color:var(--fg); font-size:15px; font-weight:600;">TB ML (-120)</span>
+                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">ML</span>
+              </div>
+              
+              <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+                <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
+                <span style="color:var(--fg); font-size:15px; font-weight:600;">MIA ML (-142)</span>
+                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">ML</span>
+              </div>
+              
+              <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+                <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
+                <span style="color:var(--fg); font-size:15px; font-weight:600;">Bryan De La Cruz to hit a HR</span>
+                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">HR</span>
+              </div>
+              
+              <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+                <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
+                <span style="color:var(--fg); font-size:15px; font-weight:600;">Christian Encarnacion-Strand to hit a HR</span>
+                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">HR</span>
+              </div>
+              
+              <div style="display:flex; align-items:center; gap:12px; ">
+                <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
+                <span style="color:var(--fg); font-size:15px; font-weight:600;">Dominic Canzone to hit a HR</span>
+                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">HR</span>
+              </div>
+              
+            </div>
+          </div>
+          <div class="col">
+            <h4>Best Parlay</h4>
+            <div class="dropped" style="margin-bottom:0; border-style:dashed; border-color:var(--accent);">
+              
+                
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+                  <span style="color:var(--accent); font-weight:800; font-size:12px;">Leg 1</span>
+                  <span style="color:var(--fg); font-size:14px; font-weight:600;">TB ML (-120)</span>
+                </div>
+                
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+                  <span style="color:var(--accent); font-weight:800; font-size:12px;">Leg 2</span>
+                  <span style="color:var(--fg); font-size:14px; font-weight:600;">STL ML (-112)</span>
+                </div>
+                
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+                  <span style="color:var(--accent); font-weight:800; font-size:12px;">Leg 3</span>
+                  <span style="color:var(--fg); font-size:14px; font-weight:600;">WSH ML (-134)</span>
+                </div>
+                
+                <div style="display:flex; align-items:center; gap:10px; ">
+                  <span style="color:var(--accent); font-weight:800; font-size:12px;">Leg 4</span>
+                  <span style="color:var(--fg); font-size:14px; font-weight:600;">ARI ML</span>
+                </div>
+                
+              
+            </div>
+          </div>
         </div>
-        
-        <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
-          <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
-          <span style="color:var(--fg); font-size:15px; font-weight:600;">STL ML (-112)</span>
-          <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">ML</span>
-        </div>
-        
-        <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
-          <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
-          <span style="color:var(--fg); font-size:15px; font-weight:600;">TB ML (-120)</span>
-          <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">ML</span>
-        </div>
-        
-        <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
-          <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
-          <span style="color:var(--fg); font-size:15px; font-weight:600;">MIA ML (-142)</span>
-          <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">ML</span>
-        </div>
-        
-        <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
-          <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
-          <span style="color:var(--fg); font-size:15px; font-weight:600;">Bryan De La Cruz to hit a HR</span>
-          <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">HR</span>
-        </div>
-        
-        <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
-          <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
-          <span style="color:var(--fg); font-size:15px; font-weight:600;">Christian Encarnacion-Strand to hit a HR</span>
-          <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">HR</span>
-        </div>
-        
-        <div style="display:flex; align-items:center; gap:12px; ">
-          <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
-          <span style="color:var(--fg); font-size:15px; font-weight:600;">Dominic Canzone to hit a HR</span>
-          <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">HR</span>
-        </div>
-        
       </div>
       
-      <div class="section-title" style="margin-top:24px;">2026-07-24
-        <span style="color:var(--muted); font-weight:400; text-transform:none; letter-spacing:0;">
-          &middot; ML 1-2
-          &middot; HR 3-0
-        </span>
-      </div>
-      <div class="dropped">
-        
-        <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
-          <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
-          <span style="color:var(--fg); font-size:15px; font-weight:600;">ARI ML (-124)</span>
-          <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">ML</span>
+      <div class="hist-day">
+        <div class="section-title" style="margin:0 0 12px;">2026-07-24
+          <span style="color:var(--muted); font-weight:400; text-transform:none; letter-spacing:0;">
+            &middot; ML 1-2
+            &middot; HR 3-0
+          </span>
         </div>
-        
-        <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
-          <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
-          <span style="color:var(--fg); font-size:15px; font-weight:600;">MIL ML (-122)</span>
-          <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">ML</span>
+        <div class="hist-cols">
+          <div class="col">
+            <h4>Picks</h4>
+            <div class="dropped" style="margin-bottom:0;">
+              
+              <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+                <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
+                <span style="color:var(--fg); font-size:15px; font-weight:600;">ARI ML (-124)</span>
+                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">ML</span>
+              </div>
+              
+              <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+                <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
+                <span style="color:var(--fg); font-size:15px; font-weight:600;">MIL ML (-122)</span>
+                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">ML</span>
+              </div>
+              
+              <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+                <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
+                <span style="color:var(--fg); font-size:15px; font-weight:600;">MIN ML (-144)</span>
+                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">ML</span>
+              </div>
+              
+              <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+                <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
+                <span style="color:var(--fg); font-size:15px; font-weight:600;">Christian Encarnacion-Strand to hit a HR (+450)</span>
+                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">HR</span>
+              </div>
+              
+              <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+                <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
+                <span style="color:var(--fg); font-size:15px; font-weight:600;">Drake Baldwin to hit a HR (+422)</span>
+                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">HR</span>
+              </div>
+              
+              <div style="display:flex; align-items:center; gap:12px; ">
+                <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
+                <span style="color:var(--fg); font-size:15px; font-weight:600;">Matt Olson to hit a HR (+310)</span>
+                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">HR</span>
+              </div>
+              
+            </div>
+          </div>
+          <div class="col">
+            <h4>Best Parlay</h4>
+            <div class="dropped" style="margin-bottom:0; border-style:dashed; border-color:var(--accent);">
+              
+                <span style="color:var(--muted);">No parlay this day.</span>
+              
+            </div>
+          </div>
         </div>
-        
-        <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
-          <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
-          <span style="color:var(--fg); font-size:15px; font-weight:600;">MIN ML (-144)</span>
-          <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">ML</span>
-        </div>
-        
-        <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
-          <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
-          <span style="color:var(--fg); font-size:15px; font-weight:600;">Christian Encarnacion-Strand to hit a HR (+450)</span>
-          <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">HR</span>
-        </div>
-        
-        <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
-          <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
-          <span style="color:var(--fg); font-size:15px; font-weight:600;">Drake Baldwin to hit a HR (+422)</span>
-          <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">HR</span>
-        </div>
-        
-        <div style="display:flex; align-items:center; gap:12px; ">
-          <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
-          <span style="color:var(--fg); font-size:15px; font-weight:600;">Matt Olson to hit a HR (+310)</span>
-          <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">HR</span>
-        </div>
-        
       </div>
       
     
