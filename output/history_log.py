@@ -1,9 +1,9 @@
 """
 output/history_log.py
 =======================
-Writes today's recommendations into the recommendations table, and computes
-the rolling bankroll/P&L summary shown in both reports. Grading happens the
-NEXT run, in backtest/grader.py -- today's picks start out "pending".
+Writes today's recommendations (and the day's Best Parlay legs) into the
+recommendations table, and computes the rolling bankroll/P&L summary. Grading
+happens the NEXT run, in backtest/grader.py -- today's picks start "pending".
 """
 
 from datetime import datetime, timezone
@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 LEDGER_CUTOFF = "2026-07-25"
 
 
-def log_recommendations(db, date_str, plays, hr_props):
+def log_recommendations(db, date_str, plays, hr_props, daily_parlay=None):
     now = datetime.now(timezone.utc).isoformat()
     # Lock the day's slate to the FIRST run. Any later same-day re-run (e.g.
     # after first pitch) must NOT add a second set of picks -- that was
@@ -42,6 +42,18 @@ def log_recommendations(db, date_str, plays, hr_props):
             stake_units=1.0, stake_dollars=0.0, reasoning=prop["reasoning"], factor_scores=[],
             created_at=now,
         )
+    # Persist the day's Best Parlay legs so the History tab can show which
+    # parlay was chosen next to that day's picks. kind='parlay_leg' stays
+    # pending forever (never graded) and is excluded from all record math.
+    if daily_parlay and daily_parlay.get("legs"):
+        for leg in daily_parlay["legs"]:
+            db.insert_recommendation(
+                date=date_str, game_id=None, kind="parlay_leg",
+                side_or_player=leg["label"], team=None, odds_american=None,
+                edge_pct=None, model_prob=None, market_prob=None,
+                stake_units=0.0, stake_dollars=0.0, reasoning=[], factor_scores=[],
+                created_at=now,
+            )
 
 
 def bankroll_summary(db):
