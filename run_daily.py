@@ -227,8 +227,9 @@ def main(argv=None):
     raw_numerology, _, _ = numerology_signal_for(run_date)
     parlay_pool = get_parlay_pool(evaluations)
     parlay = maybe_build_parlay(parlay_pool, raw_celestial, raw_numerology)
+    daily_parlay = build_daily_parlay(plays, hr_props)
 
-    log_recommendations(db, date_str, plays, hr_props)
+    log_recommendations(db, date_str, plays, hr_props, daily_parlay)
 
     report = DailyReport(
         date=date_str, slate_size=len(games), plays=plays, fade_teams=fade_teams, hr_props=hr_props, parlay=parlay,
@@ -236,7 +237,7 @@ def main(argv=None):
         numerology=_numerology_dict(run_date), bankroll_summary=bankroll_summary(db),
         data_warnings=data_warnings, results_recap=_build_results_recap(db, date_str),
         history=_build_history(db),
-        daily_parlay=build_daily_parlay(plays, hr_props),
+        daily_parlay=daily_parlay,
     )
     _emit(report)
     if args.auto:
@@ -244,11 +245,15 @@ def main(argv=None):
 
 
 def _build_history(db):
-    """Past graded slates, newest first. Dates through LEDGER_CUTOFF come from
-    this verified seed (the DB rows for those days were contaminated by
-    post-first-pitch re-runs); the DB supplies everything AFTER the cutoff."""
+    """Past graded slates, newest first. Each day carries its picks (with
+    win/loss) AND the Best Parlay legs chosen that day. Dates through
+    LEDGER_CUTOFF come from this verified seed (the DB rows for those days
+    were contaminated by post-first-pitch re-runs); the DB supplies
+    everything AFTER the cutoff."""
     seed = [
-        {"date": "2026-07-25", "picks": [
+        {"date": "2026-07-25",
+         "parlay": ["TB ML (-120)", "STL ML (-112)", "WSH ML (-134)", "ARI ML"],
+         "picks": [
             {"label": "ARI ML", "status": "won", "kind": "moneyline"},
             {"label": "WSH ML (-134)", "status": "won", "kind": "moneyline"},
             {"label": "STL ML (-112)", "status": "won", "kind": "moneyline"},
@@ -258,7 +263,9 @@ def _build_history(db):
             {"label": "Christian Encarnacion-Strand to hit a HR", "status": "lost", "kind": "hr_prop"},
             {"label": "Dominic Canzone to hit a HR", "status": "lost", "kind": "hr_prop"},
         ]},
-        {"date": "2026-07-24", "picks": [
+        {"date": "2026-07-24",
+         "parlay": [],
+         "picks": [
             {"label": "ARI ML (-124)", "status": "won", "kind": "moneyline"},
             {"label": "MIL ML (-122)", "status": "lost", "kind": "moneyline"},
             {"label": "MIN ML (-144)", "status": "lost", "kind": "moneyline"},
@@ -283,7 +290,11 @@ def _build_history(db):
         else:
             continue
         by_date[d].append({"label": label, "status": r["status"], "kind": r["kind"]})
-    db_days = [{"date": d, "picks": by_date[d]} for d in order]
+    db_days = []
+    for d in order:
+        parlay_rows = db.get_recommendations_for_date(d, kind="parlay_leg")
+        db_days.append({"date": d, "picks": by_date[d],
+                        "parlay": [r["side_or_player"] for r in parlay_rows]})
     return db_days + seed
 
 
