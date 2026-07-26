@@ -52,6 +52,8 @@ logging.basicConfig(level=getattr(logging, config.LOG_LEVEL, logging.INFO),
                      format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("run_daily")
 
+LEDGER_CUTOFF = "2026-07-25"  # dates through here come from the verified seed below, not the DB
+
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Run today's betting recommendation pipeline.")
@@ -242,21 +244,32 @@ def main(argv=None):
 
 
 def _build_history(db):
-    """All past graded slates grouped by date (newest first) for the History tab."""
-    seed = [{
-        "date": "2026-07-24",
-        "picks": [
+    """Past graded slates, newest first. Dates through LEDGER_CUTOFF come from
+    this verified seed (the DB rows for those days were contaminated by
+    post-first-pitch re-runs); the DB supplies everything AFTER the cutoff."""
+    seed = [
+        {"date": "2026-07-25", "picks": [
+            {"label": "ARI ML", "status": "won", "kind": "moneyline"},
+            {"label": "WSH ML (-134)", "status": "won", "kind": "moneyline"},
+            {"label": "STL ML (-112)", "status": "won", "kind": "moneyline"},
+            {"label": "TB ML (-120)", "status": "won", "kind": "moneyline"},
+            {"label": "MIA ML (-142)", "status": "lost", "kind": "moneyline"},
+            {"label": "Bryan De La Cruz to hit a HR", "status": "lost", "kind": "hr_prop"},
+            {"label": "Christian Encarnacion-Strand to hit a HR", "status": "lost", "kind": "hr_prop"},
+            {"label": "Dominic Canzone to hit a HR", "status": "lost", "kind": "hr_prop"},
+        ]},
+        {"date": "2026-07-24", "picks": [
             {"label": "ARI ML (-124)", "status": "won", "kind": "moneyline"},
             {"label": "MIL ML (-122)", "status": "lost", "kind": "moneyline"},
             {"label": "MIN ML (-144)", "status": "lost", "kind": "moneyline"},
             {"label": "Christian Encarnacion-Strand to hit a HR (+450)", "status": "won", "kind": "hr_prop"},
             {"label": "Drake Baldwin to hit a HR (+422)", "status": "won", "kind": "hr_prop"},
             {"label": "Matt Olson to hit a HR (+310)", "status": "won", "kind": "hr_prop"},
-        ],
-    }]
+        ]},
+    ]
     by_date = {}
     order = []
-    for r in db.get_graded_history():
+    for r in db.get_graded_history(after=LEDGER_CUTOFF):
         d = r["date"]
         if d not in by_date:
             by_date[d] = []
@@ -270,7 +283,7 @@ def _build_history(db):
         else:
             continue
         by_date[d].append({"label": label, "status": r["status"], "kind": r["kind"]})
-    db_days = [{"date": d, "picks": by_date[d]} for d in order if d != "2026-07-24"]
+    db_days = [{"date": d, "picks": by_date[d]} for d in order]
     return db_days + seed
 
 
