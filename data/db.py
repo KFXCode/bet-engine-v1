@@ -208,12 +208,15 @@ class Database:
         with self.cursor() as cur:
             cur.execute("UPDATE recommendations SET status=? WHERE id=?", (status, rec_id))
 
-    def get_record_by_kind(self, kind):
+    def get_record_by_kind(self, kind, after=None):
+        q = "SELECT status, COUNT(*) c FROM recommendations WHERE kind=? AND status IN ('won','lost','push')"
+        params = [kind]
+        if after:
+            q += " AND date > ?"
+            params.append(after)
+        q += " GROUP BY status"
         with self.cursor() as cur:
-            cur.execute(
-                "SELECT status, COUNT(*) c FROM recommendations WHERE kind=? AND status IN ('won','lost','push') GROUP BY status",
-                (kind,),
-            )
+            cur.execute(q, params)
             counts = {r["status"]: r["c"] for r in cur.fetchall()}
         return {"wins": counts.get("won", 0), "losses": counts.get("lost", 0), "pushes": counts.get("push", 0)}
 
@@ -243,13 +246,16 @@ class Database:
             row = cur.fetchone()
             return row["d"] if row and row["d"] else None
 
-    def get_graded_history(self):
+    def get_graded_history(self, after=None):
+        q = ("SELECT date, kind, team, side_or_player, odds_american, status "
+             "FROM recommendations WHERE status IN ('won','lost','push')")
+        params = []
+        if after:
+            q += " AND date > ?"
+            params.append(after)
+        q += " ORDER BY date DESC, id ASC"
         with self.cursor() as cur:
-            cur.execute(
-                "SELECT date, kind, team, side_or_player, odds_american, status "
-                "FROM recommendations WHERE status IN ('won','lost','push') "
-                "ORDER BY date DESC, id ASC"
-            )
+            cur.execute(q, params)
             return [dict(r) for r in cur.fetchall()]
 
     def record_result(self, game_id, home_score, away_score, graded_at):
