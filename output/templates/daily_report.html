@@ -144,19 +144,6 @@
   </div>
   {% endif %}
 
-  {% if results_recap and results_recap.picks %}
-  <div class="section-title">Last Slate Results &middot; {{ results_recap.date }}</div>
-  <div class="dropped" style="margin-bottom:24px;">
-    {% for item in results_recap.picks %}
-    <div style="display:flex; align-items:center; gap:12px; {{ 'margin-bottom:12px;' if not loop.last else '' }}">
-      <span style="font-size:20px; line-height:1; flex-shrink:0; color:{{ '#2fd07a' if item.status == 'won' else ('#e5484d' if item.status == 'lost' else 'var(--muted)') }};">{% if item.status == 'won' %}&#10003;{% elif item.status == 'lost' %}&#10007;{% else %}&ndash;{% endif %}</span>
-      <span style="color:var(--fg); font-size:15px; font-weight:600;">{{ item.label }}</span>
-      <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">{{ 'HR' if item.kind == 'hr_prop' else 'ML' }}</span>
-    </div>
-    {% endfor %}
-  </div>
-  {% endif %}
-
   {% if not plays %}
   <div class="nobet">
     <div class="big">NO BET TODAY</div>
@@ -295,7 +282,7 @@
         document.getElementById(views[key]).style.display = isActive ? 'block' : 'none';
         var tab = document.getElementById(tabs[key]);
         tab.style.background = isActive ? on : off;
-        tab.style.color = isActive ? onText : offText;
+        tab.style.color = isActive ? offText : offText;
         tab.style.borderColor = isActive ? 'var(--accent)' : border;
       }
     }
