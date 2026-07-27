@@ -99,7 +99,7 @@ def main(argv=None):
                               bankroll_summary=bankroll_summary(db),
                               data_warnings=["No games on today's schedule across enabled sports."],
                               results_recap=_build_results_recap(db, date_str),
-                              history=_build_history(db))
+                              history=_build_history(db, date_str))
         _emit(report)
         if args.auto:
             auto_gate.mark_published(date_str)
@@ -236,7 +236,7 @@ def main(argv=None):
         dropped_notes=dropped_notes, celestial=_celestial_dict(run_date),
         numerology=_numerology_dict(run_date), bankroll_summary=bankroll_summary(db),
         data_warnings=data_warnings, results_recap=_build_results_recap(db, date_str),
-        history=_build_history(db),
+        history=_build_history(db, date_str),
         daily_parlay=daily_parlay,
     )
     _emit(report)
@@ -244,12 +244,15 @@ def main(argv=None):
         auto_gate.mark_published(date_str)
 
 
-def _build_history(db):
-    """Past graded slates, newest first. Each day carries its picks (with
-    win/loss) AND the Best Parlay legs chosen that day. Dates through
-    LEDGER_CUTOFF come from this verified seed (the DB rows for those days
-    were contaminated by post-first-pitch re-runs); the DB supplies
-    everything AFTER the cutoff."""
+def _build_history(db, today_str):
+    """Past graded slates, newest first -- STRICTLY days before today_str, so
+    today's in-progress results (premature grades, a parlay snapshot that
+    differs from the live Best Parlay tab) never leak into History. Today
+    rolls into History tomorrow, once its slate is final. Each day carries
+    its picks (with win/loss) AND the Best Parlay legs chosen that day. Dates
+    through LEDGER_CUTOFF come from the verified seed (the DB rows for those
+    days were contaminated by post-first-pitch re-runs); the DB supplies
+    everything AFTER the cutoff but BEFORE today."""
     seed = [
         {"date": "2026-07-26",
          "parlay": ["BOS ML (-112)", "ARI ML (+102)", "MIL ML (-238)", "CWS ML (+109)"],
@@ -290,6 +293,8 @@ def _build_history(db):
     order = []
     for r in db.get_graded_history(after=LEDGER_CUTOFF):
         d = r["date"]
+        if d >= today_str:
+            continue  # never show today (or future) in History -- only completed past slates
         if d not in by_date:
             by_date[d] = []
             order.append(d)
