@@ -87,6 +87,11 @@ HR_PROP_MAX_PER_DAY = 3
 HR_PROP_ROSTER_LIMIT = 9
 HR_PROP_STRONG_SCORE = 70
 HR_PROP_MIN_SEASON_HR = 12
+# Only the top-N power hitters (by season HR total) across today's whole slate
+# are even eligible to be scored as HR picks -- so the pool is always real
+# sluggers who already hit homers, never a hot-week utility guy with 6 on the
+# season. Set this to how many players you want in that eligible pool.
+HR_PROP_TOP_N_POOL = 20
 
 # ---------------------------------------------------------------------------
 # Optional parlay
