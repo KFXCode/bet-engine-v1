@@ -52,7 +52,7 @@ logging.basicConfig(level=getattr(logging, config.LOG_LEVEL, logging.INFO),
                      format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("run_daily")
 
-LEDGER_CUTOFF = "2026-07-25"  # dates through here come from the verified seed below, not the DB
+LEDGER_CUTOFF = "2026-07-26"  # dates through here come from the verified seed below, not the DB
 
 
 def main(argv=None):
@@ -251,6 +251,18 @@ def _build_history(db):
     were contaminated by post-first-pitch re-runs); the DB supplies
     everything AFTER the cutoff."""
     seed = [
+        {"date": "2026-07-26",
+         "parlay": ["BOS ML (-112)", "ARI ML (+102)", "MIL ML (-238)", "CWS ML (+109)"],
+         "picks": [
+            {"label": "BOS ML (-112)", "status": "won", "kind": "moneyline"},
+            {"label": "MIL ML (-238)", "status": "won", "kind": "moneyline"},
+            {"label": "CWS ML (+109)", "status": "won", "kind": "moneyline"},
+            {"label": "MIN ML", "status": "won", "kind": "moneyline"},
+            {"label": "ARI ML (+102)", "status": "lost", "kind": "moneyline"},
+            {"label": "Pete Alonso to hit a HR (+280)", "status": "won", "kind": "hr_prop"},
+            {"label": "Dominic Canzone to hit a HR", "status": "won", "kind": "hr_prop"},
+            {"label": "Brandon Nimmo to hit a HR", "status": "lost", "kind": "hr_prop"},
+        ]},
         {"date": "2026-07-25",
          "parlay": ["TB ML (-120)", "STL ML (-112)", "WSH ML (-134)", "ARI ML"],
          "picks": [
