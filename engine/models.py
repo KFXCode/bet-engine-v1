@@ -26,6 +26,24 @@ class Game:
     away_pitcher: Optional[ProbablePitcher] = None
     sport: str = "MLB"
     pitchers_confirmed: bool = False
+    game_number: int = 1          # 1 or 2 within a doubleheader; 1 for single games
+    doubleheader: bool = False    # True when this team pairing plays twice today
+
+    def dh_label(self):
+        """Short suffix identifying WHICH game of a doubleheader this is, so a
+        pick/parlay leg is never ambiguous. Empty for normal single games."""
+        return f" (Gm {self.game_number})" if self.doubleheader else ""
+
+    def dh_reasoning(self):
+        """A full plain-English bullet for the 'why' list, naming the exact
+        game (number, start time, both starters) so you bet the right one."""
+        if not self.doubleheader:
+            return None
+        away_sp = self.away_pitcher.name if self.away_pitcher else "TBD"
+        home_sp = self.home_pitcher.name if self.home_pitcher else "TBD"
+        return (f"[DOUBLEHEADER] This is GAME {self.game_number} of a two-game day between "
+                f"{self.away_team} and {self.home_team} -- starters {away_sp} (away) vs {home_sp} (home). "
+                f"Make sure you bet the GAME {self.game_number} line specifically, not the other game.")
 
 
 @dataclass
