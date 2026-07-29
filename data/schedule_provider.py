@@ -18,18 +18,13 @@ MLB_STATS_API = "https://statsapi.mlb.com/api/v1/schedule"
 
 # gameType codes: R=regular season, F/D/L/W=postseason rounds -- these are
 # real, bettable MLB games. Excluded: A=All-Star Game, S=Spring Training,
-# E=Exhibition -- these come back from this same endpoint but aren't normal
-# markets (rosters are all-star squads or split-squad, not real team lines),
-# so they must never reach the odds/scoring pipeline as if they were a
-# normal slate.
+# E=Exhibition.
 REAL_GAME_TYPES = {"R", "F", "D", "L", "W"}
 
 
 def get_todays_games(date_str):
     """date_str: 'YYYY-MM-DD'. Returns a list of engine.models.Game.
-    Never raises -- on any network/parsing problem it logs and returns []
-    so the rest of the daily run can still produce a (empty-slate) report
-    instead of crashing."""
+    Never raises -- on any network/parsing problem it logs and returns []."""
     params = {
         "sportId": 1,
         "date": date_str,
@@ -57,6 +52,23 @@ def get_todays_games(date_str):
     if skipped_non_bettable:
         logger.info("Excluded %d non-bettable MLB game(s) today (All-Star/Spring Training/Exhibition).",
                     skipped_non_bettable)
+
+    # --- Doubleheader tagging -------------------------------------------
+    # When the SAME pairing appears twice today it's a doubleheader. MLB's
+    # feed carries gameNumber (1/2); we stamp each Game with it and flag the
+    # pair, so every downstream pick/parlay leg can say WHICH game it means
+    # (the Cincinnati bug: two CIN games, picks couldn't tell them apart).
+    by_pair = {}
+    for game in games:
+        by_pair.setdefault((game.away_team, game.home_team), []).append(game)
+    for pair_games in by_pair.values():
+        if len(pair_games) > 1:
+            pair_games.sort(key=lambda g: g.game_time_utc or "")
+            for i, game in enumerate(pair_games, start=1):
+                if game.game_number == 1 and i != 1:
+                    game.game_number = i
+                game.doubleheader = True
+
     return games
 
 
@@ -76,6 +88,7 @@ def _parse_game(g, date_str):
         game_time_utc=g.get("gameDate"),
         home_pitcher=home_pitcher,
         away_pitcher=away_pitcher,
+        game_number=g.get("gameNumber", 1),
     )
 
 
