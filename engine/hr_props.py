@@ -4,16 +4,16 @@ engine/hr_props.py
 HR Prop Workflow (runs automatically every day alongside moneyline):
   0. Power-Hitter Pool         -- restrict candidates to the top-N players
                                    (config.HR_PROP_TOP_N_POOL) by SEASON HR
-                                   total across today's whole slate, so only
-                                   proven sluggers are ever eligible.
+                                   total across today's whole slate.
   1. Barrel Signal Check       -- batter's own barrel%/recent trend
   2. Pitcher Vulnerability     -- opposing SP's barrel%/hard-hit%/HR-9 allowed
   3. Park + Motivation Overlay -- HR park factor + motivation context
   4. Public Lean Filter        -- fade extremely public props unless elite
-  5. Final Selection           -- highest scores, capped at HR_PROP_MAX_PER_DAY
+  5. Dedupe + Final Selection  -- ONE entry per player (best game on a
+                                   doubleheader day), highest scores, capped
+                                   at HR_PROP_MAX_PER_DAY.
 
-Composite score is 0-100. On any day with zero MLB games this returns []
-(HR props are MLB-only, by design).
+Composite score is 0-100. On any day with zero MLB games this returns [].
 """
 
 import config
@@ -22,19 +22,9 @@ from data.park_factors import park_factor_for
 
 def evaluate_hr_prop_candidates(games, rosters, stats_provider, public_prop_splits,
                                  situational_by_team, lineup_source=None):
-    """
-    rosters: dict team_abbr -> list[str] batter names (confirmed lineup when
-             posted, else active roster -- see lineup_source)
-    public_prop_splits: dict (team_abbr, batter_name) -> pct_public_on_over (0-100), optional
-    situational_by_team: dict team_abbr -> summary dict
-    lineup_source: dict team_abbr -> "confirmed" | "roster"
-    """
     lineup_source = lineup_source or {}
 
-    # --- Step 0: build the eligible power-hitter pool ---------------------
-    # Look up every batter in today's lineups, get their SEASON HR total, and
-    # keep only the top-N sluggers slate-wide (config.HR_PROP_TOP_N_POOL) who
-    # also clear the season-HR floor. Everything downstream scores ONLY these.
+    # --- Step 0: build the eligible power-hitter pool --------------------
     pool = []
     for game in games:
         for batting_team, opp_pitcher in (
@@ -59,7 +49,7 @@ def evaluate_hr_prop_candidates(games, rosters, stats_provider, public_prop_spli
     pool.sort(key=lambda c: c["hr_count"], reverse=True)
     pool = pool[: config.HR_PROP_TOP_N_POOL]
 
-    # --- Steps 1-4: full scoring, only on that restricted pool ------------
+    # --- Steps 1-4: full scoring, only on that restricted pool -----------
     candidates = []
     for entry in pool:
         game = entry["game"]
@@ -82,7 +72,7 @@ def evaluate_hr_prop_candidates(games, rosters, stats_provider, public_prop_spli
         public_lean = public_prop_splits.get((batting_team, batter_name)) if public_prop_splits else None
         if public_lean is not None and public_lean >= 80:
             if score < 90:
-                continue  # step 4: fade an overwhelmingly public prop unless it's otherwise elite
+                continue
             reasoning.append(f"Public is {public_lean:.0f}% on the OVER -- kept only because every other signal is elite.")
 
         if score < config.HR_PROP_STRONG_SCORE:
@@ -98,8 +88,15 @@ def evaluate_hr_prop_candidates(games, rosters, stats_provider, public_prop_spli
                 "in today's lineup before betting."
             )
 
+        # On a doubleheader, name the EXACT game this HR pick is for, so it's
+        # never ambiguous which game to bet (the Sal Stewart bug).
+        dh_note = game.dh_reasoning()
+        if dh_note:
+            reasoning.insert(0, dh_note)
+
         candidates.append({
-            "player_name": batter_name,
+            "player_name": batter_name + game.dh_label(),
+            "player_key": _player_key(batter_name),
             "team": batting_team,
             "game_id": game.game_id,
             "opponent_pitcher": opp_pitcher.name,
@@ -108,9 +105,25 @@ def evaluate_hr_prop_candidates(games, rosters, stats_provider, public_prop_spli
             "data_quality": "roster_unconfirmed" if lineup_flag == "roster" else quality,
         })
 
-    candidates.sort(key=lambda c: c["score"], reverse=True)
-    strongest = [c for c in candidates if c["score"] >= config.HR_PROP_MIN_SCORE]
+    # --- Step 5: dedupe to ONE entry per player, keep the best game ------
+    # A doubleheader put the same hitter in the pool twice (once per game).
+    # We only want a single HR pick per player -- the higher-scoring matchup
+    # -- so we never flag both games and can't split a bet across the wrong
+    # one. Applies to EVERY player, not any specific name.
+    best_by_player = {}
+    for c in candidates:
+        key = c["player_key"]
+        if key not in best_by_player or c["score"] > best_by_player[key]["score"]:
+            best_by_player[key] = c
+    deduped = list(best_by_player.values())
+
+    deduped.sort(key=lambda c: c["score"], reverse=True)
+    strongest = [c for c in deduped if c["score"] >= config.HR_PROP_MIN_SCORE]
     return strongest[: config.HR_PROP_MAX_PER_DAY]
+
+
+def _player_key(name):
+    return name.strip().lower()
 
 
 def _score_candidate(batter_name, batter, pitcher, hr_park_factor, motivation_note, hr_count=0):
@@ -123,7 +136,6 @@ def _score_candidate(batter_name, batter, pitcher, hr_park_factor, motivation_no
     reasoning.append(f"[Power Pool] {batter_name} has {hr_count} HR this season -- among the top "
                      f"{config.HR_PROP_TOP_N_POOL} sluggers on today's slate, so he's in the eligible pool.")
 
-    # small bonus for elite raw HR volume
     if hr_count >= 30:
         score += 8
         reasoning.append(f"[HR Volume +8] {hr_count} HR is elite league-leading power.")
@@ -131,7 +143,6 @@ def _score_candidate(batter_name, batter, pitcher, hr_park_factor, motivation_no
         score += 5
         reasoning.append(f"[HR Volume +5] {hr_count} HR is strong season-long power.")
 
-    # 1. Barrel signal check
     if batter.barrel_pct >= 12:
         score += 12
         reasoning.append(f"[Barrel Signal +12] {batter_name} has an ELITE barrel rate of {batter.barrel_pct:.1f}% "
@@ -147,7 +158,6 @@ def _score_candidate(batter_name, batter, pitcher, hr_park_factor, motivation_no
         reasoning.append(f"[Hot Streak +8] Trending UP: barrel% is +{batter.recent_barrel_trend:.1f} points over the "
                          f"last 15 days.")
 
-    # 2. Pitcher vulnerability
     if pitcher and pitcher.barrel_pct_allowed is not None:
         if pitcher.barrel_pct_allowed >= 9:
             score += 12
@@ -168,7 +178,6 @@ def _score_candidate(batter_name, batter, pitcher, hr_park_factor, motivation_no
         else:
             reasoning.append(f"[HR Rate Allowed +0] {pitcher.name} allows {pitcher.hr_per_9:.2f} HR/9 (average).")
 
-    # 3. Park + motivation overlay
     if hr_park_factor >= 108:
         score += 10
         reasoning.append(f"[Park Factor +10] This park's HR factor is {hr_park_factor} (hitter's park).")
