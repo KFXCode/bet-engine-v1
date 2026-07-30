@@ -22,6 +22,7 @@ from engine.models import MoneylineOdds
 from data.teams import normalize_team as normalize_mlb_team
 from data.teams_wnba import normalize_wnba_team
 from data.teams_nfl import normalize_nfl_team
+from data.teams_college import normalize_college_team
 
 
 def _normalize_for_sport(raw, sport):
@@ -33,6 +34,8 @@ def _normalize_for_sport(raw, sport):
         return normalize_wnba_team(raw)
     if sport == "NFL":
         return normalize_nfl_team(raw)
+    if sport in ("NCAAF", "NCAAB"):
+        return normalize_college_team(raw)
     return normalize_mlb_team(raw)
 
 logger = logging.getLogger(__name__)
@@ -52,6 +55,7 @@ ODDS_API_SPORT_KEYS = {
     "MLB": "baseball_mlb",
     "WNBA": "basketball_wnba",
     "NFL": "americanfootball_nfl",
+    "NCAAF": "americanfootball_ncaaf",
 }
 
 
