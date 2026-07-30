@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS recommendations (
     kind TEXT NOT NULL DEFAULT 'moneyline',
     side_or_player TEXT NOT NULL,
     team TEXT,
+    sport TEXT NOT NULL DEFAULT 'MLB',
     odds_american INTEGER,
     edge_pct REAL,
     model_prob REAL,
@@ -112,6 +113,8 @@ class Database:
         cols = {r[1] for r in cur.fetchall()}
         if "clv_pct" not in cols:
             cur.execute("ALTER TABLE recommendations ADD COLUMN clv_pct REAL")
+        if "sport" not in cols:
+            cur.execute("ALTER TABLE recommendations ADD COLUMN sport TEXT NOT NULL DEFAULT 'MLB'")
         cur.close()
 
     @contextmanager
@@ -182,15 +185,15 @@ class Database:
     def insert_recommendation(self, date, game_id, kind, side_or_player, team,
                                odds_american, edge_pct, model_prob, market_prob,
                                stake_units, stake_dollars, reasoning, factor_scores,
-                               created_at):
+                               created_at, sport="MLB"):
         with self.cursor() as cur:
             cur.execute(
                 """INSERT INTO recommendations
-                       (date, game_id, kind, side_or_player, team, odds_american,
+                       (date, game_id, kind, side_or_player, team, sport, odds_american,
                         edge_pct, model_prob, market_prob, stake_units, stake_dollars,
                         reasoning_json, factor_scores_json, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (date, game_id, kind, side_or_player, team, odds_american, edge_pct,
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (date, game_id, kind, side_or_player, team, sport, odds_american, edge_pct,
                  model_prob, market_prob, stake_units, stake_dollars,
                  json.dumps(reasoning), json.dumps(factor_scores), created_at),
             )
@@ -225,12 +228,15 @@ class Database:
         with self.cursor() as cur:
             cur.execute("UPDATE recommendations SET clv_pct=? WHERE id=?", (clv_pct, rec_id))
 
-    def get_record_by_kind(self, kind, after=None):
+    def get_record_by_kind(self, kind, after=None, sport=None):
         q = "SELECT status, COUNT(*) c FROM recommendations WHERE kind=? AND status IN ('won','lost','push')"
         params = [kind]
         if after:
             q += " AND date > ?"
             params.append(after)
+        if sport:
+            q += " AND sport = ?"
+            params.append(sport)
         q += " GROUP BY status"
         with self.cursor() as cur:
             cur.execute(q, params)
@@ -238,10 +244,6 @@ class Database:
         return {"wins": counts.get("won", 0), "losses": counts.get("lost", 0), "pushes": counts.get("push", 0)}
 
     def get_clv_summary(self, kind="moneyline"):
-        """Closing Line Value across graded picks that have a CLV recorded.
-        avg_clv_pct: average probability-point edge vs the closing line
-        (positive = we consistently beat the close = sharp). beat_pct: share
-        of picks that beat the close. n: sample size."""
         with self.cursor() as cur:
             cur.execute(
                 "SELECT clv_pct FROM recommendations WHERE kind=? AND clv_pct IS NOT NULL",
@@ -282,7 +284,7 @@ class Database:
             return row["d"] if row and row["d"] else None
 
     def get_graded_history(self, after=None):
-        q = ("SELECT date, kind, team, side_or_player, odds_american, status "
+        q = ("SELECT date, kind, team, side_or_player, sport, odds_american, status "
              "FROM recommendations WHERE status IN ('won','lost','push')")
         params = []
         if after:
