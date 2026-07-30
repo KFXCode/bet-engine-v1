@@ -4,13 +4,11 @@ data/odds_providers.py
 Moneyline/spread/total odds. Two implementations behind one interface:
 
 - MockOddsProvider   : deterministic-per-day synthetic odds, zero setup.
-- TheOddsApiProvider : real odds from https://the-odds-api.com, FanDuel book
-  (your chosen sportsbook). Needs ODDS_API_KEY in .env.
+- TheOddsApiProvider : real odds from https://the-odds-api.com, FanDuel book.
 
 config.ODDS_MODE picks which one get_odds_provider() hands back. Every
 network path falls back to mock data on failure so a bad API response never
-crashes the daily run -- it just degrades to synthetic odds for that game
-(and logs a warning).
+crashes the daily run.
 """
 
 import logging
@@ -23,16 +21,18 @@ import config
 from engine.models import MoneylineOdds
 from data.teams import normalize_team as normalize_mlb_team
 from data.teams_wnba import normalize_wnba_team
+from data.teams_nfl import normalize_nfl_team
 
 
 def _normalize_for_sport(raw, sport):
-    """Odds feeds spell team names differently per sport, and the two sports'
-    abbreviation tables aren't interchangeable (e.g. Washington Nationals is
-    WSH, Washington Mystics is WAS) -- dispatch to the right one instead of
-    always using the MLB table, or non-MLB games silently fail to match their
-    real odds event and fall back to simulated numbers for that game."""
+    """Each sport spells team names differently and its abbreviation table
+    isn't interchangeable with another's -- dispatch to the right normalizer
+    or a game silently fails to match its real odds event and falls back to
+    simulated numbers."""
     if sport == "WNBA":
         return normalize_wnba_team(raw)
+    if sport == "NFL":
+        return normalize_nfl_team(raw)
     return normalize_mlb_team(raw)
 
 logger = logging.getLogger(__name__)
@@ -46,17 +46,18 @@ class OddsProvider:
 
 # The Odds API's sport key per sport we support -- see
 # https://the-odds-api.com/sports-odds-data/sports-apis.html
+# Keys for sports whose data files aren't wired yet are added as each sport's
+# vertical is built, so an enabled sport always has a matching normalizer.
 ODDS_API_SPORT_KEYS = {
     "MLB": "baseball_mlb",
     "WNBA": "basketball_wnba",
+    "NFL": "americanfootball_nfl",
 }
 
 
 class MockOddsProvider(OddsProvider):
     """Deterministic-per-game-per-day synthetic odds so the whole pipeline is
-    runnable with zero setup. Odds drift slightly within the same day (seeded
-    by the hour) so the line-movement drop rule has something to see when you
-    run the tool more than once on the same slate."""
+    runnable with zero setup."""
 
     def get_odds(self, games):
         out = {}
@@ -119,12 +120,6 @@ class TheOddsApiProvider(OddsProvider):
             logger.error("The Odds API request failed (%s) -- falling back to mock odds.", exc)
             return MockOddsProvider().get_odds(games)
 
-        # A team can appear MORE THAN ONCE in the feed (today's game AND
-        # tomorrow's, or a doubleheader), so we keep a LIST of events per
-        # matchup and pick the one whose start time is closest to this
-        # game's scheduled first pitch -- otherwise a same-matchup next-day
-        # game silently overwrites today's line (the "ARI +116 is tomorrow's
-        # number" bug).
         by_teams = {}
         for event in payload:
             home = _normalize_for_sport(event.get("home_team", ""), self.sport)
@@ -148,7 +143,7 @@ class TheOddsApiProvider(OddsProvider):
 def _closest_event(events, game):
     """From all feed events for this matchup, pick the one whose commence_time
     is nearest the game's scheduled start -- so today's game never grabs
-    tomorrow's line. With one event it's returned directly; with none, None."""
+    tomorrow's line."""
     if not events:
         return None
     if len(events) == 1 or not game.game_time_utc:
@@ -206,7 +201,6 @@ def _parse_odds_event(event, bookmaker, game, captured_at, sport):
 
 
 def _prob_to_american(p):
-    """implied prob -> American odds magnitude (unsigned), helper for mock data."""
     if p >= 0.5:
         return round(100 * p / (1 - p))
     return round(100 * (1 - p) / p)
