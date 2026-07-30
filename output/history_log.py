@@ -60,6 +60,7 @@ def bankroll_summary(db):
     history = db.get_bankroll_history(limit=10000)
     hr_record = db.get_record_by_kind("hr_prop", after=LEDGER_CUTOFF)
     ml_record = db.get_record_by_kind("moneyline", after=LEDGER_CUTOFF)
+    clv = db.get_clv_summary("moneyline")
 
     # Verified results THROUGH LEDGER_CUTOFF (from final box scores):
     #   Jul 24 -> ML 1-2, HR 3-0
@@ -71,6 +72,7 @@ def bankroll_summary(db):
         "wins": ml_record["wins"] + SEED["ml_wins"], "losses": ml_record["losses"] + SEED["ml_losses"],
         "hr_wins": hr_record["wins"] + SEED["hr_wins"], "hr_losses": hr_record["losses"] + SEED["hr_losses"],
         "ml_since": SEED["since"], "hr_since": SEED["since"],
+        "clv_n": clv["n"], "clv_avg": clv["avg_clv_pct"], "clv_beat": clv["beat_pct"],
         "units_net": 0.0, "dollars_net": 0.0, "running_bankroll": 0.0,
     }
     if not history:
