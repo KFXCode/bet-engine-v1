@@ -15,13 +15,31 @@ from datetime import datetime, timezone
 LEDGER_CUTOFF = "2026-07-25"
 
 
-def log_recommendations(db, date_str, plays, hr_props, daily_parlay=None):
-    now = datetime.now(timezone.utc).isoformat()
-    # Lock the day's slate to the FIRST run. Any later same-day re-run (e.g.
-    # after first pitch) must NOT add a second set of picks -- that was
-    # inflating the record. If today's picks already exist, leave them as-is.
-    if db.get_recommendations_for_date(date_str):
-        return
+def log_recommendations(db, date_str, plays, hr_props, daily_parlay=None, first_pitch_utc=None):
+    now = datetime.now(timezone.utc)
+    now_iso = now.isoformat()
+
+    # Slate-locking rule:
+    #   BEFORE first pitch -> each re-run REPLACES the day's picks, so the
+    #     latest pre-game state wins (real public splits, confirmed lineups,
+    #     dropped stale plays). This is what fixes the "9:52am parlay with NYY
+    #     got frozen even though the final pre-game run dropped NYY" bug.
+    #   AT/AFTER first pitch -> LOCK. A post-first-pitch re-run must never
+    #     rewrite the day's picks (that was inflating the record with
+    #     already-decided favorites).
+    existing = db.get_recommendations_for_date(date_str)
+    if existing:
+        locked = True
+        if first_pitch_utc:
+            try:
+                fp = datetime.fromisoformat(str(first_pitch_utc).replace("Z", "+00:00"))
+                locked = now >= fp
+            except Exception:
+                locked = True  # unparseable time -> be safe, keep locked
+        if locked:
+            return
+        db.delete_pending_recommendations_for_date(date_str)
+
     for play in plays:
         db.insert_recommendation(
             date=date_str, game_id=play.game.game_id, kind="moneyline",
@@ -32,7 +50,7 @@ def log_recommendations(db, date_str, plays, hr_props, daily_parlay=None):
             factor_scores=[{"key": fs.key, "signal": fs.signal, "weight": fs.weight,
                             "reasoning": fs.reasoning, "data_quality": fs.data_quality}
                            for fs in play.factor_scores],
-            created_at=now,
+            created_at=now_iso,
         )
     for prop in hr_props:
         db.insert_recommendation(
@@ -40,7 +58,7 @@ def log_recommendations(db, date_str, plays, hr_props, daily_parlay=None):
             side_or_player=prop["player_name"], team=prop["team"], odds_american=prop.get("odds_american"),
             edge_pct=None, model_prob=None, market_prob=None,
             stake_units=1.0, stake_dollars=0.0, reasoning=prop["reasoning"], factor_scores=[],
-            created_at=now,
+            created_at=now_iso,
         )
     # Persist the day's Best Parlay legs so the History tab can show which
     # parlay was chosen next to that day's picks. kind='parlay_leg' stays
@@ -52,7 +70,7 @@ def log_recommendations(db, date_str, plays, hr_props, daily_parlay=None):
                 side_or_player=leg["label"], team=None, odds_american=None,
                 edge_pct=None, model_prob=None, market_prob=None,
                 stake_units=0.0, stake_dollars=0.0, reasoning=[], factor_scores=[],
-                created_at=now,
+                created_at=now_iso,
             )
 
 
