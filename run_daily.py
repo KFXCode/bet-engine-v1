@@ -54,6 +54,11 @@ logger = logging.getLogger("run_daily")
 
 LEDGER_CUTOFF = "2026-07-26"  # dates through here come from the verified seed below, not the DB
 
+# Individual later dates whose DB rows were also contaminated (a pre-first-pitch
+# early run got frozen before the slate-lock fix). These are taken from the
+# verified seed and SKIPPED from the DB so there's no duplicate.
+SEED_OVERRIDE_DATES = {"2026-07-29"}
+
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Run today's betting recommendation pipeline.")
@@ -252,15 +257,22 @@ def main(argv=None):
 
 
 def _build_history(db, today_str):
-    """Past graded slates, newest first -- STRICTLY days before today_str, so
-    today's in-progress results (premature grades, a parlay snapshot that
-    differs from the live Best Parlay tab) never leak into History. Today
-    rolls into History tomorrow, once its slate is final. Each day carries
-    its picks (with win/loss) AND the Best Parlay legs chosen that day. Dates
-    through LEDGER_CUTOFF come from the verified seed (the DB rows for those
-    days were contaminated by post-first-pitch re-runs); the DB supplies
-    everything AFTER the cutoff but BEFORE today."""
+    """Past graded slates, newest first -- STRICTLY days before today_str.
+    Dates through LEDGER_CUTOFF and any date in SEED_OVERRIDE_DATES come from
+    the verified seed below (their DB rows were contaminated by pre-slate-lock
+    early runs); the DB supplies every other date after the cutoff."""
     seed = [
+        {"date": "2026-07-29",
+         "parlay": ["TOR ML", "TB ML", "ATL (Gm 2) ML", "BOS ML"],
+         "picks": [
+            {"label": "TOR ML", "status": "won", "kind": "moneyline"},
+            {"label": "TB ML", "status": "won", "kind": "moneyline"},
+            {"label": "ATL (Gm 2) ML", "status": "won", "kind": "moneyline"},
+            {"label": "BOS ML", "status": "won", "kind": "moneyline"},
+            {"label": "Max Muncy to hit a HR", "status": "lost", "kind": "hr_prop"},
+            {"label": "Kazuma Okamoto to hit a HR", "status": "lost", "kind": "hr_prop"},
+            {"label": "James Wood to hit a HR", "status": "lost", "kind": "hr_prop"},
+        ]},
         {"date": "2026-07-26",
          "parlay": ["BOS ML (-112)", "ARI ML (+102)", "MIL ML (-238)", "CWS ML (+109)"],
          "picks": [
@@ -302,6 +314,8 @@ def _build_history(db, today_str):
         d = r["date"]
         if d >= today_str:
             continue  # never show today (or future) in History -- only completed past slates
+        if d in SEED_OVERRIDE_DATES:
+            continue  # verified seed owns this date -- skip contaminated DB rows
         if d not in by_date:
             by_date[d] = []
             order.append(d)
@@ -319,7 +333,11 @@ def _build_history(db, today_str):
         parlay_rows = db.get_recommendations_for_date(d, kind="parlay_leg")
         db_days.append({"date": d, "picks": by_date[d],
                         "parlay": [r["side_or_player"] for r in parlay_rows]})
-    return db_days + seed
+    # Merge DB days (after cutoff, before today, excluding overrides) with the
+    # seed, newest first.
+    all_days = db_days + seed
+    all_days.sort(key=lambda x: x["date"], reverse=True)
+    return [d for d in all_days if d["date"] < today_str]
 
 
 def _build_results_recap(db, date_str):
