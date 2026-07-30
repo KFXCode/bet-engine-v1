@@ -3,14 +3,16 @@ backtest/grader.py
 ====================
 Post-game review: fetch final scores for any game with pending moneyline
 recommendations, mark each recommendation won/lost, and roll the result into
-bankroll_log. run_daily.py calls this automatically at the start of each run
-(it grades YESTERDAY's plays before making today's).
+bankroll_log. run_daily.py calls this automatically at the start of each run.
 
-HR props are auto-graded here too, from the final boxscore (each batter's
-batting.homeRuns via data/lineups.get_hr_settled_players): the pick is a WIN
-if that player hit >=1 HR, else a loss. They're tracked as a SEPARATE record
-from moneyline (different bet type, different hit-rate expectation) rather
-than blended into one number.
+HR props are auto-graded here too, from the final boxscore.
+
+CLV (Closing Line Value): when a moneyline pick is graded, we compare the
+PRICE we recommended it at to the CLOSING line (the last odds snapshot
+recorded for that game). Positive CLV = the market moved toward our side
+after we picked it, i.e. we got a better number than the close -- the single
+most reliable signal that a pick was genuinely +EV, independent of whether
+it happened to win or lose. Stored per pick and summarized on the report.
 """
 
 import logging
@@ -27,10 +29,6 @@ logger = logging.getLogger(__name__)
 
 
 def _norm_name(name):
-    """Normalize a player name for reliable HR-settlement matching: strip
-    accents, punctuation, and Jr/Sr/II/III suffixes, collapse to lowercase.
-    Without this a boxscore 'Jose Ramirez' won't match a stored 'Jose Ramirez'
-    that differs only by an accent, silently grading a real winner as a loss."""
     if not name:
         return ""
     n = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode("ascii")
@@ -40,6 +38,33 @@ def _norm_name(name):
     return re.sub(r"\s+", " ", n).strip()
 
 
+def _american_prob(ml):
+    if ml is None:
+        return None
+    ml = float(ml)
+    if ml > 0:
+        return 100.0 / (ml + 100.0)
+    return -ml / (-ml + 100.0)
+
+
+def _compute_clv(db, rec):
+    """CLV in probability points = closing implied prob (our side) minus the
+    implied prob at our pick price. Positive => we beat the close."""
+    pick_odds = rec.get("odds_american")
+    if pick_odds is None:
+        return None
+    closing = db.get_latest_line(rec["game_id"])
+    if not closing:
+        return None
+    side = rec["side_or_player"]
+    closing_ml = closing["home_ml"] if side == "home" else closing["away_ml"]
+    pick_p = _american_prob(pick_odds)
+    close_p = _american_prob(closing_ml)
+    if pick_p is None or close_p is None:
+        return None
+    return round((close_p - pick_p) * 100.0, 2)
+
+
 def grade_pending(db):
     pending = db.get_pending_recommendations()
     if not pending:
@@ -47,7 +72,7 @@ def grade_pending(db):
 
     graded_count = 0
     hr_graded = 0
-    hr_settlement_cache = {}   # game_id -> set(names who homered) | None
+    hr_settlement_cache = {}
     by_date = {}
     for rec in pending:
         if rec["kind"] == "hr_prop" and rec["game_id"]:
@@ -55,7 +80,7 @@ def grade_pending(db):
                 hr_settlement_cache[rec["game_id"]] = get_hr_settled_players(rec["game_id"])
             homered = hr_settlement_cache[rec["game_id"]]
             if homered is None:
-                continue  # game not final yet -- leave pending
+                continue
             homered_norm = {_norm_name(n) for n in homered}
             status = "won" if _norm_name(rec["side_or_player"]) in homered_norm else "lost"
             db.set_recommendation_status(rec["id"], status)
@@ -68,6 +93,12 @@ def grade_pending(db):
         result = _get_final_score(rec["game_id"])
         if result is None:
             continue
+
+        # CLV: record it whether the pick won or lost (that's the point).
+        clv = _compute_clv(db, rec)
+        if clv is not None:
+            db.set_recommendation_clv(rec["id"], clv)
+
         home_score, away_score = result
         if home_score == away_score:
             status = "push"
@@ -91,7 +122,7 @@ def grade_pending(db):
             day["won"] += rec["stake_units"] or 0
             day["d_won"] += rec["stake_dollars"] or 0
 
-    for day, totals in sorted(by_date.items()):  # chronological, so bankroll chains correctly
+    for day, totals in sorted(by_date.items()):
         prior = db.get_bankroll_history(limit=1)
         prior_bankroll = prior[0]["running_bankroll"] if prior and prior[0].get("running_bankroll") is not None else config.STARTING_BANKROLL
         net_dollars = totals["d_won"] - totals["d_staked"]
