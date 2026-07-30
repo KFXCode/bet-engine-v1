@@ -55,6 +55,12 @@ class BatterProfile:
     iso: float = None
     hr_count: int = None
     recent_barrel_trend: float = None
+    # --- expanded Statcast contact-quality metrics (Grok HR system) ---
+    avg_exit_velo: float = None    # season avg EV on batted balls (mph)
+    max_exit_velo: float = None    # season max EV (mph) -- raw power ceiling
+    xwoba: float = None            # expected wOBA -- "true talent" contact
+    hr_fb_pct: float = None        # HR per fly ball (%)
+    pull_pct: float = None         # pull% -- most HRs are pulled
     data_quality: str = "ok"
 
 
@@ -111,6 +117,7 @@ class PyBaseballStatsProvider(StatsProvider):
         self._batting_table = None
         self._pitcher_barrel_table = None
         self._batter_barrel_table = None
+        self._batter_savant_table = None   # expected-stats leaderboard (xwOBA, etc.)
 
     def get_pitcher_profile(self, pitcher_name, player_id=None):
         if not pitcher_name or pitcher_name == "TBD":
@@ -212,7 +219,7 @@ class PyBaseballStatsProvider(StatsProvider):
         return profile
 
     def get_batter_profile(self, batter_name, team_abbr=None):
-        cache_key = f"batter:{batter_name}:{_season()}"
+        cache_key = f"batter:{batter_name}:{_season()}:v2"
         cached = self.cache.get(cache_key)
         if cached:
             return BatterProfile(**cached)
@@ -234,6 +241,9 @@ class PyBaseballStatsProvider(StatsProvider):
                 else:
                     barrel = _plausible_barrel(_safe_float(row.get("brl_percent")))
                     hard_hit = _safe_float(row.get("ev95percent"))
+                    avg_ev = _safe_float(row.get("avg_hit_speed"))
+                    max_ev = _safe_float(row.get("max_hit_speed"))
+                    pull_pct = _safe_float(row.get("pull_percent"))
                     hr_count = None
                     pid = row.get("player_id")
                     if pid is not None:
@@ -241,9 +251,11 @@ class PyBaseballStatsProvider(StatsProvider):
                             hr_count = _mlb_stats_api_batter_hr(int(pid))
                         except Exception:
                             hr_count = None
+                    xwoba = self._batter_xwoba(batter_name)
                     profile = BatterProfile(
                         name=batter_name, team=team_abbr, barrel_pct=barrel, hard_hit_pct=hard_hit,
-                        hr_count=hr_count,
+                        hr_count=hr_count, avg_exit_velo=avg_ev, max_exit_velo=max_ev,
+                        pull_pct=pull_pct, xwoba=xwoba,
                         data_quality="ok" if barrel is not None else "partial",
                     )
         except Exception as exc:
@@ -251,6 +263,24 @@ class PyBaseballStatsProvider(StatsProvider):
             profile = BatterProfile(name=batter_name, team=team_abbr, data_quality="degraded")
         self.cache.set(cache_key, asdict(profile))
         return profile
+
+    def _batter_xwoba(self, batter_name):
+        """xwOBA from Savant's expected-stats leaderboard (one bulk call,
+        cached). Best-effort -- returns None on any failure."""
+        try:
+            import pybaseball as pyb
+            if self._batter_savant_table is None:
+                self._batter_savant_table = pyb.statcast_batter_expected_stats(_season(), minPA=50)
+            table = self._batter_savant_table
+            if table is None or table.empty:
+                return None
+            row = _match_savant_name(table, batter_name)
+            if row is None:
+                return None
+            return _safe_float(row.get("est_woba"))
+        except Exception as exc:
+            logger.debug("xwOBA lookup failed for %s: %s", batter_name, exc)
+            return None
 
 
 def _season():
@@ -350,7 +380,9 @@ class _MockStatsProvider(StatsProvider):
 
     def get_batter_profile(self, batter_name, team_abbr=None):
         return BatterProfile(name=batter_name, team=team_abbr, barrel_pct=7.5, hard_hit_pct=38.0,
-                              iso=0.16, hr_count=20, recent_barrel_trend=0.0, data_quality="mock")
+                              iso=0.16, hr_count=20, recent_barrel_trend=0.0,
+                              avg_exit_velo=90.0, max_exit_velo=110.0, xwoba=0.340,
+                              hr_fb_pct=15.0, pull_pct=42.0, data_quality="mock")
 
 
 def get_stats_provider():
