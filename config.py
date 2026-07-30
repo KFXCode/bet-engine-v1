@@ -61,7 +61,10 @@ TARGET_EDGE_MAX = 0.05
 # ---------------------------------------------------------------------------
 # Sports covered
 # ---------------------------------------------------------------------------
-ENABLED_SPORTS = ["MLB", "WNBA"]
+# Each sport activates automatically when its schedule opens; off-season it
+# just returns no games. NFL is wired (teams + schedule + odds key). NCAAF,
+# NCAAB, NHL, NBA get added here as each one's data files land.
+ENABLED_SPORTS = ["MLB", "WNBA", "NFL"]
 
 DIVERSIFICATION_LOOKBACK_DAYS = 3
 DIVERSIFICATION_EXTRA_EDGE = 0.03
@@ -108,8 +111,6 @@ assert sum(HR_CATEGORY_POINTS.values()) == 100
 # "Signal cluster" requirement: a pick is only tagged a STRONG play when at
 # least this many of the four predictive categories (contact, park_weather,
 # matchup, pitcher_context) independently score at/above their 60% mark.
-# Below this the player can still be shown as the day's best available, but
-# is flagged "thin cluster" so you know it's not a full-confluence spot.
 HR_PROP_MIN_CLUSTERS = 3
 
 # Live weather (Open-Meteo, free, no API key). Adds a real daily temperature +
