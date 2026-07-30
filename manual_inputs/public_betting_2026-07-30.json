@@ -61,20 +61,20 @@
   },
   "wnba-401857099": {
     "_matchup": "MIN @ TOR",
-    "tickets_pct_home": 50.0,
-    "handle_pct_home": 50.0,
-    "source": "sportsbettingdime.com"
+    "tickets_pct_home": 8.0,
+    "handle_pct_home": 8.0,
+    "source": "draftkings"
   },
   "wnba-401857100": {
     "_matchup": "CON @ CHI",
-    "tickets_pct_home": 50.0,
-    "handle_pct_home": 50.0,
-    "source": "sportsbettingdime.com"
+    "tickets_pct_home": 76.0,
+    "handle_pct_home": 76.0,
+    "source": "draftkings"
   },
   "wnba-401857101": {
     "_matchup": "NY @ LAS",
-    "tickets_pct_home": 50.0,
-    "handle_pct_home": 50.0,
-    "source": "sportsbettingdime.com"
+    "tickets_pct_home": 60.0,
+    "handle_pct_home": 60.0,
+    "source": "draftkings"
   }
 }
