@@ -1,32 +1,25 @@
 """
 output/history_log.py
 =======================
-Writes today's recommendations (and the day's Best Parlay legs) into the
-recommendations table, and computes the rolling bankroll/P&L summary. Grading
-happens the NEXT run, in backtest/grader.py -- today's picks start "pending".
+Writes today's recommendations (picks + per-sport Best Parlay legs + the
+cross-sport TOP parlay legs) into the recommendations table, tagged by sport,
+and computes the rolling bankroll/P&L summary. Grading happens the NEXT run,
+in backtest/grader.py -- today's picks start "pending".
 """
 
 from datetime import datetime, timezone
 
-# Dates THROUGH this cutoff come from the verified seed in bankroll_summary /
-# _build_history, NOT the DB -- the DB rows for 7/24-7/25 were contaminated by
-# post-first-pitch re-runs that logged extra already-decided favorites. The DB
-# only counts dates AFTER this cutoff.
 LEDGER_CUTOFF = "2026-07-25"
 
 
-def log_recommendations(db, date_str, plays, hr_props, daily_parlay=None, first_pitch_utc=None):
+def log_recommendations(db, date_str, plays, hr_props, top_parlay=None,
+                        sport_parlays=None, first_pitch_utc=None):
     now = datetime.now(timezone.utc)
     now_iso = now.isoformat()
+    sport_parlays = sport_parlays or {}
 
-    # Slate-locking rule:
-    #   BEFORE first pitch -> each re-run REPLACES the day's picks, so the
-    #     latest pre-game state wins (real public splits, confirmed lineups,
-    #     dropped stale plays). This is what fixes the "9:52am parlay with NYY
-    #     got frozen even though the final pre-game run dropped NYY" bug.
-    #   AT/AFTER first pitch -> LOCK. A post-first-pitch re-run must never
-    #     rewrite the day's picks (that was inflating the record with
-    #     already-decided favorites).
+    # Slate-locking rule: before first pitch each re-run REPLACES the day's
+    # picks (latest pre-game state wins); at/after first pitch it LOCKS.
     existing = db.get_recommendations_for_date(date_str)
     if existing:
         locked = True
@@ -35,7 +28,7 @@ def log_recommendations(db, date_str, plays, hr_props, daily_parlay=None, first_
                 fp = datetime.fromisoformat(str(first_pitch_utc).replace("Z", "+00:00"))
                 locked = now >= fp
             except Exception:
-                locked = True  # unparseable time -> be safe, keep locked
+                locked = True
         if locked:
             return
         db.delete_pending_recommendations_for_date(date_str)
@@ -43,7 +36,8 @@ def log_recommendations(db, date_str, plays, hr_props, daily_parlay=None, first_
     for play in plays:
         db.insert_recommendation(
             date=date_str, game_id=play.game.game_id, kind="moneyline",
-            side_or_player=play.side, team=play.team, odds_american=play.odds_american,
+            side_or_player=play.side, team=play.team, sport=play.sport,
+            odds_american=play.odds_american,
             edge_pct=play.edge_pct, model_prob=play.model_prob, market_prob=play.market_prob,
             stake_units=play.stake_units, stake_dollars=play.stake_dollars,
             reasoning=play.reasoning,
@@ -55,19 +49,31 @@ def log_recommendations(db, date_str, plays, hr_props, daily_parlay=None, first_
     for prop in hr_props:
         db.insert_recommendation(
             date=date_str, game_id=prop.get("game_id"), kind="hr_prop",
-            side_or_player=prop["player_name"], team=prop["team"], odds_american=prop.get("odds_american"),
+            side_or_player=prop["player_name"], team=prop["team"], sport="MLB",
+            odds_american=prop.get("odds_american"),
             edge_pct=None, model_prob=None, market_prob=None,
             stake_units=1.0, stake_dollars=0.0, reasoning=prop["reasoning"], factor_scores=[],
             created_at=now_iso,
         )
-    # Persist the day's Best Parlay legs so the History tab can show which
-    # parlay was chosen next to that day's picks. kind='parlay_leg' stays
-    # pending forever (never graded) and is excluded from all record math.
-    if daily_parlay and daily_parlay.get("legs"):
-        for leg in daily_parlay["legs"]:
+
+    # Per-sport Best Parlay legs (kind='parlay_leg', tagged by that sport) --
+    # so each sport's History shows the parlay it ran that day.
+    for sport, par in sport_parlays.items():
+        for leg in (par or {}).get("legs", []):
             db.insert_recommendation(
                 date=date_str, game_id=None, kind="parlay_leg",
-                side_or_player=leg["label"], team=None, odds_american=None,
+                side_or_player=leg["label"], team=None, sport=sport, odds_american=None,
+                edge_pct=None, model_prob=None, market_prob=None,
+                stake_units=0.0, stake_dollars=0.0, reasoning=[], factor_scores=[],
+                created_at=now_iso,
+            )
+
+    # The cross-sport TOP parlay legs (kind='top_parlay_leg', sport='TOP').
+    if top_parlay and top_parlay.get("legs"):
+        for leg in top_parlay["legs"]:
+            db.insert_recommendation(
+                date=date_str, game_id=None, kind="top_parlay_leg",
+                side_or_player=leg["label"], team=None, sport="TOP", odds_american=None,
                 edge_pct=None, model_prob=None, market_prob=None,
                 stake_units=0.0, stake_dollars=0.0, reasoning=[], factor_scores=[],
                 created_at=now_iso,
@@ -80,10 +86,7 @@ def bankroll_summary(db):
     ml_record = db.get_record_by_kind("moneyline", after=LEDGER_CUTOFF)
     clv = db.get_clv_summary("moneyline")
 
-    # Verified results THROUGH LEDGER_CUTOFF (from final box scores):
-    #   Jul 24 -> ML 1-2, HR 3-0
-    #   Jul 25 -> ML 4-1 (ARI, WSH, STL, TB won; MIA lost), HR 0-3
-    #   cumulative -> ML 5-3, HR 3-3. DB adds real results for dates AFTER cutoff.
+    # Verified results THROUGH LEDGER_CUTOFF (all MLB): cumulative ML 5-3, HR 3-3.
     SEED = {"ml_wins": 5, "ml_losses": 3, "hr_wins": 3, "hr_losses": 3, "since": "2026-07-24"}
 
     base = {
