@@ -7,11 +7,11 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="MLB Picks">
+<meta name="apple-mobile-web-app-title" content="Cover1 Picks">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="icon-192.png">
-<title>MLB Betting Report — {{ date }}</title>
+<title>Daily Betting Report — {{ date }}</title>
 <style>
   :root {
     --bg: oklch(0.16 0.012 250);
@@ -34,7 +34,7 @@
     -webkit-tap-highlight-color: transparent;
   }
   .wrap { max-width: 780px; margin: 0 auto; }
-  .header { text-align: center; margin-bottom: 32px; }
+  .header { text-align: center; margin-bottom: 24px; }
   .header h1 { font-size: 22px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin: 0 0 6px; font-weight: 600; }
   .header .date { font-size: 34px; font-weight: 700; margin: 0; }
   .header .updated { font-size: 12px; color: var(--muted); margin: 10px 0 0; display: inline-flex; align-items: center; gap: 6px; }
@@ -52,6 +52,11 @@
   .nobet .big { font-size: 26px; font-weight: 700; color: var(--muted); }
   .nobet .sub { font-size: 14px; color: var(--muted); margin-top: 8px; }
 
+  .tabs { display: flex; gap: 8px; justify-content: flex-start; margin-bottom: 24px; flex-wrap: wrap; }
+  .tab-btn { cursor: pointer; font: inherit; font-weight: 700; font-size: 13px; padding: 8px 16px;
+             border-radius: 999px; border: 1px solid var(--card-border); background: transparent; color: var(--muted); }
+  .tab-btn.active { border-color: var(--accent); background: var(--accent); color: oklch(0.16 0.01 155); }
+
   .play { background: var(--card); border: 1px solid var(--accent-dim); border-radius: 16px;
           padding: 28px; margin-bottom: 20px; position: relative; overflow: hidden; }
   .play::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--accent); }
@@ -61,8 +66,6 @@
   .metrics { display: flex; gap: 28px; margin: 18px 0; flex-wrap: wrap; }
   .metric .num { font-size: 22px; font-weight: 700; font-family: "SF Mono", "Roboto Mono", monospace; }
   .metric .lbl { font-size: 11px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.05em; }
-  .stake { display: inline-block; background: var(--accent); color: oklch(0.16 0.01 155); font-weight: 700;
-           padding: 8px 16px; border-radius: 999px; font-size: 14px; margin-bottom: 16px; }
   .flags { margin-bottom: 12px; }
   .flag { display: inline-block; background: var(--warn-dim); color: var(--warn); border-radius: 8px;
           padding: 6px 10px; font-size: 12px; margin: 2px 6px 2px 0; }
@@ -80,7 +83,7 @@
   .parlay .note { color: var(--muted); font-size: 13px; margin-top: 8px; }
 
   .prop-card { background: var(--card); border: 1px solid var(--card-border); border-radius: 12px;
-               padding: 16px 20px; margin-bottom: 12px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px 16px; }
+               padding: 16px 20px; margin-bottom: 12px; }
   .prop-card .name { font-weight: 700; font-size: 16px; }
   .prop-card .meta { color: var(--muted); font-size: 13px; margin-top: 2px; }
   .prop-card .score { font-size: 24px; font-weight: 800; color: var(--accent); font-family: "SF Mono", "Roboto Mono", monospace; flex-shrink: 0; }
@@ -100,23 +103,23 @@
   .hist-cols .col { flex: 1 1 300px; }
   .hist-cols .col h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0 0 8px; font-weight: 700; }
 
-  .footer-note { text-align: center; color: var(--muted); font-size: 12px; margin-top: 40px; }
+  .sport-tag { font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-dim);
+               padding: 2px 8px; border-radius: 6px; vertical-align: middle; margin-left: 4px; }
+  .leg-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .leg-row .n { color: var(--accent); font-weight: 800; font-size: 13px; }
+  .leg-row .lbl { color: var(--fg); font-size: 15px; font-weight: 600; }
+  .kind-tag { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; border: 1px solid var(--card-border); border-radius: 6px; padding: 1px 6px; }
+
   a { color: var(--accent); }
   a:hover { color: var(--fg); }
 
   @media (max-width: 480px) {
     .header .date { font-size: 28px; }
-    .header h1 { font-size: 18px; }
     .play, .parlay { padding: 20px; }
     .metrics { gap: 14px 22px; }
-    .stake { padding: 7px 14px; }
     .bankroll { padding: 16px; gap: 14px 8px; }
     .bankroll .num { font-size: 17px; }
   }
-</style>
-<style id="__sport_tag_style">
-  .sport-tag { font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-dim);
-               padding: 2px 8px; border-radius: 6px; vertical-align: middle; margin-left: 4px; }
 </style>
 </head>
 <body>
@@ -133,13 +136,6 @@
     </div>
   </div>
 
-  <div class="tabs" style="display:flex; gap:8px; justify-content:center; margin-bottom:24px;">
-    <button id="tab-today" onclick="showView('today')" style="cursor:pointer; font:inherit; font-weight:700; font-size:13px; padding:8px 18px; border-radius:999px; border:1px solid var(--accent); background:var(--accent); color:oklch(0.16 0.01 155);">Today</button>
-    <button id="tab-parlay" onclick="showView('parlay')" style="cursor:pointer; font:inherit; font-weight:700; font-size:13px; padding:8px 18px; border-radius:999px; border:1px solid var(--card-border); background:transparent; color:var(--muted);">Best Parlay</button>
-    <button id="tab-history" onclick="showView('history')" style="cursor:pointer; font:inherit; font-weight:700; font-size:13px; padding:8px 18px; border-radius:999px; border:1px solid var(--card-border); background:transparent; color:var(--muted);">History</button>
-  </div>
-
-  <div id="view-today">
   {% if data_warnings %}
   <div class="warnbox">
     <b>Data quality warnings</b>
@@ -149,112 +145,130 @@
   </div>
   {% endif %}
 
-  {% if not plays %}
+  {% if not plays and not active_sports %}
   <div class="nobet">
-    <div class="big">NO BET TODAY</div>
-    <div class="sub">Nothing across today's enabled sports cleared a real edge. Standing down is the system working as designed.</div>
+    <div class="big">NO GAMES TODAY</div>
+    <div class="sub">No enabled sport has games on the schedule right now. Sections appear automatically once a season opens.</div>
   </div>
-  {% else %}
-    {% for play in plays|sort(attribute='edge_pct', reverse=true) %}
-    {% set ml_conf = [[((play.edge_pct * 100) + 2)|round(0)|int, 10]|min, 1]|max %}
-    <div class="play">
-      <div class="label">Rank #{{ loop.index }} &middot; Confidence <span style="color:var(--accent);">{{ ml_conf }}/10</span></div>
-      <div class="team">{{ play.team }} <span class="sport-tag">{{ play.sport }}</span> ML <span class="odds">({{ '%+d' | format(play.odds_american) }})</span>{% if play.odds_source != 'fanduel' %} <span class="flag" style="margin-left:4px;">SIMULATED ODDS</span>{% endif %}</div>
-      <div class="metrics">
-        <div class="metric"><div class="num">{{ '%.1f' | format(play.edge_pct * 100) }}%</div><div class="lbl">Edge</div></div>
-        <div class="metric"><div class="num">{{ '%.1f' | format(play.model_prob * 100) }}%</div><div class="lbl">Model win%</div></div>
-        <div class="metric"><div class="num">{{ '%.1f' | format(play.market_prob * 100) }}%</div><div class="lbl">Market win%</div></div>
-      </div>
-      <div class="flags">
-        {% if play.diversification_flag %}<span class="flag">{{ play.diversification_flag }}</span>{% endif %}
-        {% if play.line_movement_flag %}<span class="flag">{{ play.line_movement_flag }}</span>{% endif %}
-      </div>
-      <div class="why">
-        <div class="why-title">Why this clears every layer:</div>
-        <ul>
-          {% for reason in play.reasoning %}<li>{{ reason }}</li>{% endfor %}
-        </ul>
-      </div>
-    </div>
+  {% endif %}
+
+  <div class="tabs">
+    {% for sport in active_sports %}
+    <button class="tab-btn" data-target="view-{{ sport }}" onclick="showView(this)">{{ sport }}</button>
     {% endfor %}
-  {% endif %}
-
-  {% if parlay %}
-  <div class="section-title">Optional Parlay</div>
-  <div class="parlay">
-    <div class="legs">{{ parlay.legs | map(attribute='team') | join(' + ') }} ML</div>
-    <div class="odds">Combined: {{ '%+d' | format(parlay.combined_odds_american) }} &middot; {{ '%.1f' | format(parlay.combined_prob * 100) }}% win probability</div>
-    <div class="note">{{ parlay.reasoning }}</div>
+    <button class="tab-btn" data-target="view-top" onclick="showView(this)">TOP PARLAY</button>
+    <button class="tab-btn" data-target="view-history" onclick="showView(this)">HISTORY</button>
   </div>
-  {% endif %}
 
-  <div class="section-title">HR Props</div>
-  {% if hr_props %}
-    {% for prop in hr_props %}
-    <div class="prop-card" style="flex-direction:column; align-items:stretch;">
-      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px 16px; width:100%;">
-        <div>
-          <div class="name">{{ prop.player_name }} to hit a HR <span style="color:var(--muted); font-weight:400;">({{ prop.team }})</span></div>
-          <div class="meta">vs {{ prop.opponent_pitcher }}{% if prop.odds_american is not none %} &middot; FanDuel <b style="color:var(--accent);">{{ '%+d' | format(prop.odds_american) }}</b>{% else %} &middot; <span style="color:var(--muted);">odds n/a</span>{% endif %}</div>
+  <!-- ============ PER-SPORT PANELS ============ -->
+  {% for sport in active_sports %}
+  {% set sp_plays = plays | selectattr('sport', 'equalto', sport) | list %}
+  <div class="view-panel" id="view-{{ sport }}" style="display:none;">
+
+    <div class="section-title">{{ sport }} &middot; Today's Moneyline Picks</div>
+    {% if sp_plays %}
+      {% for play in sp_plays | sort(attribute='edge_pct', reverse=true) %}
+      {% set ml_conf = [[((play.edge_pct * 100) + 2)|round(0)|int, 10]|min, 1]|max %}
+      <div class="play">
+        <div class="label">Rank #{{ loop.index }} &middot; Confidence <span style="color:var(--accent);">{{ ml_conf }}/10</span></div>
+        <div class="team">{{ play.team }} <span class="sport-tag">{{ play.sport }}</span> ML <span class="odds">({{ '%+d' | format(play.odds_american) }})</span>{% if play.odds_source != 'fanduel' %} <span class="flag" style="margin-left:4px;">SIMULATED ODDS</span>{% endif %}</div>
+        <div class="metrics">
+          <div class="metric"><div class="num">{{ '%.1f' | format(play.edge_pct * 100) }}%</div><div class="lbl">Edge</div></div>
+          <div class="metric"><div class="num">{{ '%.1f' | format(play.model_prob * 100) }}%</div><div class="lbl">Model win%</div></div>
+          <div class="metric"><div class="num">{{ '%.1f' | format(play.market_prob * 100) }}%</div><div class="lbl">Market win%</div></div>
         </div>
-        <div style="text-align:right; flex-shrink:0;">
-          <div class="score">{{ [ (prop.score / 10)|round(0)|int, 10]|min }}/10</div>
-          <div style="font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em;">Rank #{{ loop.index }}</div>
+        <div class="flags">
+          {% if play.diversification_flag %}<span class="flag">{{ play.diversification_flag }}</span>{% endif %}
+          {% if play.line_movement_flag %}<span class="flag">{{ play.line_movement_flag }}</span>{% endif %}
+        </div>
+        <div class="why">
+          <div class="why-title">Why this clears every layer:</div>
+          <ul>
+            {% for reason in play.reasoning %}<li>{{ reason }}</li>{% endfor %}
+          </ul>
         </div>
       </div>
-      <div class="why" style="margin-top:12px;">
-        <div class="why-title">Full breakdown &mdash; why this HR was chosen:</div>
-        <ul>
-          {% for reason in prop.reasoning %}<li>{{ reason }}</li>{% endfor %}
-        </ul>
+      {% endfor %}
+    {% else %}
+      <div class="dropped">No {{ sport }} moneyline play cleared a real edge today.</div>
+    {% endif %}
+
+    {% if sport == 'MLB' %}
+    <div class="section-title">HR Props</div>
+    {% if hr_props %}
+      {% for prop in hr_props %}
+      <div class="prop-card" style="display:flex; flex-direction:column; align-items:stretch;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px 16px; width:100%;">
+          <div>
+            <div class="name">{{ prop.player_name }} to hit a HR <span style="color:var(--muted); font-weight:400;">({{ prop.team }})</span></div>
+            <div class="meta">vs {{ prop.opponent_pitcher }}{% if prop.odds_american is not none %} &middot; FanDuel <b style="color:var(--accent);">{{ '%+d' | format(prop.odds_american) }}</b>{% else %} &middot; <span style="color:var(--muted);">odds n/a</span>{% endif %}</div>
+          </div>
+          <div style="text-align:right; flex-shrink:0;">
+            <div class="score">{{ [ (prop.score / 10)|round(0)|int, 10]|min }}/10</div>
+            <div style="font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em;">Rank #{{ loop.index }}</div>
+          </div>
+        </div>
+        <div class="why" style="margin-top:12px;">
+          <div class="why-title">Full breakdown &mdash; why this HR was chosen:</div>
+          <ul>
+            {% for reason in prop.reasoning %}<li>{{ reason }}</li>{% endfor %}
+          </ul>
+        </div>
       </div>
-    </div>
-    {% endfor %}
-  {% else %}
-    <div class="dropped">No HR prop candidates cleared today's strongest-signals bar.</div>
-  {% endif %}
+      {% endfor %}
+    {% else %}
+      <div class="dropped">No HR prop candidates cleared today's strongest-signals bar.</div>
+    {% endif %}
+    {% endif %}
 
-  {% if dropped_notes %}
-  <div class="section-title">Considered &amp; Dropped</div>
-  <div class="dropped">
-    <ul>
-      {% for note in dropped_notes %}<li>{{ note }}</li>{% endfor %}
-    </ul>
-  </div>
-  {% endif %}
-
-  {% if bankroll %}
-  <div class="bankroll">
-    <div class="col"><div class="num">{{ bankroll.wins|default(0) }}-{{ bankroll.losses|default(0) }}</div><div class="lbl">Moneyline Record</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">{% if bankroll.ml_since %}Since {{ bankroll.ml_since }}{% else %}No graded picks yet{% endif %}</div></div>
-    <div class="col"><div class="num">{{ bankroll.hr_wins|default(0) }}-{{ bankroll.hr_losses|default(0) }}</div><div class="lbl">HR Prop Record</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">{% if bankroll.hr_since %}Since {{ bankroll.hr_since }}{% else %}No graded picks yet{% endif %}</div></div>
-    <div class="col"><div class="num" style="color:{% if bankroll.clv_avg is not none and bankroll.clv_avg > 0 %}var(--accent){% elif bankroll.clv_avg is not none and bankroll.clv_avg < 0 %}var(--warn){% else %}var(--fg){% endif %};">{% if bankroll.clv_avg is not none %}{{ '%+.1f' | format(bankroll.clv_avg) }}%{% else %}--{% endif %}</div><div class="lbl">Avg CLV (ML)</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">{% if bankroll.clv_n %}beat close {{ bankroll.clv_beat|int }}% &middot; n={{ bankroll.clv_n }}{% else %}building sample{% endif %}</div></div>
-  </div>
-  {% endif %}
-  </div>
-
-  <div id="view-parlay" style="display:none;">
-    <div class="section-title">Best Parlay of the Day</div>
-    {% if daily_parlay and daily_parlay.legs %}
+    <div class="section-title">{{ sport }} &middot; Best Parlay</div>
+    {% set par = sport_parlays.get(sport) %}
+    {% if par and par.legs %}
     <div class="parlay">
-      <div class="legs">{{ daily_parlay.leg_count }}-Leg Parlay</div>
-      <div class="odds">Combined: {{ '%+d' | format(daily_parlay.combined_odds_american) }} &middot; {{ '%.1f' | format(daily_parlay.combined_prob * 100) }}% est. win probability</div>
+      <div class="legs">{{ par.leg_count }}-Leg {{ sport }} Parlay</div>
+      <div class="odds">Combined: {{ '%+d' | format(par.combined_odds_american) }} &middot; {{ '%.1f' | format(par.combined_prob * 100) }}% est. win probability</div>
       <div style="margin-top:14px;">
-        {% for leg in daily_parlay.legs %}
-        <div style="display:flex; align-items:center; gap:10px; {{ 'margin-bottom:10px;' if not loop.last else '' }}">
-          <span style="color:var(--accent); font-weight:800; font-size:13px;">Leg {{ loop.index }}</span>
-          <span style="color:var(--fg); font-size:15px; font-weight:600;">{{ leg.label }}</span>
-          <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">{{ 'HR' if leg.kind == 'hr_prop' else 'ML' }}</span>
-        </div>
+        {% for leg in par.legs %}
+        <div class="leg-row"><span class="n">Leg {{ loop.index }}</span><span class="lbl">{{ leg.label }}</span><span class="kind-tag">{{ 'HR' if leg.kind == 'hr_prop' else 'ML' }}</span></div>
         {% endfor %}
       </div>
-      <div class="note">Flat 1 unit. Built from the highest-confidence moneyline + HR legs the system graded today (totals/spreads/RBI/first-5 legs coming once their edge models are built).</div>
+      <div class="note">Flat 1 unit. Built only from {{ sport }} legs the system graded today.</div>
     </div>
     {% else %}
-    <div class="dropped">No parlay today &mdash; fewer than 2 legs cleared the system's confidence bar. Discipline over action.</div>
+    <div class="dropped">No {{ sport }} parlay today &mdash; fewer than 2 {{ sport }} legs cleared the confidence bar.</div>
+    {% endif %}
+
+  </div>
+  {% endfor %}
+
+  <!-- ============ TOP PARLAY (cross-sport) ============ -->
+  <div class="view-panel" id="view-top" style="display:none;">
+    <div class="section-title">Top Parlay of the Day &middot; all sports combined</div>
+    {% if top_parlay and top_parlay.legs %}
+    <div class="parlay">
+      <div class="legs">{{ top_parlay.leg_count }}-Leg Top Parlay</div>
+      <div class="odds">Combined: {{ '%+d' | format(top_parlay.combined_odds_american) }} &middot; {{ '%.1f' | format(top_parlay.combined_prob * 100) }}% est. win probability</div>
+      <div style="margin-top:14px;">
+        {% for leg in top_parlay.legs %}
+        <div class="leg-row"><span class="n">Leg {{ loop.index }}</span><span class="lbl">{{ leg.label }}</span><span class="kind-tag">{{ 'HR' if leg.kind == 'hr_prop' else 'ML' }}</span></div>
+        {% endfor %}
+      </div>
+      <div class="note">Flat 1 unit. The single strongest ticket across every active sport &mdash; any mix of leagues and props the system rates highest today.</div>
+    </div>
+    {% else %}
+    <div class="dropped">No top parlay today &mdash; fewer than 2 legs cleared the confidence bar across all sports. Discipline over action.</div>
     {% endif %}
   </div>
 
-  <div id="view-history" style="display:none;">
+  <!-- ============ HISTORY (combined ledger) ============ -->
+  <div class="view-panel" id="view-history" style="display:none;">
+    {% if bankroll %}
+    <div class="bankroll" style="margin-top:0;">
+      <div class="col"><div class="num">{{ bankroll.wins|default(0) }}-{{ bankroll.losses|default(0) }}</div><div class="lbl">Moneyline Record</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">{% if bankroll.ml_since %}Since {{ bankroll.ml_since }}{% else %}No graded picks yet{% endif %}</div></div>
+      <div class="col"><div class="num">{{ bankroll.hr_wins|default(0) }}-{{ bankroll.hr_losses|default(0) }}</div><div class="lbl">HR Prop Record</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">{% if bankroll.hr_since %}Since {{ bankroll.hr_since }}{% else %}No graded picks yet{% endif %}</div></div>
+      <div class="col"><div class="num" style="color:{% if bankroll.clv_avg is not none and bankroll.clv_avg > 0 %}var(--accent){% elif bankroll.clv_avg is not none and bankroll.clv_avg < 0 %}var(--warn){% else %}var(--fg){% endif %};">{% if bankroll.clv_avg is not none %}{{ '%+.1f' | format(bankroll.clv_avg) }}%{% else %}--{% endif %}</div><div class="lbl">Avg CLV (ML)</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">{% if bankroll.clv_n %}beat close {{ bankroll.clv_beat|int }}% &middot; n={{ bankroll.clv_n }}{% else %}building sample{% endif %}</div></div>
+    </div>
+    {% endif %}
     {% if history %}
       {% for day in history %}
       <div class="hist-day">
@@ -272,7 +286,7 @@
               <div style="display:flex; align-items:center; gap:12px; {{ 'margin-bottom:12px;' if not loop.last else '' }}">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:{{ '#2fd07a' if item.status == 'won' else ('#e5484d' if item.status == 'lost' else 'var(--muted)') }};">{% if item.status == 'won' %}&#10003;{% elif item.status == 'lost' %}&#10007;{% else %}&ndash;{% endif %}</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">{{ item.label }}</span>
-                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">{{ 'HR' if item.kind == 'hr_prop' else 'ML' }}</span>
+                <span class="kind-tag">{{ 'HR' if item.kind == 'hr_prop' else 'ML' }}</span>
               </div>
               {% endfor %}
             </div>
@@ -282,10 +296,7 @@
             <div class="dropped" style="margin-bottom:0; border-style:dashed; border-color:var(--accent);">
               {% if day['parlay'] %}
                 {% for leg in day['parlay'] %}
-                <div style="display:flex; align-items:center; gap:10px; {{ 'margin-bottom:10px;' if not loop.last else '' }}">
-                  <span style="color:var(--accent); font-weight:800; font-size:12px;">Leg {{ loop.index }}</span>
-                  <span style="color:var(--fg); font-size:14px; font-weight:600;">{{ leg }}</span>
-                </div>
+                <div class="leg-row" style="margin-bottom:{{ '10px' if not loop.last else '0' }};"><span class="n" style="font-size:12px;">Leg {{ loop.index }}</span><span class="lbl" style="font-size:14px;">{{ leg }}</span></div>
                 {% endfor %}
               {% else %}
                 <span style="color:var(--muted);">No parlay this day.</span>
@@ -301,19 +312,19 @@
   </div>
 
   <script>
-    function showView(v) {
-      var views = {today: 'view-today', parlay: 'view-parlay', history: 'view-history'};
-      var tabs = {today: 'tab-today', parlay: 'tab-parlay', history: 'tab-history'};
-      var on = 'var(--accent)', onText = 'oklch(0.16 0.01 155)', off = 'transparent', offText = 'var(--muted)', border = 'var(--card-border)';
-      for (var key in views) {
-        var isActive = (key === v);
-        document.getElementById(views[key]).style.display = isActive ? 'block' : 'none';
-        var tab = document.getElementById(tabs[key]);
-        tab.style.background = isActive ? on : off;
-        tab.style.color = isActive ? onText : offText;
-        tab.style.borderColor = isActive ? 'var(--accent)' : border;
-      }
+    function showView(btn) {
+      var panels = document.querySelectorAll('.view-panel');
+      for (var i = 0; i < panels.length; i++) panels[i].style.display = 'none';
+      var target = document.getElementById(btn.dataset.target);
+      if (target) target.style.display = 'block';
+      var btns = document.querySelectorAll('.tab-btn');
+      for (var j = 0; j < btns.length; j++) btns[j].classList.remove('active');
+      btn.classList.add('active');
     }
+    window.addEventListener('DOMContentLoaded', function () {
+      var first = document.querySelector('.tab-btn');
+      if (first) showView(first);
+    });
   </script>
 </div>
 </body>
