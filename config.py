@@ -62,9 +62,9 @@ TARGET_EDGE_MAX = 0.05
 # Sports covered
 # ---------------------------------------------------------------------------
 # Each sport activates automatically when its schedule opens; off-season it
-# just returns no games. NFL is wired (teams + schedule + odds key). NCAAF,
-# NCAAB, NHL, NBA get added here as each one's data files land.
-ENABLED_SPORTS = ["MLB", "WNBA", "NFL"]
+# just returns no games. NFL + NCAAF wired. NCAAB, NHL, NBA get added here as
+# each one's data files land.
+ENABLED_SPORTS = ["MLB", "WNBA", "NFL", "NCAAF"]
 
 DIVERSIFICATION_LOOKBACK_DAYS = 3
 DIVERSIFICATION_EXTRA_EDGE = 0.03
@@ -90,31 +90,18 @@ HR_PROP_MAX_PER_DAY = 3
 HR_PROP_ROSTER_LIMIT = 9
 HR_PROP_STRONG_SCORE = 70
 HR_PROP_MIN_SEASON_HR = 12
-# Only the top-N power hitters (by season HR total) across today's whole slate
-# are even eligible to be scored as HR picks.
 HR_PROP_TOP_N_POOL = 20
 
-# --- Grok HR Signal System (multi-factor, weighted categories) -----------
-# The HR score (0-100) is the sum of five weighted categories, mirroring the
-# refined signal system: Contact Quality is king, Park+Weather is the big
-# daily swing factor, Matchup + Pitcher context round it out, Confirmation is
-# the tie-breaker. Points must sum to 100.
 HR_CATEGORY_POINTS = {
-    "contact_quality": 30,   # barrel%, exit velo (avg+max), hard-hit%, xwOBA, HR/FB, hot streak
-    "park_weather": 25,      # park HR factor + live temperature/wind (out vs in)
-    "matchup": 25,           # opposing SP HR-vulnerability: HR/9, barrel% & hard-hit% allowed
-    "pitcher_context": 15,   # overall SP quality: FIP/ERA, strikeout rate (contact allowed)
-    "confirmation": 5,       # season HR volume, pull%, confirmed in lineup
+    "contact_quality": 30,
+    "park_weather": 25,
+    "matchup": 25,
+    "pitcher_context": 15,
+    "confirmation": 5,
 }
 assert sum(HR_CATEGORY_POINTS.values()) == 100
 
-# "Signal cluster" requirement: a pick is only tagged a STRONG play when at
-# least this many of the four predictive categories (contact, park_weather,
-# matchup, pitcher_context) independently score at/above their 60% mark.
 HR_PROP_MIN_CLUSTERS = 3
-
-# Live weather (Open-Meteo, free, no API key). Adds a real daily temperature +
-# wind-direction read per ballpark. Domes/closed roofs are treated as neutral.
 HR_WEATHER_ENABLED = True
 
 # ---------------------------------------------------------------------------
@@ -128,10 +115,10 @@ PARLAY_MIN_LEGS = 2
 # Grading factor weights (sum to 0.30 so the model nudges the market, not replaces it)
 # ---------------------------------------------------------------------------
 FACTOR_WEIGHTS = {
-    "matchup_pitching": 0.065,    # starting pitching is the #1 real driver of an MLB game
-    "public_sharp_split": 0.05,   # heavily weighted per your rules (sharp money)
-    "advanced_analytics": 0.045,  # barrel/xERA/hard-hit -- strongest batted-ball signal
-    "historical_form": 0.045,     # real season W-L win% + recent streak
+    "matchup_pitching": 0.065,
+    "public_sharp_split": 0.05,
+    "advanced_analytics": 0.045,
+    "historical_form": 0.045,
     "talent_gap": 0.025,
     "moon_zodiac": 0.03,
     "numerology": 0.02,
