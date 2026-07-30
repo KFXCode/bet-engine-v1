@@ -15,6 +15,7 @@ from data.schedule_provider import get_todays_games
 from data.schedule_provider_wnba import get_todays_wnba_games
 from data.schedule_provider_nfl import get_todays_nfl_games
 from data.schedule_provider_ncaaf import get_todays_ncaaf_games
+from data.schedule_provider_ncaab import get_todays_ncaab_games
 from data.odds_providers import get_odds_provider
 from data.public_betting_provider import get_public_betting_provider
 from data.stats_provider import get_stats_provider
@@ -73,6 +74,8 @@ def _fetch_schedule(sport, date_str):
         return get_todays_nfl_games(date_str)
     if sport == "NCAAF":
         return get_todays_ncaaf_games(date_str)
+    if sport == "NCAAB":
+        return get_todays_ncaab_games(date_str)
     logger.warning("No schedule provider wired for enabled sport %s -- skipping.", sport)
     return []
 
