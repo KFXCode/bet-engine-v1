@@ -13,6 +13,7 @@ import config
 from data.db import Database
 from data.schedule_provider import get_todays_games
 from data.schedule_provider_wnba import get_todays_wnba_games
+from data.schedule_provider_nfl import get_todays_nfl_games
 from data.odds_providers import get_odds_provider
 from data.public_betting_provider import get_public_betting_provider
 from data.stats_provider import get_stats_provider
@@ -60,6 +61,19 @@ LEDGER_CUTOFF = "2026-07-26"  # dates through here come from the verified seed b
 SEED_OVERRIDE_DATES = {"2026-07-29"}
 
 
+def _fetch_schedule(sport, date_str):
+    """One dispatch point per enabled sport. A sport that's off-season simply
+    returns [] here, so nothing else in the pipeline needs season logic."""
+    if sport == "MLB":
+        return get_todays_games(date_str)
+    if sport == "WNBA":
+        return get_todays_wnba_games(date_str)
+    if sport == "NFL":
+        return get_todays_nfl_games(date_str)
+    logger.warning("No schedule provider wired for enabled sport %s -- skipping.", sport)
+    return []
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Run today's betting recommendation pipeline.")
     parser.add_argument("--date", default=None, help="Run as if it were this date (YYYY-MM-DD).")
@@ -74,10 +88,7 @@ def main(argv=None):
 
     games = []
     for sport in config.ENABLED_SPORTS:
-        if sport == "MLB":
-            games.extend(get_todays_games(date_str))
-        elif sport == "WNBA":
-            games.extend(get_todays_wnba_games(date_str))
+        games.extend(_fetch_schedule(sport, date_str))
 
     if args.auto:
         should_run, reason = auto_gate.should_run_now(run_date, date_str, games)
@@ -236,8 +247,7 @@ def main(argv=None):
 
     # Earliest first pitch today -> history_log uses it to allow pre-game
     # refinement (each re-run replaces the slate) but LOCK once games start,
-    # so the final pre-first-pitch state is what's saved -- not a stale
-    # early-morning run, and not a post-game rewrite.
+    # so the final pre-first-pitch state is what's saved.
     first_pitches = [g.game_time_utc for g in games if g.game_time_utc]
     earliest_first_pitch = min(first_pitches) if first_pitches else None
 
@@ -259,8 +269,7 @@ def main(argv=None):
 def _build_history(db, today_str):
     """Past graded slates, newest first -- STRICTLY days before today_str.
     Dates through LEDGER_CUTOFF and any date in SEED_OVERRIDE_DATES come from
-    the verified seed below (their DB rows were contaminated by pre-slate-lock
-    early runs); the DB supplies every other date after the cutoff."""
+    the verified seed below; the DB supplies every other date after the cutoff."""
     seed = [
         {"date": "2026-07-29",
          "parlay": ["TOR ML", "TB ML", "ATL (Gm 2) ML", "BOS ML"],
@@ -313,9 +322,9 @@ def _build_history(db, today_str):
     for r in db.get_graded_history(after=LEDGER_CUTOFF):
         d = r["date"]
         if d >= today_str:
-            continue  # never show today (or future) in History -- only completed past slates
+            continue
         if d in SEED_OVERRIDE_DATES:
-            continue  # verified seed owns this date -- skip contaminated DB rows
+            continue
         if d not in by_date:
             by_date[d] = []
             order.append(d)
@@ -333,8 +342,6 @@ def _build_history(db, today_str):
         parlay_rows = db.get_recommendations_for_date(d, kind="parlay_leg")
         db_days.append({"date": d, "picks": by_date[d],
                         "parlay": [r["side_or_player"] for r in parlay_rows]})
-    # Merge DB days (after cutoff, before today, excluding overrides) with the
-    # seed, newest first.
     all_days = db_days + seed
     all_days.sort(key=lambda x: x["date"], reverse=True)
     return [d for d in all_days if d["date"] < today_str]
