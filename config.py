@@ -62,9 +62,8 @@ TARGET_EDGE_MAX = 0.05
 # Sports covered
 # ---------------------------------------------------------------------------
 # Each sport activates automatically when its schedule opens; off-season it
-# just returns no games. NFL + NCAAF + NCAAB + NHL wired. NBA gets added here
-# when its data files land.
-ENABLED_SPORTS = ["MLB", "WNBA", "NFL", "NCAAF", "NCAAB", "NHL"]
+# just returns no games. All six leagues are wired.
+ENABLED_SPORTS = ["MLB", "WNBA", "NFL", "NCAAF", "NCAAB", "NHL", "NBA"]
 
 DIVERSIFICATION_LOOKBACK_DAYS = 3
 DIVERSIFICATION_EXTRA_EDGE = 0.03
