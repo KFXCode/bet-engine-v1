@@ -7,11 +7,11 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="MLB Picks">
+<meta name="apple-mobile-web-app-title" content="Cover1 Picks">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="icon-192.png">
-<title>MLB Betting Report — 2026-07-30</title>
+<title>Daily Betting Report — 2026-07-30</title>
 <style>
   :root {
     --bg: oklch(0.16 0.012 250);
@@ -34,7 +34,7 @@
     -webkit-tap-highlight-color: transparent;
   }
   .wrap { max-width: 780px; margin: 0 auto; }
-  .header { text-align: center; margin-bottom: 32px; }
+  .header { text-align: center; margin-bottom: 24px; }
   .header h1 { font-size: 22px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin: 0 0 6px; font-weight: 600; }
   .header .date { font-size: 34px; font-weight: 700; margin: 0; }
   .header .updated { font-size: 12px; color: var(--muted); margin: 10px 0 0; display: inline-flex; align-items: center; gap: 6px; }
@@ -52,6 +52,11 @@
   .nobet .big { font-size: 26px; font-weight: 700; color: var(--muted); }
   .nobet .sub { font-size: 14px; color: var(--muted); margin-top: 8px; }
 
+  .tabs { display: flex; gap: 8px; justify-content: flex-start; margin-bottom: 24px; flex-wrap: wrap; }
+  .tab-btn { cursor: pointer; font: inherit; font-weight: 700; font-size: 13px; padding: 8px 16px;
+             border-radius: 999px; border: 1px solid var(--card-border); background: transparent; color: var(--muted); }
+  .tab-btn.active { border-color: var(--accent); background: var(--accent); color: oklch(0.16 0.01 155); }
+
   .play { background: var(--card); border: 1px solid var(--accent-dim); border-radius: 16px;
           padding: 28px; margin-bottom: 20px; position: relative; overflow: hidden; }
   .play::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--accent); }
@@ -61,8 +66,6 @@
   .metrics { display: flex; gap: 28px; margin: 18px 0; flex-wrap: wrap; }
   .metric .num { font-size: 22px; font-weight: 700; font-family: "SF Mono", "Roboto Mono", monospace; }
   .metric .lbl { font-size: 11px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.05em; }
-  .stake { display: inline-block; background: var(--accent); color: oklch(0.16 0.01 155); font-weight: 700;
-           padding: 8px 16px; border-radius: 999px; font-size: 14px; margin-bottom: 16px; }
   .flags { margin-bottom: 12px; }
   .flag { display: inline-block; background: var(--warn-dim); color: var(--warn); border-radius: 8px;
           padding: 6px 10px; font-size: 12px; margin: 2px 6px 2px 0; }
@@ -80,7 +83,7 @@
   .parlay .note { color: var(--muted); font-size: 13px; margin-top: 8px; }
 
   .prop-card { background: var(--card); border: 1px solid var(--card-border); border-radius: 12px;
-               padding: 16px 20px; margin-bottom: 12px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px 16px; }
+               padding: 16px 20px; margin-bottom: 12px; }
   .prop-card .name { font-weight: 700; font-size: 16px; }
   .prop-card .meta { color: var(--muted); font-size: 13px; margin-top: 2px; }
   .prop-card .score { font-size: 24px; font-weight: 800; color: var(--accent); font-family: "SF Mono", "Roboto Mono", monospace; flex-shrink: 0; }
@@ -100,23 +103,23 @@
   .hist-cols .col { flex: 1 1 300px; }
   .hist-cols .col h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0 0 8px; font-weight: 700; }
 
-  .footer-note { text-align: center; color: var(--muted); font-size: 12px; margin-top: 40px; }
+  .sport-tag { font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-dim);
+               padding: 2px 8px; border-radius: 6px; vertical-align: middle; margin-left: 4px; }
+  .leg-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .leg-row .n { color: var(--accent); font-weight: 800; font-size: 13px; }
+  .leg-row .lbl { color: var(--fg); font-size: 15px; font-weight: 600; }
+  .kind-tag { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; border: 1px solid var(--card-border); border-radius: 6px; padding: 1px 6px; }
+
   a { color: var(--accent); }
   a:hover { color: var(--fg); }
 
   @media (max-width: 480px) {
     .header .date { font-size: 28px; }
-    .header h1 { font-size: 18px; }
     .play, .parlay { padding: 20px; }
     .metrics { gap: 14px 22px; }
-    .stake { padding: 7px 14px; }
     .bankroll { padding: 16px; gap: 14px 8px; }
     .bankroll .num { font-size: 17px; }
   }
-</style>
-<style id="__sport_tag_style">
-  .sport-tag { font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-dim);
-               padding: 2px 8px; border-radius: 6px; vertical-align: middle; margin-left: 4px; }
 </style>
 </head>
 <body>
@@ -125,7 +128,7 @@
   <div class="header">
     <h1>Daily Betting Report</h1>
     <p class="date">2026-07-30</p>
-    <p class="updated"><span class="dot"></span>Updated Jul 30, 2026 - 8:47 AM EDT</p>
+    <p class="updated"><span class="dot"></span>Updated Jul 30, 2026 - 9:29 AM EDT</p>
     <div class="strip">
       <div class="item">Slate: <b>13 games</b></div>
       <div class="item">Moon: <b>Waning Gibbous</b> in <b>Aquarius</b></div>
@@ -133,13 +136,6 @@
     </div>
   </div>
 
-  <div class="tabs" style="display:flex; gap:8px; justify-content:center; margin-bottom:24px;">
-    <button id="tab-today" onclick="showView('today')" style="cursor:pointer; font:inherit; font-weight:700; font-size:13px; padding:8px 18px; border-radius:999px; border:1px solid var(--accent); background:var(--accent); color:oklch(0.16 0.01 155);">Today</button>
-    <button id="tab-parlay" onclick="showView('parlay')" style="cursor:pointer; font:inherit; font-weight:700; font-size:13px; padding:8px 18px; border-radius:999px; border:1px solid var(--card-border); background:transparent; color:var(--muted);">Best Parlay</button>
-    <button id="tab-history" onclick="showView('history')" style="cursor:pointer; font:inherit; font-weight:700; font-size:13px; padding:8px 18px; border-radius:999px; border:1px solid var(--card-border); background:transparent; color:var(--muted);">History</button>
-  </div>
-
-  <div id="view-today">
   
   <div class="warnbox">
     <b>Data quality warnings</b>
@@ -150,214 +146,249 @@
   
 
   
-    
-    
-    <div class="play">
-      <div class="label">Rank #1 &middot; Confidence <span style="color:var(--accent);">9/10</span></div>
-      <div class="team">PIT <span class="sport-tag">MLB</span> ML <span class="odds">(-112)</span></div>
-      <div class="metrics">
-        <div class="metric"><div class="num">7.2%</div><div class="lbl">Edge</div></div>
-        <div class="metric"><div class="num">58.1%</div><div class="lbl">Model win%</div></div>
-        <div class="metric"><div class="num">50.9%</div><div class="lbl">Market win%</div></div>
-      </div>
-      <div class="flags">
-        
-        
-      </div>
-      <div class="why">
-        <div class="why-title">Why this clears every layer:</div>
-        <ul>
-          <li>Pythagorean win%: home 0.433 vs away 0.531 (away the deeper team)</li><li>Starter ERA: Rhett Lowder 5.61 vs Yohan Ramírez 3.21 -> edge to away starter</li><li>Statcast/FanGraphs data unavailable today -- neutral.</li><li>games back: home 16.5 vs away 12.5; streak: home -1 vs away -2</li><li>Tickets 50% home / Handle 50% home -> no split</li><li>park run factor 110; rest: home 1d, away 1d</li><li>Waning Gibbous (99% illuminated), Moon in Aquarius (air sign) -> underdog lean</li><li>Date reduces to 2 -> underdog lean</li>
-        </ul>
-      </div>
-    </div>
-    
-    
-    <div class="play">
-      <div class="label">Rank #2 &middot; Confidence <span style="color:var(--accent);">9/10</span></div>
-      <div class="team">TB <span class="sport-tag">MLB</span> ML <span class="odds">(-158)</span></div>
-      <div class="metrics">
-        <div class="metric"><div class="num">6.8%</div><div class="lbl">Edge</div></div>
-        <div class="metric"><div class="num">65.7%</div><div class="lbl">Model win%</div></div>
-        <div class="metric"><div class="num">58.9%</div><div class="lbl">Market win%</div></div>
-      </div>
-      <div class="flags">
-        
-        
-      </div>
-      <div class="why">
-        <div class="why-title">Why this clears every layer:</div>
-        <ul>
-          <li>Pythagorean win%: home 0.542 vs away 0.479 (home the deeper team)</li><li>Starter ERA: Shane McClanahan 3.09 vs Cole Winn 6.11 -> edge to home starter</li><li>Statcast/FanGraphs data unavailable today -- neutral.</li><li>games back: home 0.0 vs away 0.0; streak: home +1 vs away -1</li><li>Tickets 50% home / Handle 50% home -> no split</li><li>park run factor 91; rest: home 1d, away 1d</li><li>Waning Gibbous (99% illuminated), Moon in Aquarius (air sign) -> underdog lean</li><li>Date reduces to 2 -> underdog lean</li>
-        </ul>
-      </div>
-    </div>
-    
-    
-    <div class="play">
-      <div class="label">Rank #3 &middot; Confidence <span style="color:var(--accent);">8/10</span></div>
-      <div class="team">ATL <span class="sport-tag">MLB</span> ML <span class="odds">(-146)</span></div>
-      <div class="metrics">
-        <div class="metric"><div class="num">5.6%</div><div class="lbl">Edge</div></div>
-        <div class="metric"><div class="num">62.7%</div><div class="lbl">Model win%</div></div>
-        <div class="metric"><div class="num">57.1%</div><div class="lbl">Market win%</div></div>
-      </div>
-      <div class="flags">
-        
-        
-      </div>
-      <div class="why">
-        <div class="why-title">Why this clears every layer:</div>
-        <ul>
-          <li>Pythagorean win%: home 0.591 vs away 0.522 (home the deeper team)</li><li>Starter ERA: Grant Holmes 3.79 vs Jake Irvin 5.23 -> edge to home starter</li><li>Statcast/FanGraphs data unavailable today -- neutral.</li><li>games back: home 0.0 vs away 8.5; streak: home +1 vs away -1</li><li>Tickets 50% home / Handle 50% home -> no split</li><li>park run factor 101; rest: home 1d, away 1d</li><li>Waning Gibbous (99% illuminated), Moon in Aquarius (air sign) -> underdog lean</li><li>Date reduces to 2 -> underdog lean</li>
-        </ul>
-      </div>
-    </div>
-    
-    
-    <div class="play">
-      <div class="label">Rank #4 &middot; Confidence <span style="color:var(--accent);">5/10</span></div>
-      <div class="team">CWS <span class="sport-tag">MLB</span> ML <span class="odds">(-116)</span></div>
-      <div class="metrics">
-        <div class="metric"><div class="num">2.8%</div><div class="lbl">Edge</div></div>
-        <div class="metric"><div class="num">54.4%</div><div class="lbl">Model win%</div></div>
-        <div class="metric"><div class="num">51.5%</div><div class="lbl">Market win%</div></div>
-      </div>
-      <div class="flags">
-        
-        
-      </div>
-      <div class="why">
-        <div class="why-title">Why this clears every layer:</div>
-        <ul>
-          <li>Pythagorean win%: home 0.539 vs away 0.587 (away the deeper team)</li><li>Starter ERA: Sean Burke 3.19 vs Ryan Weathers 4.25 -> edge to home starter</li><li>Statcast/FanGraphs data unavailable today -- neutral.</li><li>games back: home 0.0 vs away 2.5; streak: home +1 vs away -1</li><li>Tickets 50% home / Handle 50% home -> no split</li><li>park run factor 102; rest: home 1d, away 1d</li><li>Waning Gibbous (99% illuminated), Moon in Aquarius (air sign) -> underdog lean</li><li>Date reduces to 2 -> underdog lean</li>
-        </ul>
-      </div>
-    </div>
-    
-  
 
-  
-
-  <div class="section-title">HR Props</div>
-  
+  <div class="tabs">
     
-    <div class="prop-card" style="flex-direction:column; align-items:stretch;">
-      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px 16px; width:100%;">
-        <div>
-          <div class="name">Dominic Canzone to hit a HR <span style="color:var(--muted); font-weight:400;">(SEA)</span></div>
-          <div class="meta">vs Roki Sasaki &middot; <span style="color:var(--muted);">odds n/a</span></div>
-        </div>
-        <div style="text-align:right; flex-shrink:0;">
-          <div class="score">8/10</div>
-          <div style="font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em;">Rank #1</div>
-        </div>
-      </div>
-      <div class="why" style="margin-top:12px;">
-        <div class="why-title">Full breakdown &mdash; why this HR was chosen:</div>
-        <ul>
-          <li>[Contact] Strong 14.5% barrel rate (12%+).</li><li>[Contact] High avg exit velo 92.2 mph (92+).</li><li>[Contact] Big raw-power ceiling: 114.7 mph max EV.</li><li>[Contact] Elite 47.3% hard-hit rate.</li><li>[Contact] Elite xwOBA 0.373 (true-talent contact).</li><li>[Park] Big HR park (factor 120).</li><li>[Weather] 72°F, wind 7 mph blowing OUT -- HR BOOST.</li><li>[Matchup] Roki Sasaki is very HR-prone: 1.93 HR/9.</li><li>[Pitcher] Below-average starter (FIP/ERA 4.71).</li><li>[Confirm] 18 HR this season (in the top-20 pool).</li><li>[Signal Cluster] 4/4 predictive categories are strong (60%+). Need 3+ for a full-confluence STRONG play.</li><li>NOTE: starting lineup not posted yet -- confirm this player is actually in today's lineup.</li><li>FINAL HR SCORE: 79.3/100 (weighted across all 5 categories).</li>
-        </ul>
-      </div>
-    </div>
+    <button class="tab-btn" data-target="view-MLB" onclick="showView(this)">MLB</button>
     
-    <div class="prop-card" style="flex-direction:column; align-items:stretch;">
-      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px 16px; width:100%;">
-        <div>
-          <div class="name">James Wood to hit a HR <span style="color:var(--muted); font-weight:400;">(WSH)</span></div>
-          <div class="meta">vs Grant Holmes &middot; <span style="color:var(--muted);">odds n/a</span></div>
-        </div>
-        <div style="text-align:right; flex-shrink:0;">
-          <div class="score">7/10</div>
-          <div style="font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em;">Rank #2</div>
-        </div>
-      </div>
-      <div class="why" style="margin-top:12px;">
-        <div class="why-title">Full breakdown &mdash; why this HR was chosen:</div>
-        <ul>
-          <li>[Contact] ELITE 21.8% barrel rate (15%+).</li><li>[Contact] High avg exit velo 95.2 mph (92+).</li><li>[Contact] Big raw-power ceiling: 116.3 mph max EV.</li><li>[Contact] Elite 58.7% hard-hit rate.</li><li>[Contact] Elite xwOBA 0.423 (true-talent contact).</li><li>[Park] Neutral park (factor 103).</li><li>[Weather] Hot: 88°F -- ball carries.</li><li>[Weather] 88°F, wind 8 mph (neutral).</li><li>[Matchup] Grant Holmes allows plenty of HRs: 1.39 HR/9.</li><li>[Pitcher] Average starter (FIP/ERA 3.79).</li><li>[Confirm] Elite season power: 30 HR.</li><li>[Signal Cluster] 3/4 predictive categories are strong (60%+). Need 3+ for a full-confluence STRONG play.</li><li>NOTE: starting lineup not posted yet -- confirm this player is actually in today's lineup.</li><li>FINAL HR SCORE: 71.8/100 (weighted across all 5 categories).</li>
-        </ul>
-      </div>
-    </div>
+    <button class="tab-btn" data-target="view-WNBA" onclick="showView(this)">WNBA</button>
     
-    <div class="prop-card" style="flex-direction:column; align-items:stretch;">
-      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px 16px; width:100%;">
-        <div>
-          <div class="name">Jac Caglianone to hit a HR <span style="color:var(--muted); font-weight:400;">(KC)</span></div>
-          <div class="meta">vs Bailey Ober &middot; <span style="color:var(--muted);">odds n/a</span></div>
-        </div>
-        <div style="text-align:right; flex-shrink:0;">
-          <div class="score">7/10</div>
-          <div style="font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em;">Rank #3</div>
-        </div>
-      </div>
-      <div class="why" style="margin-top:12px;">
-        <div class="why-title">Full breakdown &mdash; why this HR was chosen:</div>
-        <ul>
-          <li>[Contact] Strong 14.9% barrel rate (12%+).</li><li>[Contact] High avg exit velo 93.0 mph (92+).</li><li>[Contact] Big raw-power ceiling: 116.1 mph max EV.</li><li>[Contact] Elite 55.4% hard-hit rate.</li><li>[Park] Neutral park (factor 100).</li><li>[Weather] Warm: 85°F.</li><li>[Weather] 85°F, wind 10 mph blowing OUT -- HR BOOST.</li><li>[Matchup] Bailey Ober allows plenty of HRs: 1.44 HR/9.</li><li>[Pitcher] Below-average starter (FIP/ERA 4.56).</li><li>[Confirm] 16 HR this season (in the top-20 pool).</li><li>[Signal Cluster] 4/4 predictive categories are strong (60%+). Need 3+ for a full-confluence STRONG play.</li><li>NOTE: starting lineup not posted yet -- confirm this player is actually in today's lineup.</li><li>FINAL HR SCORE: 70.7/100 (weighted across all 5 categories).</li>
-        </ul>
-      </div>
-    </div>
-    
-  
-
-  
-  <div class="section-title">Considered &amp; Dropped</div>
-  <div class="dropped">
-    <ul>
-      <li>BOS (BOS @ OAK): skipped -- played in the last 3 day(s) and didn't clear the stricter re-confirmation bar.</li>
-    </ul>
-  </div>
-  
-
-  
-  <div class="bankroll">
-    <div class="col"><div class="num">18-10</div><div class="lbl">Moneyline Record</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">Since 2026-07-24</div></div>
-    <div class="col"><div class="num">4-14</div><div class="lbl">HR Prop Record</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">Since 2026-07-24</div></div>
-    <div class="col"><div class="num" style="color:var(--fg);">--</div><div class="lbl">Avg CLV (ML)</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">building sample</div></div>
-  </div>
-  
+    <button class="tab-btn" data-target="view-top" onclick="showView(this)">TOP PARLAY</button>
+    <button class="tab-btn" data-target="view-history" onclick="showView(this)">HISTORY</button>
   </div>
 
-  <div id="view-parlay" style="display:none;">
-    <div class="section-title">Best Parlay of the Day</div>
+  <!-- ============ PER-SPORT PANELS ============ -->
+  
+  
+  <div class="view-panel" id="view-MLB" style="display:none;">
+
+    <div class="section-title">MLB &middot; Today's Moneyline Picks</div>
+    
+      
+      
+      <div class="play">
+        <div class="label">Rank #1 &middot; Confidence <span style="color:var(--accent);">9/10</span></div>
+        <div class="team">PIT <span class="sport-tag">MLB</span> ML <span class="odds">(-112)</span></div>
+        <div class="metrics">
+          <div class="metric"><div class="num">7.2%</div><div class="lbl">Edge</div></div>
+          <div class="metric"><div class="num">58.1%</div><div class="lbl">Model win%</div></div>
+          <div class="metric"><div class="num">50.9%</div><div class="lbl">Market win%</div></div>
+        </div>
+        <div class="flags">
+          
+          
+        </div>
+        <div class="why">
+          <div class="why-title">Why this clears every layer:</div>
+          <ul>
+            <li>Pythagorean win%: home 0.433 vs away 0.531 (away the deeper team)</li><li>Starter ERA: Rhett Lowder 5.61 vs Yohan Ramírez 3.21 -> edge to away starter</li><li>Statcast/FanGraphs data unavailable today -- neutral.</li><li>games back: home 16.5 vs away 12.5; streak: home -1 vs away -2</li><li>Tickets 50% home / Handle 50% home -> no split</li><li>park run factor 110; rest: home 1d, away 1d</li><li>Waning Gibbous (99% illuminated), Moon in Aquarius (air sign) -> underdog lean</li><li>Date reduces to 2 -> underdog lean</li>
+          </ul>
+        </div>
+      </div>
+      
+      
+      <div class="play">
+        <div class="label">Rank #2 &middot; Confidence <span style="color:var(--accent);">9/10</span></div>
+        <div class="team">TB <span class="sport-tag">MLB</span> ML <span class="odds">(-166)</span></div>
+        <div class="metrics">
+          <div class="metric"><div class="num">6.8%</div><div class="lbl">Edge</div></div>
+          <div class="metric"><div class="num">66.8%</div><div class="lbl">Model win%</div></div>
+          <div class="metric"><div class="num">60.0%</div><div class="lbl">Market win%</div></div>
+        </div>
+        <div class="flags">
+          
+          
+        </div>
+        <div class="why">
+          <div class="why-title">Why this clears every layer:</div>
+          <ul>
+            <li>Pythagorean win%: home 0.542 vs away 0.479 (home the deeper team)</li><li>Starter ERA: Shane McClanahan 3.09 vs Cole Winn 6.11 -> edge to home starter</li><li>Statcast/FanGraphs data unavailable today -- neutral.</li><li>games back: home 0.0 vs away 0.0; streak: home +1 vs away -1</li><li>Tickets 50% home / Handle 50% home -> no split</li><li>park run factor 91; rest: home 1d, away 1d</li><li>Waning Gibbous (99% illuminated), Moon in Aquarius (air sign) -> underdog lean</li><li>Date reduces to 2 -> underdog lean</li>
+          </ul>
+        </div>
+      </div>
+      
+      
+      <div class="play">
+        <div class="label">Rank #3 &middot; Confidence <span style="color:var(--accent);">8/10</span></div>
+        <div class="team">ATL <span class="sport-tag">MLB</span> ML <span class="odds">(-146)</span></div>
+        <div class="metrics">
+          <div class="metric"><div class="num">5.6%</div><div class="lbl">Edge</div></div>
+          <div class="metric"><div class="num">62.7%</div><div class="lbl">Model win%</div></div>
+          <div class="metric"><div class="num">57.1%</div><div class="lbl">Market win%</div></div>
+        </div>
+        <div class="flags">
+          
+          
+        </div>
+        <div class="why">
+          <div class="why-title">Why this clears every layer:</div>
+          <ul>
+            <li>Pythagorean win%: home 0.591 vs away 0.522 (home the deeper team)</li><li>Starter ERA: Grant Holmes 3.79 vs Jake Irvin 5.23 -> edge to home starter</li><li>Statcast/FanGraphs data unavailable today -- neutral.</li><li>games back: home 0.0 vs away 8.5; streak: home +1 vs away -1</li><li>Tickets 50% home / Handle 50% home -> no split</li><li>park run factor 101; rest: home 1d, away 1d</li><li>Waning Gibbous (99% illuminated), Moon in Aquarius (air sign) -> underdog lean</li><li>Date reduces to 2 -> underdog lean</li>
+          </ul>
+        </div>
+      </div>
+      
+      
+      <div class="play">
+        <div class="label">Rank #4 &middot; Confidence <span style="color:var(--accent);">5/10</span></div>
+        <div class="team">CWS <span class="sport-tag">MLB</span> ML <span class="odds">(-116)</span></div>
+        <div class="metrics">
+          <div class="metric"><div class="num">2.8%</div><div class="lbl">Edge</div></div>
+          <div class="metric"><div class="num">54.4%</div><div class="lbl">Model win%</div></div>
+          <div class="metric"><div class="num">51.5%</div><div class="lbl">Market win%</div></div>
+        </div>
+        <div class="flags">
+          
+          
+        </div>
+        <div class="why">
+          <div class="why-title">Why this clears every layer:</div>
+          <ul>
+            <li>Pythagorean win%: home 0.539 vs away 0.587 (away the deeper team)</li><li>Starter ERA: Sean Burke 3.19 vs Ryan Weathers 4.25 -> edge to home starter</li><li>Statcast/FanGraphs data unavailable today -- neutral.</li><li>games back: home 0.0 vs away 2.5; streak: home +1 vs away -1</li><li>Tickets 50% home / Handle 50% home -> no split</li><li>park run factor 102; rest: home 1d, away 1d</li><li>Waning Gibbous (99% illuminated), Moon in Aquarius (air sign) -> underdog lean</li><li>Date reduces to 2 -> underdog lean</li>
+          </ul>
+        </div>
+      </div>
+      
+    
+
+    
+    <div class="section-title">HR Props</div>
+    
+      
+      <div class="prop-card" style="display:flex; flex-direction:column; align-items:stretch;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px 16px; width:100%;">
+          <div>
+            <div class="name">Dominic Canzone to hit a HR <span style="color:var(--muted); font-weight:400;">(SEA)</span></div>
+            <div class="meta">vs Roki Sasaki &middot; <span style="color:var(--muted);">odds n/a</span></div>
+          </div>
+          <div style="text-align:right; flex-shrink:0;">
+            <div class="score">8/10</div>
+            <div style="font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em;">Rank #1</div>
+          </div>
+        </div>
+        <div class="why" style="margin-top:12px;">
+          <div class="why-title">Full breakdown &mdash; why this HR was chosen:</div>
+          <ul>
+            <li>[Contact] Strong 14.5% barrel rate (12%+).</li><li>[Contact] High avg exit velo 92.2 mph (92+).</li><li>[Contact] Big raw-power ceiling: 114.7 mph max EV.</li><li>[Contact] Elite 47.3% hard-hit rate.</li><li>[Contact] Elite xwOBA 0.373 (true-talent contact).</li><li>[Park] Big HR park (factor 120).</li><li>[Weather] 72°F, wind 7 mph blowing OUT -- HR BOOST.</li><li>[Matchup] Roki Sasaki is very HR-prone: 1.93 HR/9.</li><li>[Pitcher] Below-average starter (FIP/ERA 4.71).</li><li>[Confirm] 18 HR this season (in the top-20 pool).</li><li>[Signal Cluster] 4/4 predictive categories are strong (60%+). Need 3+ for a full-confluence STRONG play.</li><li>NOTE: starting lineup not posted yet -- confirm this player is actually in today's lineup.</li><li>FINAL HR SCORE: 79.3/100 (weighted across all 5 categories).</li>
+          </ul>
+        </div>
+      </div>
+      
+      <div class="prop-card" style="display:flex; flex-direction:column; align-items:stretch;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px 16px; width:100%;">
+          <div>
+            <div class="name">James Wood to hit a HR <span style="color:var(--muted); font-weight:400;">(WSH)</span></div>
+            <div class="meta">vs Grant Holmes &middot; <span style="color:var(--muted);">odds n/a</span></div>
+          </div>
+          <div style="text-align:right; flex-shrink:0;">
+            <div class="score">7/10</div>
+            <div style="font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em;">Rank #2</div>
+          </div>
+        </div>
+        <div class="why" style="margin-top:12px;">
+          <div class="why-title">Full breakdown &mdash; why this HR was chosen:</div>
+          <ul>
+            <li>[Contact] ELITE 21.8% barrel rate (15%+).</li><li>[Contact] High avg exit velo 95.2 mph (92+).</li><li>[Contact] Big raw-power ceiling: 116.3 mph max EV.</li><li>[Contact] Elite 58.7% hard-hit rate.</li><li>[Contact] Elite xwOBA 0.423 (true-talent contact).</li><li>[Park] Neutral park (factor 103).</li><li>[Weather] Hot: 88°F -- ball carries.</li><li>[Weather] 88°F, wind 8 mph (neutral).</li><li>[Matchup] Grant Holmes allows plenty of HRs: 1.39 HR/9.</li><li>[Pitcher] Average starter (FIP/ERA 3.79).</li><li>[Confirm] Elite season power: 30 HR.</li><li>[Signal Cluster] 3/4 predictive categories are strong (60%+). Need 3+ for a full-confluence STRONG play.</li><li>NOTE: starting lineup not posted yet -- confirm this player is actually in today's lineup.</li><li>FINAL HR SCORE: 71.8/100 (weighted across all 5 categories).</li>
+          </ul>
+        </div>
+      </div>
+      
+      <div class="prop-card" style="display:flex; flex-direction:column; align-items:stretch;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px 16px; width:100%;">
+          <div>
+            <div class="name">Jac Caglianone to hit a HR <span style="color:var(--muted); font-weight:400;">(KC)</span></div>
+            <div class="meta">vs Bailey Ober &middot; <span style="color:var(--muted);">odds n/a</span></div>
+          </div>
+          <div style="text-align:right; flex-shrink:0;">
+            <div class="score">7/10</div>
+            <div style="font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em;">Rank #3</div>
+          </div>
+        </div>
+        <div class="why" style="margin-top:12px;">
+          <div class="why-title">Full breakdown &mdash; why this HR was chosen:</div>
+          <ul>
+            <li>[Contact] Strong 14.9% barrel rate (12%+).</li><li>[Contact] High avg exit velo 93.0 mph (92+).</li><li>[Contact] Big raw-power ceiling: 116.1 mph max EV.</li><li>[Contact] Elite 55.4% hard-hit rate.</li><li>[Park] Neutral park (factor 100).</li><li>[Weather] Warm: 85°F.</li><li>[Weather] 85°F, wind 10 mph blowing OUT -- HR BOOST.</li><li>[Matchup] Bailey Ober allows plenty of HRs: 1.44 HR/9.</li><li>[Pitcher] Below-average starter (FIP/ERA 4.56).</li><li>[Confirm] 16 HR this season (in the top-20 pool).</li><li>[Signal Cluster] 4/4 predictive categories are strong (60%+). Need 3+ for a full-confluence STRONG play.</li><li>NOTE: starting lineup not posted yet -- confirm this player is actually in today's lineup.</li><li>FINAL HR SCORE: 70.7/100 (weighted across all 5 categories).</li>
+          </ul>
+        </div>
+      </div>
+      
+    
+    
+
+    <div class="section-title">MLB &middot; Best Parlay</div>
+    
     
     <div class="parlay">
-      <div class="legs">4-Leg Parlay</div>
-      <div class="odds">Combined: +870 &middot; 13.0% est. win probability</div>
+      <div class="legs">4-Leg MLB Parlay</div>
+      <div class="odds">Combined: +852 &middot; 13.2% est. win probability</div>
       <div style="margin-top:14px;">
         
-        <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-          <span style="color:var(--accent); font-weight:800; font-size:13px;">Leg 1</span>
-          <span style="color:var(--fg); font-size:15px; font-weight:600;">PIT ML (-112)</span>
-          <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">ML</span>
-        </div>
+        <div class="leg-row"><span class="n">Leg 1</span><span class="lbl">PIT ML (-112)</span><span class="kind-tag">ML</span></div>
         
-        <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-          <span style="color:var(--accent); font-weight:800; font-size:13px;">Leg 2</span>
-          <span style="color:var(--fg); font-size:15px; font-weight:600;">TB ML (-158)</span>
-          <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">ML</span>
-        </div>
+        <div class="leg-row"><span class="n">Leg 2</span><span class="lbl">TB ML (-166)</span><span class="kind-tag">ML</span></div>
         
-        <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-          <span style="color:var(--accent); font-weight:800; font-size:13px;">Leg 3</span>
-          <span style="color:var(--fg); font-size:15px; font-weight:600;">ATL ML (-146)</span>
-          <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">ML</span>
-        </div>
+        <div class="leg-row"><span class="n">Leg 3</span><span class="lbl">ATL ML (-146)</span><span class="kind-tag">ML</span></div>
         
-        <div style="display:flex; align-items:center; gap:10px; ">
-          <span style="color:var(--accent); font-weight:800; font-size:13px;">Leg 4</span>
-          <span style="color:var(--fg); font-size:15px; font-weight:600;">CWS ML (-116)</span>
-          <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">ML</span>
-        </div>
+        <div class="leg-row"><span class="n">Leg 4</span><span class="lbl">CWS ML (-116)</span><span class="kind-tag">ML</span></div>
         
       </div>
-      <div class="note">Flat 1 unit. Built from the highest-confidence moneyline + HR legs the system graded today (totals/spreads/RBI/first-5 legs coming once their edge models are built).</div>
+      <div class="note">Flat 1 unit. Built only from MLB legs the system graded today.</div>
+    </div>
+    
+
+  </div>
+  
+  
+  <div class="view-panel" id="view-WNBA" style="display:none;">
+
+    <div class="section-title">WNBA &middot; Today's Moneyline Picks</div>
+    
+      <div class="dropped">No WNBA moneyline play cleared a real edge today.</div>
+    
+
+    
+
+    <div class="section-title">WNBA &middot; Best Parlay</div>
+    
+    
+    <div class="dropped">No WNBA parlay today &mdash; fewer than 2 WNBA legs cleared the confidence bar.</div>
+    
+
+  </div>
+  
+
+  <!-- ============ TOP PARLAY (cross-sport) ============ -->
+  <div class="view-panel" id="view-top" style="display:none;">
+    <div class="section-title">Top Parlay of the Day &middot; all sports combined</div>
+    
+    <div class="parlay">
+      <div class="legs">4-Leg Top Parlay</div>
+      <div class="odds">Combined: +852 &middot; 13.2% est. win probability</div>
+      <div style="margin-top:14px;">
+        
+        <div class="leg-row"><span class="n">Leg 1</span><span class="lbl">PIT ML (-112)</span><span class="kind-tag">ML</span></div>
+        
+        <div class="leg-row"><span class="n">Leg 2</span><span class="lbl">TB ML (-166)</span><span class="kind-tag">ML</span></div>
+        
+        <div class="leg-row"><span class="n">Leg 3</span><span class="lbl">ATL ML (-146)</span><span class="kind-tag">ML</span></div>
+        
+        <div class="leg-row"><span class="n">Leg 4</span><span class="lbl">CWS ML (-116)</span><span class="kind-tag">ML</span></div>
+        
+      </div>
+      <div class="note">Flat 1 unit. The single strongest ticket across every active sport &mdash; any mix of leagues and props the system rates highest today.</div>
     </div>
     
   </div>
 
-  <div id="view-history" style="display:none;">
+  <!-- ============ HISTORY (combined ledger) ============ -->
+  <div class="view-panel" id="view-history" style="display:none;">
+    
+    <div class="bankroll" style="margin-top:0;">
+      <div class="col"><div class="num">18-10</div><div class="lbl">Moneyline Record</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">Since 2026-07-24</div></div>
+      <div class="col"><div class="num">4-14</div><div class="lbl">HR Prop Record</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">Since 2026-07-24</div></div>
+      <div class="col"><div class="num" style="color:var(--fg);">--</div><div class="lbl">Avg CLV (ML)</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">building sample</div></div>
+    </div>
+    
     
       
       <div class="hist-day">
@@ -375,43 +406,43 @@
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">TOR ML</span>
-                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">ML</span>
+                <span class="kind-tag">ML</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">TB ML</span>
-                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">ML</span>
+                <span class="kind-tag">ML</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">ATL (Gm 2) ML</span>
-                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">ML</span>
+                <span class="kind-tag">ML</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">BOS ML</span>
-                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">ML</span>
+                <span class="kind-tag">ML</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Max Muncy to hit a HR</span>
-                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">HR</span>
+                <span class="kind-tag">HR</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Kazuma Okamoto to hit a HR</span>
-                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">HR</span>
+                <span class="kind-tag">HR</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; ">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">James Wood to hit a HR</span>
-                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">HR</span>
+                <span class="kind-tag">HR</span>
               </div>
               
             </div>
@@ -421,25 +452,13 @@
             <div class="dropped" style="margin-bottom:0; border-style:dashed; border-color:var(--accent);">
               
                 
-                <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-                  <span style="color:var(--accent); font-weight:800; font-size:12px;">Leg 1</span>
-                  <span style="color:var(--fg); font-size:14px; font-weight:600;">TOR ML</span>
-                </div>
+                <div class="leg-row" style="margin-bottom:10px;"><span class="n" style="font-size:12px;">Leg 1</span><span class="lbl" style="font-size:14px;">TOR ML</span></div>
                 
-                <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-                  <span style="color:var(--accent); font-weight:800; font-size:12px;">Leg 2</span>
-                  <span style="color:var(--fg); font-size:14px; font-weight:600;">TB ML</span>
-                </div>
+                <div class="leg-row" style="margin-bottom:10px;"><span class="n" style="font-size:12px;">Leg 2</span><span class="lbl" style="font-size:14px;">TB ML</span></div>
                 
-                <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-                  <span style="color:var(--accent); font-weight:800; font-size:12px;">Leg 3</span>
-                  <span style="color:var(--fg); font-size:14px; font-weight:600;">ATL (Gm 2) ML</span>
-                </div>
+                <div class="leg-row" style="margin-bottom:10px;"><span class="n" style="font-size:12px;">Leg 3</span><span class="lbl" style="font-size:14px;">ATL (Gm 2) ML</span></div>
                 
-                <div style="display:flex; align-items:center; gap:10px; ">
-                  <span style="color:var(--accent); font-weight:800; font-size:12px;">Leg 4</span>
-                  <span style="color:var(--fg); font-size:14px; font-weight:600;">BOS ML</span>
-                </div>
+                <div class="leg-row" style="margin-bottom:0;"><span class="n" style="font-size:12px;">Leg 4</span><span class="lbl" style="font-size:14px;">BOS ML</span></div>
                 
               
             </div>
@@ -462,49 +481,49 @@
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">SD ML (-200)</span>
-                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">ML</span>
+                <span class="kind-tag">ML</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">DET ML (-144)</span>
-                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">ML</span>
+                <span class="kind-tag">ML</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">MIA ML (-110)</span>
-                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">ML</span>
+                <span class="kind-tag">ML</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">CIN ML (-162)</span>
-                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">ML</span>
+                <span class="kind-tag">ML</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">MIL ML (-148)</span>
-                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">ML</span>
+                <span class="kind-tag">ML</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Sal Stewart to hit a HR</span>
-                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">HR</span>
+                <span class="kind-tag">HR</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">James Wood to hit a HR</span>
-                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">HR</span>
+                <span class="kind-tag">HR</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; ">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Sal Stewart to hit a HR</span>
-                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">HR</span>
+                <span class="kind-tag">HR</span>
               </div>
               
             </div>
@@ -514,25 +533,13 @@
             <div class="dropped" style="margin-bottom:0; border-style:dashed; border-color:var(--accent);">
               
                 
-                <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-                  <span style="color:var(--accent); font-weight:800; font-size:12px;">Leg 1</span>
-                  <span style="color:var(--fg); font-size:14px; font-weight:600;">SD ML (-200)</span>
-                </div>
+                <div class="leg-row" style="margin-bottom:10px;"><span class="n" style="font-size:12px;">Leg 1</span><span class="lbl" style="font-size:14px;">SD ML (-200)</span></div>
                 
-                <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-                  <span style="color:var(--accent); font-weight:800; font-size:12px;">Leg 2</span>
-                  <span style="color:var(--fg); font-size:14px; font-weight:600;">DET ML (-144)</span>
-                </div>
+                <div class="leg-row" style="margin-bottom:10px;"><span class="n" style="font-size:12px;">Leg 2</span><span class="lbl" style="font-size:14px;">DET ML (-144)</span></div>
                 
-                <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-                  <span style="color:var(--accent); font-weight:800; font-size:12px;">Leg 3</span>
-                  <span style="color:var(--fg); font-size:14px; font-weight:600;">MIA ML (-110)</span>
-                </div>
+                <div class="leg-row" style="margin-bottom:10px;"><span class="n" style="font-size:12px;">Leg 3</span><span class="lbl" style="font-size:14px;">MIA ML (-110)</span></div>
                 
-                <div style="display:flex; align-items:center; gap:10px; ">
-                  <span style="color:var(--accent); font-weight:800; font-size:12px;">Leg 4</span>
-                  <span style="color:var(--fg); font-size:14px; font-weight:600;">CIN ML (-162)</span>
-                </div>
+                <div class="leg-row" style="margin-bottom:0;"><span class="n" style="font-size:12px;">Leg 4</span><span class="lbl" style="font-size:14px;">CIN ML (-162)</span></div>
                 
               
             </div>
@@ -555,49 +562,49 @@
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">BOS ML (-178)</span>
-                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">ML</span>
+                <span class="kind-tag">ML</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">WSH ML (-122)</span>
-                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">ML</span>
+                <span class="kind-tag">ML</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">LAA ML (+100)</span>
-                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">ML</span>
+                <span class="kind-tag">ML</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">NYY ML (-146)</span>
-                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">ML</span>
+                <span class="kind-tag">ML</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">CIN ML (-168)</span>
-                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">ML</span>
+                <span class="kind-tag">ML</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Dominic Canzone to hit a HR</span>
-                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">HR</span>
+                <span class="kind-tag">HR</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Luke Raley to hit a HR</span>
-                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">HR</span>
+                <span class="kind-tag">HR</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; ">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Elly De La Cruz to hit a HR</span>
-                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">HR</span>
+                <span class="kind-tag">HR</span>
               </div>
               
             </div>
@@ -607,25 +614,13 @@
             <div class="dropped" style="margin-bottom:0; border-style:dashed; border-color:var(--accent);">
               
                 
-                <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-                  <span style="color:var(--accent); font-weight:800; font-size:12px;">Leg 1</span>
-                  <span style="color:var(--fg); font-size:14px; font-weight:600;">BOS ML (-178)</span>
-                </div>
+                <div class="leg-row" style="margin-bottom:10px;"><span class="n" style="font-size:12px;">Leg 1</span><span class="lbl" style="font-size:14px;">BOS ML (-178)</span></div>
                 
-                <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-                  <span style="color:var(--accent); font-weight:800; font-size:12px;">Leg 2</span>
-                  <span style="color:var(--fg); font-size:14px; font-weight:600;">WSH ML (-122)</span>
-                </div>
+                <div class="leg-row" style="margin-bottom:10px;"><span class="n" style="font-size:12px;">Leg 2</span><span class="lbl" style="font-size:14px;">WSH ML (-122)</span></div>
                 
-                <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-                  <span style="color:var(--accent); font-weight:800; font-size:12px;">Leg 3</span>
-                  <span style="color:var(--fg); font-size:14px; font-weight:600;">LAA ML (+100)</span>
-                </div>
+                <div class="leg-row" style="margin-bottom:10px;"><span class="n" style="font-size:12px;">Leg 3</span><span class="lbl" style="font-size:14px;">LAA ML (+100)</span></div>
                 
-                <div style="display:flex; align-items:center; gap:10px; ">
-                  <span style="color:var(--accent); font-weight:800; font-size:12px;">Leg 4</span>
-                  <span style="color:var(--fg); font-size:14px; font-weight:600;">NYY ML (-146)</span>
-                </div>
+                <div class="leg-row" style="margin-bottom:0;"><span class="n" style="font-size:12px;">Leg 4</span><span class="lbl" style="font-size:14px;">NYY ML (-146)</span></div>
                 
               
             </div>
@@ -648,49 +643,49 @@
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">BOS ML (-112)</span>
-                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">ML</span>
+                <span class="kind-tag">ML</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">MIL ML (-238)</span>
-                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">ML</span>
+                <span class="kind-tag">ML</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">CWS ML (+109)</span>
-                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">ML</span>
+                <span class="kind-tag">ML</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">MIN ML</span>
-                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">ML</span>
+                <span class="kind-tag">ML</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">ARI ML (+102)</span>
-                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">ML</span>
+                <span class="kind-tag">ML</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Pete Alonso to hit a HR (+280)</span>
-                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">HR</span>
+                <span class="kind-tag">HR</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Dominic Canzone to hit a HR</span>
-                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">HR</span>
+                <span class="kind-tag">HR</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; ">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Brandon Nimmo to hit a HR</span>
-                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">HR</span>
+                <span class="kind-tag">HR</span>
               </div>
               
             </div>
@@ -700,25 +695,13 @@
             <div class="dropped" style="margin-bottom:0; border-style:dashed; border-color:var(--accent);">
               
                 
-                <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-                  <span style="color:var(--accent); font-weight:800; font-size:12px;">Leg 1</span>
-                  <span style="color:var(--fg); font-size:14px; font-weight:600;">BOS ML (-112)</span>
-                </div>
+                <div class="leg-row" style="margin-bottom:10px;"><span class="n" style="font-size:12px;">Leg 1</span><span class="lbl" style="font-size:14px;">BOS ML (-112)</span></div>
                 
-                <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-                  <span style="color:var(--accent); font-weight:800; font-size:12px;">Leg 2</span>
-                  <span style="color:var(--fg); font-size:14px; font-weight:600;">ARI ML (+102)</span>
-                </div>
+                <div class="leg-row" style="margin-bottom:10px;"><span class="n" style="font-size:12px;">Leg 2</span><span class="lbl" style="font-size:14px;">ARI ML (+102)</span></div>
                 
-                <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-                  <span style="color:var(--accent); font-weight:800; font-size:12px;">Leg 3</span>
-                  <span style="color:var(--fg); font-size:14px; font-weight:600;">MIL ML (-238)</span>
-                </div>
+                <div class="leg-row" style="margin-bottom:10px;"><span class="n" style="font-size:12px;">Leg 3</span><span class="lbl" style="font-size:14px;">MIL ML (-238)</span></div>
                 
-                <div style="display:flex; align-items:center; gap:10px; ">
-                  <span style="color:var(--accent); font-weight:800; font-size:12px;">Leg 4</span>
-                  <span style="color:var(--fg); font-size:14px; font-weight:600;">CWS ML (+109)</span>
-                </div>
+                <div class="leg-row" style="margin-bottom:0;"><span class="n" style="font-size:12px;">Leg 4</span><span class="lbl" style="font-size:14px;">CWS ML (+109)</span></div>
                 
               
             </div>
@@ -741,49 +724,49 @@
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">ARI ML</span>
-                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">ML</span>
+                <span class="kind-tag">ML</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">WSH ML (-134)</span>
-                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">ML</span>
+                <span class="kind-tag">ML</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">STL ML (-112)</span>
-                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">ML</span>
+                <span class="kind-tag">ML</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">TB ML (-120)</span>
-                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">ML</span>
+                <span class="kind-tag">ML</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">MIA ML (-142)</span>
-                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">ML</span>
+                <span class="kind-tag">ML</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Bryan De La Cruz to hit a HR</span>
-                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">HR</span>
+                <span class="kind-tag">HR</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Christian Encarnacion-Strand to hit a HR</span>
-                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">HR</span>
+                <span class="kind-tag">HR</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; ">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Dominic Canzone to hit a HR</span>
-                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">HR</span>
+                <span class="kind-tag">HR</span>
               </div>
               
             </div>
@@ -793,25 +776,13 @@
             <div class="dropped" style="margin-bottom:0; border-style:dashed; border-color:var(--accent);">
               
                 
-                <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-                  <span style="color:var(--accent); font-weight:800; font-size:12px;">Leg 1</span>
-                  <span style="color:var(--fg); font-size:14px; font-weight:600;">TB ML (-120)</span>
-                </div>
+                <div class="leg-row" style="margin-bottom:10px;"><span class="n" style="font-size:12px;">Leg 1</span><span class="lbl" style="font-size:14px;">TB ML (-120)</span></div>
                 
-                <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-                  <span style="color:var(--accent); font-weight:800; font-size:12px;">Leg 2</span>
-                  <span style="color:var(--fg); font-size:14px; font-weight:600;">STL ML (-112)</span>
-                </div>
+                <div class="leg-row" style="margin-bottom:10px;"><span class="n" style="font-size:12px;">Leg 2</span><span class="lbl" style="font-size:14px;">STL ML (-112)</span></div>
                 
-                <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-                  <span style="color:var(--accent); font-weight:800; font-size:12px;">Leg 3</span>
-                  <span style="color:var(--fg); font-size:14px; font-weight:600;">WSH ML (-134)</span>
-                </div>
+                <div class="leg-row" style="margin-bottom:10px;"><span class="n" style="font-size:12px;">Leg 3</span><span class="lbl" style="font-size:14px;">WSH ML (-134)</span></div>
                 
-                <div style="display:flex; align-items:center; gap:10px; ">
-                  <span style="color:var(--accent); font-weight:800; font-size:12px;">Leg 4</span>
-                  <span style="color:var(--fg); font-size:14px; font-weight:600;">ARI ML</span>
-                </div>
+                <div class="leg-row" style="margin-bottom:0;"><span class="n" style="font-size:12px;">Leg 4</span><span class="lbl" style="font-size:14px;">ARI ML</span></div>
                 
               
             </div>
@@ -834,37 +805,37 @@
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">ARI ML (-124)</span>
-                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">ML</span>
+                <span class="kind-tag">ML</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">MIL ML (-122)</span>
-                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">ML</span>
+                <span class="kind-tag">ML</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">MIN ML (-144)</span>
-                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">ML</span>
+                <span class="kind-tag">ML</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Christian Encarnacion-Strand to hit a HR (+450)</span>
-                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">HR</span>
+                <span class="kind-tag">HR</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Drake Baldwin to hit a HR (+422)</span>
-                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">HR</span>
+                <span class="kind-tag">HR</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; ">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Matt Olson to hit a HR (+310)</span>
-                <span style="color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--card-border); border-radius:6px; padding:1px 6px;">HR</span>
+                <span class="kind-tag">HR</span>
               </div>
               
             </div>
@@ -884,19 +855,19 @@
   </div>
 
   <script>
-    function showView(v) {
-      var views = {today: 'view-today', parlay: 'view-parlay', history: 'view-history'};
-      var tabs = {today: 'tab-today', parlay: 'tab-parlay', history: 'tab-history'};
-      var on = 'var(--accent)', onText = 'oklch(0.16 0.01 155)', off = 'transparent', offText = 'var(--muted)', border = 'var(--card-border)';
-      for (var key in views) {
-        var isActive = (key === v);
-        document.getElementById(views[key]).style.display = isActive ? 'block' : 'none';
-        var tab = document.getElementById(tabs[key]);
-        tab.style.background = isActive ? on : off;
-        tab.style.color = isActive ? onText : offText;
-        tab.style.borderColor = isActive ? 'var(--accent)' : border;
-      }
+    function showView(btn) {
+      var panels = document.querySelectorAll('.view-panel');
+      for (var i = 0; i < panels.length; i++) panels[i].style.display = 'none';
+      var target = document.getElementById(btn.dataset.target);
+      if (target) target.style.display = 'block';
+      var btns = document.querySelectorAll('.tab-btn');
+      for (var j = 0; j < btns.length; j++) btns[j].classList.remove('active');
+      btn.classList.add('active');
     }
+    window.addEventListener('DOMContentLoaded', function () {
+      var first = document.querySelector('.tab-btn');
+      if (first) showView(first);
+    });
   </script>
 </div>
 </body>
