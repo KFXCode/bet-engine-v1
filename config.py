@@ -88,10 +88,33 @@ HR_PROP_ROSTER_LIMIT = 9
 HR_PROP_STRONG_SCORE = 70
 HR_PROP_MIN_SEASON_HR = 12
 # Only the top-N power hitters (by season HR total) across today's whole slate
-# are even eligible to be scored as HR picks -- so the pool is always real
-# sluggers who already hit homers, never a hot-week utility guy with 6 on the
-# season. Set this to how many players you want in that eligible pool.
+# are even eligible to be scored as HR picks.
 HR_PROP_TOP_N_POOL = 20
+
+# --- Grok HR Signal System (multi-factor, weighted categories) -----------
+# The HR score (0-100) is the sum of five weighted categories, mirroring the
+# refined signal system: Contact Quality is king, Park+Weather is the big
+# daily swing factor, Matchup + Pitcher context round it out, Confirmation is
+# the tie-breaker. Points must sum to 100.
+HR_CATEGORY_POINTS = {
+    "contact_quality": 30,   # barrel%, exit velo (avg+max), hard-hit%, xwOBA, HR/FB, hot streak
+    "park_weather": 25,      # park HR factor + live temperature/wind (out vs in)
+    "matchup": 25,           # opposing SP HR-vulnerability: HR/9, barrel% & hard-hit% allowed
+    "pitcher_context": 15,   # overall SP quality: FIP/ERA, strikeout rate (contact allowed)
+    "confirmation": 5,       # season HR volume, pull%, confirmed in lineup
+}
+assert sum(HR_CATEGORY_POINTS.values()) == 100
+
+# "Signal cluster" requirement: a pick is only tagged a STRONG play when at
+# least this many of the four predictive categories (contact, park_weather,
+# matchup, pitcher_context) independently score at/above their 60% mark.
+# Below this the player can still be shown as the day's best available, but
+# is flagged "thin cluster" so you know it's not a full-confluence spot.
+HR_PROP_MIN_CLUSTERS = 3
+
+# Live weather (Open-Meteo, free, no API key). Adds a real daily temperature +
+# wind-direction read per ballpark. Domes/closed roofs are treated as neutral.
+HR_WEATHER_ENABLED = True
 
 # ---------------------------------------------------------------------------
 # Optional parlay
@@ -109,8 +132,8 @@ FACTOR_WEIGHTS = {
     "advanced_analytics": 0.045,  # barrel/xERA/hard-hit -- strongest batted-ball signal
     "historical_form": 0.045,     # real season W-L win% + recent streak
     "talent_gap": 0.025,
-    "moon_zodiac": 0.03,          # restored -- real pull (underdog lean in waning/waxing phases), still below the hard predictors
-    "numerology": 0.02,           # restored -- real pull, tie-breaker toward the day's number energy
+    "moon_zodiac": 0.03,
+    "numerology": 0.02,
     "situational": 0.01,
     "motivation": 0.01,
 }
