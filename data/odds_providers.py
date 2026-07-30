@@ -49,13 +49,12 @@ class OddsProvider:
 
 # The Odds API's sport key per sport we support -- see
 # https://the-odds-api.com/sports-odds-data/sports-apis.html
-# Keys for sports whose data files aren't wired yet are added as each sport's
-# vertical is built, so an enabled sport always has a matching normalizer.
 ODDS_API_SPORT_KEYS = {
     "MLB": "baseball_mlb",
     "WNBA": "basketball_wnba",
     "NFL": "americanfootball_nfl",
     "NCAAF": "americanfootball_ncaaf",
+    "NCAAB": "basketball_ncaab",
 }
 
 
