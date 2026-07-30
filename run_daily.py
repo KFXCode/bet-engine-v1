@@ -229,7 +229,14 @@ def main(argv=None):
     parlay = maybe_build_parlay(parlay_pool, raw_celestial, raw_numerology)
     daily_parlay = build_daily_parlay(plays, hr_props)
 
-    log_recommendations(db, date_str, plays, hr_props, daily_parlay)
+    # Earliest first pitch today -> history_log uses it to allow pre-game
+    # refinement (each re-run replaces the slate) but LOCK once games start,
+    # so the final pre-first-pitch state is what's saved -- not a stale
+    # early-morning run, and not a post-game rewrite.
+    first_pitches = [g.game_time_utc for g in games if g.game_time_utc]
+    earliest_first_pitch = min(first_pitches) if first_pitches else None
+
+    log_recommendations(db, date_str, plays, hr_props, daily_parlay, first_pitch_utc=earliest_first_pitch)
 
     report = DailyReport(
         date=date_str, slate_size=len(games), plays=plays, fade_teams=fade_teams, hr_props=hr_props, parlay=parlay,
