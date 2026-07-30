@@ -26,17 +26,13 @@ class Game:
     away_pitcher: Optional[ProbablePitcher] = None
     sport: str = "MLB"
     pitchers_confirmed: bool = False
-    game_number: int = 1          # 1 or 2 within a doubleheader; 1 for single games
-    doubleheader: bool = False    # True when this team pairing plays twice today
+    game_number: int = 1
+    doubleheader: bool = False
 
     def dh_label(self):
-        """Short suffix identifying WHICH game of a doubleheader this is, so a
-        pick/parlay leg is never ambiguous. Empty for normal single games."""
         return f" (Gm {self.game_number})" if self.doubleheader else ""
 
     def dh_reasoning(self):
-        """A full plain-English bullet for the 'why' list, naming the exact
-        game (number, start time, both starters) so you bet the right one."""
         if not self.doubleheader:
             return None
         away_sp = self.away_pitcher.name if self.away_pitcher else "TBD"
@@ -139,3 +135,9 @@ class DailyReport:
     results_recap: dict = field(default_factory=dict)
     history: list = field(default_factory=list)
     daily_parlay: dict = field(default_factory=dict)
+    # Per-sport best parlays: {sport: parlay_dict}. Each sport's own ticket.
+    sport_parlays: dict = field(default_factory=dict)
+    # The single cross-sport TOP PARLAY -- best legs from any mix of sports.
+    top_parlay: dict = field(default_factory=dict)
+    # Sports that had at least one game today (drives which sections render).
+    active_sports: list = field(default_factory=list)
