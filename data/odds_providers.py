@@ -24,6 +24,7 @@ from data.teams_wnba import normalize_wnba_team
 from data.teams_nfl import normalize_nfl_team
 from data.teams_college import normalize_college_team
 from data.teams_nhl import normalize_nhl_team
+from data.teams_nba import normalize_nba_team
 
 
 def _normalize_for_sport(raw, sport):
@@ -39,6 +40,8 @@ def _normalize_for_sport(raw, sport):
         return normalize_college_team(raw)
     if sport == "NHL":
         return normalize_nhl_team(raw)
+    if sport == "NBA":
+        return normalize_nba_team(raw)
     return normalize_mlb_team(raw)
 
 logger = logging.getLogger(__name__)
@@ -59,6 +62,7 @@ ODDS_API_SPORT_KEYS = {
     "NCAAF": "americanfootball_ncaaf",
     "NCAAB": "basketball_ncaab",
     "NHL": "icehockey_nhl",
+    "NBA": "basketball_nba",
 }
 
 
