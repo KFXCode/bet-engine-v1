@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS recommendations (
     reasoning_json TEXT,
     factor_scores_json TEXT,
     status TEXT NOT NULL DEFAULT 'pending',
+    clv_pct REAL,
     created_at TEXT NOT NULL
 );
 
@@ -99,7 +100,19 @@ class Database:
         self._conn = sqlite3.connect(self.path)
         self._conn.row_factory = sqlite3.Row
         self._conn.executescript(SCHEMA)
+        self._migrate()
         self._conn.commit()
+
+    def _migrate(self):
+        """Add columns introduced after the DB was first created. SQLite
+        can't add a column via CREATE TABLE IF NOT EXISTS, so add-if-missing
+        here. Safe to run every startup."""
+        cur = self._conn.cursor()
+        cur.execute("PRAGMA table_info(recommendations)")
+        cols = {r[1] for r in cur.fetchall()}
+        if "clv_pct" not in cols:
+            cur.execute("ALTER TABLE recommendations ADD COLUMN clv_pct REAL")
+        cur.close()
 
     @contextmanager
     def cursor(self):
@@ -208,6 +221,10 @@ class Database:
         with self.cursor() as cur:
             cur.execute("UPDATE recommendations SET status=? WHERE id=?", (status, rec_id))
 
+    def set_recommendation_clv(self, rec_id, clv_pct):
+        with self.cursor() as cur:
+            cur.execute("UPDATE recommendations SET clv_pct=? WHERE id=?", (clv_pct, rec_id))
+
     def get_record_by_kind(self, kind, after=None):
         q = "SELECT status, COUNT(*) c FROM recommendations WHERE kind=? AND status IN ('won','lost','push')"
         params = [kind]
@@ -219,6 +236,24 @@ class Database:
             cur.execute(q, params)
             counts = {r["status"]: r["c"] for r in cur.fetchall()}
         return {"wins": counts.get("won", 0), "losses": counts.get("lost", 0), "pushes": counts.get("push", 0)}
+
+    def get_clv_summary(self, kind="moneyline"):
+        """Closing Line Value across graded picks that have a CLV recorded.
+        avg_clv_pct: average probability-point edge vs the closing line
+        (positive = we consistently beat the close = sharp). beat_pct: share
+        of picks that beat the close. n: sample size."""
+        with self.cursor() as cur:
+            cur.execute(
+                "SELECT clv_pct FROM recommendations WHERE kind=? AND clv_pct IS NOT NULL",
+                (kind,),
+            )
+            vals = [r["clv_pct"] for r in cur.fetchall() if r["clv_pct"] is not None]
+        if not vals:
+            return {"n": 0, "avg_clv_pct": None, "beat_pct": None}
+        beat = sum(1 for v in vals if v > 0)
+        return {"n": len(vals),
+                "avg_clv_pct": round(sum(vals) / len(vals), 2),
+                "beat_pct": round(100.0 * beat / len(vals), 0)}
 
     def get_first_graded_date(self, kind):
         with self.cursor() as cur:
