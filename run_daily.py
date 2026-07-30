@@ -57,17 +57,15 @@ logging.basicConfig(level=getattr(logging, config.LOG_LEVEL, logging.INFO),
                      format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("run_daily")
 
-LEDGER_CUTOFF = "2026-07-26"  # dates through here come from the verified seed below, not the DB
+LEDGER_CUTOFF = "2026-07-26"
 
-# Individual later dates whose DB rows were also contaminated (a pre-first-pitch
-# early run got frozen before the slate-lock fix). These are taken from the
-# verified seed and SKIPPED from the DB so there's no duplicate.
 SEED_OVERRIDE_DATES = {"2026-07-29"}
+
+# Order sports appear in the report's per-sport nav.
+SPORT_ORDER = ["MLB", "WNBA", "NFL", "NCAAF", "NCAAB", "NHL", "NBA"]
 
 
 def _fetch_schedule(sport, date_str):
-    """One dispatch point per enabled sport. A sport that's off-season simply
-    returns [] here, so nothing else in the pipeline needs season logic."""
     if sport == "MLB":
         return get_todays_games(date_str)
     if sport == "WNBA":
@@ -127,7 +125,8 @@ def main(argv=None):
                               bankroll_summary=bankroll_summary(db),
                               data_warnings=["No games on today's schedule across enabled sports."],
                               results_recap=_build_results_recap(db, date_str),
-                              history=_build_history(db, date_str))
+                              history=_build_history(db, date_str),
+                              sport_parlays={}, top_parlay={}, active_sports=[])
         _emit(report)
         if args.auto:
             auto_gate.mark_published(date_str)
@@ -255,15 +254,26 @@ def main(argv=None):
     raw_numerology, _, _ = numerology_signal_for(run_date)
     parlay_pool = get_parlay_pool(evaluations)
     parlay = maybe_build_parlay(parlay_pool, raw_celestial, raw_numerology)
-    daily_parlay = build_daily_parlay(plays, hr_props)
 
-    # Earliest first pitch today -> history_log uses it to allow pre-game
-    # refinement (each re-run replaces the slate) but LOCK once games start,
-    # so the final pre-first-pitch state is what's saved.
+    # --- Per-sport best parlays + one cross-sport TOP parlay ------------
+    # Each sport's own Best Parlay is built only from THAT sport's plays
+    # (HR props are MLB-only). The TOP parlay is the single strongest ticket
+    # across every sport -- any mix of leagues/props.
+    sport_parlays = {}
+    active_sports = [s for s in SPORT_ORDER if any(g.sport == s for g in games)]
+    for sport in active_sports:
+        sp_plays = [p for p in plays if p.sport == sport]
+        sp_hr = hr_props if sport == "MLB" else []
+        par = build_daily_parlay(sp_plays, sp_hr)
+        if par:
+            sport_parlays[sport] = par
+    top_parlay = build_daily_parlay(plays, hr_props)
+
+    # Earliest first pitch today -> pre-game refinement, then lock at first game.
     first_pitches = [g.game_time_utc for g in games if g.game_time_utc]
     earliest_first_pitch = min(first_pitches) if first_pitches else None
 
-    log_recommendations(db, date_str, plays, hr_props, daily_parlay, first_pitch_utc=earliest_first_pitch)
+    log_recommendations(db, date_str, plays, hr_props, top_parlay, first_pitch_utc=earliest_first_pitch)
 
     report = DailyReport(
         date=date_str, slate_size=len(games), plays=plays, fade_teams=fade_teams, hr_props=hr_props, parlay=parlay,
@@ -271,7 +281,8 @@ def main(argv=None):
         numerology=_numerology_dict(run_date), bankroll_summary=bankroll_summary(db),
         data_warnings=data_warnings, results_recap=_build_results_recap(db, date_str),
         history=_build_history(db, date_str),
-        daily_parlay=daily_parlay,
+        daily_parlay=top_parlay,
+        sport_parlays=sport_parlays, top_parlay=top_parlay, active_sports=active_sports,
     )
     _emit(report)
     if args.auto:
