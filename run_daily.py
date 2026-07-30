@@ -273,7 +273,8 @@ def main(argv=None):
     first_pitches = [g.game_time_utc for g in games if g.game_time_utc]
     earliest_first_pitch = min(first_pitches) if first_pitches else None
 
-    log_recommendations(db, date_str, plays, hr_props, top_parlay, first_pitch_utc=earliest_first_pitch)
+    log_recommendations(db, date_str, plays, hr_props, top_parlay,
+                        sport_parlays=sport_parlays, first_pitch_utc=earliest_first_pitch)
 
     report = DailyReport(
         date=date_str, slate_size=len(games), plays=plays, fade_teams=fade_teams, hr_props=hr_props, parlay=parlay,
