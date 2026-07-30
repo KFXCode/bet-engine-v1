@@ -39,6 +39,9 @@ def render_daily_report(report):
         results_recap=report.results_recap,
         history=report.history,
         daily_parlay=report.daily_parlay,
+        sport_parlays=report.sport_parlays,
+        top_parlay=report.top_parlay,
+        active_sports=report.active_sports,
         unit_size=config.FLAT_STAKE_UNITS,
     )
     _ensure_pwa_assets()
