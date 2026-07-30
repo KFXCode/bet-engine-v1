@@ -4,7 +4,8 @@ engine/strategy_rules.py
 Non-negotiable rules layered on top of raw edge numbers:
   - never below MIN_EDGE
   - flat 1-unit sizing
-  - up to MAX_PLAYS_PER_DAY plays PER DAY, picked across ALL enabled sports
+  - up to MAX_PLAYS_PER_DAY plays PER SPORT (so each league fills its own
+    section/tab independently; a huge NCAA slate can't crowd out MLB)
   - team diversification: don't play the same team 3+ days running without
     stricter re-confirmation
   - line movement: only drop on significant adverse movement AND heavy money
@@ -24,21 +25,20 @@ def select_daily_plays(evaluations, db, public_splits, run_date_str):
 
     recent_picks = {p["team"] for p in db.get_recent_team_picks(run_date_str, config.DIVERSIFICATION_LOOKBACK_DAYS)}
     picked_today = {}
+    per_sport_count = {}   # each sport independently capped at MAX_PLAYS_PER_DAY
 
     plays = []
     dropped_notes = []
     for ev in candidates:
-        if len(plays) >= config.MAX_PLAYS_PER_DAY:
-            break
+        sport = ev.game.sport
+        if per_sport_count.get(sport, 0) >= config.MAX_PLAYS_PER_DAY:
+            continue
 
         team = ev.game.home_team if ev.recommended_side == "home" else ev.game.away_team
         label = team + ev.game.dh_label()
         matchup = f"{ev.game.away_team} @ {ev.game.home_team}{ev.game.dh_label()}"
 
         if team in picked_today:
-            # Because candidates are sorted best-edge-first, the version of
-            # this team already in `plays` is the STRONGER game -- so on a
-            # doubleheader we keep the better matchup and note the other.
             dropped_notes.append(
                 f"{label} ({matchup}): already locked in today's stronger play on {team} from the "
                 f"{picked_today[team]} game -- not doubling up on the same team twice in one day."
@@ -84,6 +84,7 @@ def select_daily_plays(evaluations, db, public_splits, run_date_str):
             line_movement_flag=line_flag,
         ))
         picked_today[team] = ev.game.dh_label().strip() or matchup
+        per_sport_count[sport] = per_sport_count.get(sport, 0) + 1
 
     return plays, dropped_notes
 
