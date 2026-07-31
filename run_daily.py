@@ -43,7 +43,7 @@ from data.numerology import numerology_signal_for, reduce_date
 from engine.scoring import evaluate_game
 from engine.strategy_rules import select_daily_plays, select_fade_teams, get_parlay_pool
 from engine.hr_props import evaluate_hr_prop_candidates
-from engine.parlay import maybe_build_parlay, build_daily_parlay
+from engine.parlay import maybe_build_parlay, build_daily_parlay, build_double_parlay
 from engine.models import DailyReport, ProbablePitcher
 
 from output.terminal_report import print_daily_report
@@ -127,7 +127,7 @@ def main(argv=None):
                               data_warnings=["No games on today's schedule across enabled sports."],
                               results_recap=_build_results_recap(db, date_str),
                               history=history,
-                              sport_parlays={}, top_parlay={}, active_sports=[])
+                              sport_parlays={}, top_parlay={}, double_parlay={}, active_sports=[])
         _emit(report)
         if args.auto:
             auto_gate.mark_published(date_str)
@@ -257,9 +257,6 @@ def main(argv=None):
     parlay = maybe_build_parlay(parlay_pool, raw_celestial, raw_numerology)
 
     # --- Per-sport best parlays + one cross-sport TOP parlay ------------
-    # Each sport's own Best Parlay is built only from THAT sport's plays
-    # (HR props are MLB-only). The TOP parlay is the single strongest ticket
-    # across every sport -- any mix of leagues/props.
     sport_parlays = {}
     active_sports = [s for s in SPORT_ORDER if any(g.sport == s for g in games)]
     for sport in active_sports:
@@ -269,6 +266,7 @@ def main(argv=None):
         if par:
             sport_parlays[sport] = par
     top_parlay = build_daily_parlay(plays, hr_props)
+    double_parlay = build_double_parlay(plays)
 
     # Earliest first pitch today -> pre-game refinement, then lock at first game.
     first_pitches = [g.game_time_utc for g in games if g.game_time_utc]
@@ -285,7 +283,8 @@ def main(argv=None):
         data_warnings=data_warnings, results_recap=_build_results_recap(db, date_str),
         history=history,
         daily_parlay=top_parlay,
-        sport_parlays=sport_parlays, top_parlay=top_parlay, active_sports=active_sports,
+        sport_parlays=sport_parlays, top_parlay=top_parlay, double_parlay=double_parlay,
+        active_sports=active_sports,
     )
     _emit(report)
     if args.auto:
