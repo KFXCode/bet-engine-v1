@@ -80,29 +80,36 @@ def log_recommendations(db, date_str, plays, hr_props, top_parlay=None,
             )
 
 
-def bankroll_summary(db):
-    history = db.get_bankroll_history(limit=10000)
-    hr_record = db.get_record_by_kind("hr_prop", after=LEDGER_CUTOFF)
-    ml_record = db.get_record_by_kind("moneyline", after=LEDGER_CUTOFF)
+def bankroll_summary(db, history_days=None):
+    """Top-line records are the EXACT sum of the per-day history shown in the
+    History tab (deduped + seed-pinned), so the big number can never drift
+    from the day-by-day rows again. CLV still comes from the DB."""
     clv = db.get_clv_summary("moneyline")
-
-    # Verified results THROUGH LEDGER_CUTOFF (all MLB): cumulative ML 5-3, HR 3-3.
-    SEED = {"ml_wins": 5, "ml_losses": 3, "hr_wins": 3, "hr_losses": 3, "since": "2026-07-24"}
-
     base = {
-        "wins": ml_record["wins"] + SEED["ml_wins"], "losses": ml_record["losses"] + SEED["ml_losses"],
-        "hr_wins": hr_record["wins"] + SEED["hr_wins"], "hr_losses": hr_record["losses"] + SEED["hr_losses"],
-        "ml_since": SEED["since"], "hr_since": SEED["since"],
+        "wins": 0, "losses": 0, "hr_wins": 0, "hr_losses": 0,
+        "ml_since": None, "hr_since": None,
         "clv_n": clv["n"], "clv_avg": clv["avg_clv_pct"], "clv_beat": clv["beat_pct"],
         "units_net": 0.0, "dollars_net": 0.0, "running_bankroll": 0.0,
     }
-    if not history:
-        return base
-    units_net = sum((h.get("units_won") or 0) - (h.get("units_staked") or 0) for h in history)
-    dollars_net = sum((h.get("dollars_won") or 0) - (h.get("dollars_staked") or 0) for h in history)
-    latest_bankroll = history[0].get("running_bankroll")
-    base.update({
-        "units_net": units_net, "dollars_net": dollars_net,
-        "running_bankroll": latest_bankroll if latest_bankroll is not None else 0.0,
-    })
+    ml_dates, hr_dates = [], []
+    for day in (history_days or []):
+        for pick in day.get("picks", []):
+            if pick.get("status") not in ("won", "lost"):
+                continue
+            won = pick["status"] == "won"
+            if pick.get("kind") == "moneyline":
+                base["wins" if won else "losses"] += 1
+                ml_dates.append(day["date"])
+            elif pick.get("kind") == "hr_prop":
+                base["hr_wins" if won else "hr_losses"] += 1
+                hr_dates.append(day["date"])
+    base["ml_since"] = min(ml_dates) if ml_dates else None
+    base["hr_since"] = min(hr_dates) if hr_dates else None
+
+    history = db.get_ban kroll_history(limit=10000)
+    if history:
+        base["units_net"] = sum((h.get("units_won") or 0) - (h.get("units_staked") or 0) for h in history)
+        base["dollars_net"] = sum((h.get("dollars_won") or 0) - (h.get("dollars_staked") or 0) for h in history)
+        lb = history[0].get("running_bankroll")
+        base["running_bankroll"] = lb if lb is not None else 0.0
     return base
