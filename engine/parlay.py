@@ -1,9 +1,11 @@
 """
 engine/parlay.py
 =================
-Two parlay builders:
+Parlay builders:
   - maybe_build_parlay: the optional moon/numerology "green light" ML parlay.
   - build_daily_parlay: the always-on "Best Parlay of the Day" tab.
+  - build_double_parlay: the 2 safest ML picks that combine to ~2x (double
+    your money, roughly +100 combined).
 """
 
 import config
@@ -46,11 +48,7 @@ def build_daily_parlay(plays, hr_props, max_legs=None):
     types the system computes a real edge on today -- moneyline plays and HR
     props -- picks the highest-confidence legs (mixing both), caps at
     max_legs, and returns combined odds + win probability. Returns {} when
-    there aren't at least 2 qualifying legs.
-
-    NOTE: totals / spreads / RBI / first-5 aren't leg types yet -- they need
-    their own edge models (a follow-up). Only legs the system can stand
-    behind are eligible, so the parlay stays disciplined."""
+    there aren't at least 2 qualifying legs."""
     max_legs = max_legs or config.PARLAY_MAX_LEGS
     candidates = []
 
@@ -90,6 +88,51 @@ def build_daily_parlay(plays, hr_props, max_legs=None):
         "combined_odds_american": _decimal_to_american(combined_decimal),
         "combined_prob": combined_prob,
         "leg_count": len(legs),
+    }
+
+
+def build_double_parlay(plays):
+    """'Double Your Money' -- the 2 SAFEST moneyline picks across all sports
+    whose combined odds land near +100 (roughly doubles a 1-unit stake).
+    Safest = highest model win probability. Returns {} if fewer than 2 ML
+    plays exist. Picks the pair whose combined decimal odds are closest to
+    2.0 while keeping both legs high-probability."""
+    ml = sorted(plays, key=lambda p: p.model_prob, reverse=True)
+    if len(ml) < 2:
+        return {}
+
+    # From the safest legs, find the pair whose combined odds are closest to
+    # ~2x (decimal 2.0) so the payout roughly doubles the stake.
+    top = ml[:6]  # only consider the 6 safest to keep both legs strong
+    best_pair = None
+    best_gap = None
+    for i in range(len(top)):
+        for j in range(i + 1, len(top)):
+            dec = _american_to_decimal(top[i].odds_american) * _american_to_decimal(top[j].odds_american)
+            gap = abs(dec - 2.0)
+            if best_gap is None or gap < best_gap:
+                best_gap = gap
+                best_pair = (top[i], top[j])
+
+    if not best_pair:
+        return {}
+
+    combined_prob = 1.0
+    combined_decimal = 1.0
+    legs = []
+    for leg in best_pair:
+        combined_prob *= leg.model_prob
+        combined_decimal *= _american_to_decimal(leg.odds_american)
+        legs.append({
+            "label": f"{leg.team} ML ({leg.odds_american:+d})",
+            "sport": leg.sport, "kind": "moneyline",
+        })
+
+    return {
+        "legs": legs,
+        "combined_odds_american": _decimal_to_american(combined_decimal),
+        "combined_prob": combined_prob,
+        "leg_count": 2,
     }
 
 
