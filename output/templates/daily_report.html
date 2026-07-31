@@ -57,43 +57,53 @@
              border-radius: 999px; border: 1px solid var(--card-border); background: transparent; color: var(--muted); }
   .tab-btn.active { border-color: var(--accent); background: var(--accent); color: oklch(0.16 0.01 155); }
 
-  .play { background: var(--card); border: 1px solid var(--accent-dim); border-radius: 16px;
-          padding: 28px; margin-bottom: 20px; position: relative; overflow: hidden; }
-  .play::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--accent); }
-  .play .label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); font-weight: 700; }
-  .play .team { font-size: 30px; font-weight: 800; margin: 6px 0 2px; }
-  .play .odds { color: var(--muted); font-size: 16px; font-family: "SF Mono", "Roboto Mono", monospace; }
-  .metrics { display: flex; gap: 28px; margin: 18px 0; flex-wrap: wrap; }
-  .metric .num { font-size: 22px; font-weight: 700; font-family: "SF Mono", "Roboto Mono", monospace; }
+  /* Collapsible pick card */
+  .pick { background: var(--card); border: 1px solid var(--accent-dim); border-radius: 16px;
+          margin-bottom: 14px; position: relative; overflow: hidden; }
+  .pick::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--accent); z-index: 1; }
+  .pick > summary { list-style: none; cursor: pointer; padding: 20px 24px; display: flex;
+                    align-items: center; justify-content: space-between; gap: 12px; }
+  .pick > summary::-webkit-details-marker { display: none; }
+  .pick .s-main { min-width: 0; }
+  .pick .s-team { font-size: 22px; font-weight: 800; line-height: 1.2; }
+  .pick .s-sub { font-size: 13px; color: var(--muted); margin-top: 3px; }
+  .pick .s-right { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
+  .pick .s-edge { text-align: right; }
+  .pick .s-edge .n { font-size: 20px; font-weight: 800; font-family: "SF Mono", "Roboto Mono", monospace; color: var(--accent); }
+  .pick .s-edge .l { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+  .pick .chev { width: 20px; height: 20px; flex-shrink: 0; transition: transform 0.2s; color: var(--muted); }
+  .pick[open] .chev { transform: rotate(180deg); }
+  .pick .body { padding: 0 24px 22px; }
+  .pick .odds { color: var(--muted); font-size: 15px; font-family: "SF Mono", "Roboto Mono", monospace; }
+
+  .metrics { display: flex; gap: 28px; margin: 6px 0 14px; flex-wrap: wrap; }
+  .metric .num { font-size: 20px; font-weight: 700; font-family: "SF Mono", "Roboto Mono", monospace; }
   .metric .lbl { font-size: 11px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.05em; }
-  .flags { margin-bottom: 12px; }
+  .flags { margin-bottom: 10px; }
   .flag { display: inline-block; background: var(--warn-dim); color: var(--warn); border-radius: 8px;
           padding: 6px 10px; font-size: 12px; margin: 2px 6px 2px 0; }
-  .why { font-size: 14px; color: var(--muted); margin-top: 12px; }
+  .why { font-size: 14px; color: var(--muted); }
   .why-title { color: var(--fg); font-weight: 600; font-size: 13px; margin-bottom: 6px; }
   .why ul { margin: 0; padding-left: 18px; }
   .why li { margin-bottom: 6px; }
 
+  .sport-tag { font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-dim);
+               padding: 2px 8px; border-radius: 6px; vertical-align: middle; margin-left: 4px; }
+
   .section-title { font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted);
-                    font-weight: 700; margin: 32px 0 12px; }
+                    font-weight: 700; margin: 32px 0 12px; display: flex; align-items: center; justify-content: space-between; }
+  .expand-all { font-size: 11px; color: var(--accent); cursor: pointer; text-transform: none; letter-spacing: 0; font-weight: 600; }
 
   .parlay { background: var(--card); border: 1px dashed var(--accent); border-radius: 16px; padding: 22px; margin-bottom: 20px; }
   .parlay .legs { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
   .parlay .odds { font-family: "SF Mono", "Roboto Mono", monospace; color: var(--accent); }
   .parlay .note { color: var(--muted); font-size: 13px; margin-top: 8px; }
 
-  .prop-card { background: var(--card); border: 1px solid var(--card-border); border-radius: 12px;
-               padding: 16px 20px; margin-bottom: 12px; }
-  .prop-card .name { font-weight: 700; font-size: 16px; }
-  .prop-card .meta { color: var(--muted); font-size: 13px; margin-top: 2px; }
-  .prop-card .score { font-size: 24px; font-weight: 800; color: var(--accent); font-family: "SF Mono", "Roboto Mono", monospace; flex-shrink: 0; }
-
   .dropped { font-size: 13px; color: var(--muted); background: var(--card); border: 1px solid var(--card-border);
              border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; }
-  .dropped ul { margin: 6px 0 0; padding-left: 18px; }
 
   .bankroll { display: flex; justify-content: space-around; background: var(--card); border: 1px solid var(--card-border);
-              border-radius: 16px; padding: 20px; margin-top: 32px; flex-wrap: wrap; gap: 12px;}
+              border-radius: 16px; padding: 20px; margin-top: 0; flex-wrap: wrap; gap: 12px;}
   .bankroll .num { font-size: 20px; font-weight: 700; font-family: "SF Mono", "Roboto Mono", monospace; }
   .bankroll .lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
   .bankroll .col { text-align: center; }
@@ -102,9 +112,6 @@
   .hist-cols { display: flex; gap: 16px; flex-wrap: wrap; }
   .hist-cols .col { flex: 1 1 300px; }
   .hist-cols .col h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0 0 8px; font-weight: 700; }
-
-  .sport-tag { font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-dim);
-               padding: 2px 8px; border-radius: 6px; vertical-align: middle; margin-left: 4px; }
   .leg-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
   .leg-row .n { color: var(--accent); font-weight: 800; font-size: 13px; }
   .leg-row .lbl { color: var(--fg); font-size: 15px; font-weight: 600; }
@@ -115,7 +122,9 @@
 
   @media (max-width: 480px) {
     .header .date { font-size: 28px; }
-    .play, .parlay { padding: 20px; }
+    .pick > summary { padding: 16px 18px; }
+    .pick .body { padding: 0 18px 18px; }
+    .pick .s-team { font-size: 19px; }
     .metrics { gap: 14px 22px; }
     .bankroll { padding: 16px; gap: 14px 8px; }
     .bankroll .num { font-size: 17px; }
@@ -165,65 +174,75 @@
   {% set sp_plays = plays | selectattr('sport', 'equalto', sport) | list %}
   <div class="view-panel" id="view-{{ sport }}" style="display:none;">
 
-    <div class="section-title">{{ sport }} &middot; Today's Moneyline Picks</div>
+    <div class="section-title"><span>{{ sport }} &middot; Today's Moneyline Picks</span><span class="expand-all" onclick="toggleAll(this)">Expand all</span></div>
     {% if sp_plays %}
       {% for play in sp_plays | sort(attribute='edge_pct', reverse=true) %}
       {% set ml_conf = [[((play.edge_pct * 100) + 2)|round(0)|int, 10]|min, 1]|max %}
-      <div class="play">
-        <div class="label">Rank #{{ loop.index }} &middot; Confidence <span style="color:var(--accent);">{{ ml_conf }}/10</span></div>
-        <div class="team">{{ play.team }} <span class="sport-tag">{{ play.sport }}</span> ML <span class="odds">({{ '%+d' | format(play.odds_american) }})</span>{% if play.odds_source != 'fanduel' %} <span class="flag" style="margin-left:4px;">SIMULATED ODDS</span>{% endif %}</div>
-        <div class="metrics">
-          <div class="metric"><div class="num">{{ '%.1f' | format(play.edge_pct * 100) }}%</div><div class="lbl">Edge</div></div>
-          <div class="metric"><div class="num">{{ '%.1f' | format(play.model_prob * 100) }}%</div><div class="lbl">Model win%</div></div>
-          <div class="metric"><div class="num">{{ '%.1f' | format(play.market_prob * 100) }}%</div><div class="lbl">Market win%</div></div>
+      <details class="pick">
+        <summary>
+          <div class="s-main">
+            <div class="s-team">{{ play.team }} <span class="sport-tag">{{ play.sport }}</span> ML</div>
+            <div class="s-sub">Rank #{{ loop.index }} &middot; Confidence {{ ml_conf }}/10 &middot; <span class="odds">{{ '%+d' | format(play.odds_american) }}</span>{% if play.odds_source != 'fanduel' %} &middot; SIM ODDS{% endif %}</div>
+          </div>
+          <div class="s-right">
+            <div class="s-edge"><div class="n">{{ '%.1f' | format(play.edge_pct * 100) }}%</div><div class="l">Edge</div></div>
+            <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+        </summary>
+        <div class="body">
+          <div class="metrics">
+            <div class="metric"><div class="num">{{ '%.1f' | format(play.model_prob * 100) }}%</div><div class="lbl">Model win%</div></div>
+            <div class="metric"><div class="num">{{ '%.1f' | format(play.market_prob * 100) }}%</div><div class="lbl">Market win%</div></div>
+          </div>
+          <div class="flags">
+            {% if play.diversification_flag %}<span class="flag">{{ play.diversification_flag }}</span>{% endif %}
+            {% if play.line_movement_flag %}<span class="flag">{{ play.line_movement_flag }}</span>{% endif %}
+          </div>
+          <div class="why">
+            <div class="why-title">Why this clears every layer:</div>
+            <ul>
+              {% for reason in play.reasoning %}<li>{{ reason }}</li>{% endfor %}
+            </ul>
+          </div>
         </div>
-        <div class="flags">
-          {% if play.diversification_flag %}<span class="flag">{{ play.diversification_flag }}</span>{% endif %}
-          {% if play.line_movement_flag %}<span class="flag">{{ play.line_movement_flag }}</span>{% endif %}
-        </div>
-        <div class="why">
-          <div class="why-title">Why this clears every layer:</div>
-          <ul>
-            {% for reason in play.reasoning %}<li>{{ reason }}</li>{% endfor %}
-          </ul>
-        </div>
-      </div>
+      </details>
       {% endfor %}
     {% else %}
       <div class="dropped">No {{ sport }} moneyline play cleared a real edge today.</div>
     {% endif %}
 
     {% if sport == 'MLB' %}
-    <div class="section-title">HR Props</div>
+    <div class="section-title"><span>HR Props</span><span class="expand-all" onclick="toggleAll(this)">Expand all</span></div>
     {% if hr_props %}
       {% for prop in hr_props %}
       {% set strong = prop.score >= 70 %}
-      <div class="prop-card" style="display:flex; flex-direction:column; align-items:stretch;">
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px 16px; width:100%;">
-          <div>
-            <div class="name">{{ prop.player_name }} to hit a HR <span style="color:var(--muted); font-weight:400;">({{ prop.team }})</span></div>
-            <div class="meta">vs {{ prop.opponent_pitcher }}{% if prop.odds_american is not none %} &middot; FanDuel <b style="color:var(--accent);">{{ '%+d' | format(prop.odds_american) }}</b>{% else %} &middot; <span style="color:var(--muted);">odds n/a</span>{% endif %}</div>
+      <details class="pick">
+        <summary>
+          <div class="s-main">
+            <div class="s-team">{{ prop.player_name }} <span style="font-size:14px; color:var(--muted); font-weight:600;">HR</span></div>
+            <div class="s-sub">Rank #{{ loop.index }} &middot; {{ prop.team }} vs {{ prop.opponent_pitcher }}{% if prop.odds_american is not none %} &middot; <span class="odds">{{ '%+d' | format(prop.odds_american) }}</span>{% else %} &middot; odds n/a{% endif %}</div>
           </div>
-          <div style="text-align:right; flex-shrink:0;">
-            <div class="score" style="color:{{ 'var(--accent)' if strong else 'var(--warn)' }};">{{ '%.1f' | format(prop.score) }}</div>
-            <div style="font-size:11px; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; color:{{ 'var(--accent)' if strong else 'var(--warn)' }};">{{ 'STRONG' if strong else 'WATCH' }}</div>
-            <div style="font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em; margin-top:2px;">Rank #{{ loop.index }} &middot; /100</div>
+          <div class="s-right">
+            <div class="s-edge"><div class="n" style="color:{{ 'var(--accent)' if strong else 'var(--warn)' }};">{{ '%.1f' | format(prop.score) }}</div><div class="l" style="color:{{ 'var(--accent)' if strong else 'var(--warn)' }}; font-weight:800;">{{ 'STRONG' if strong else 'WATCH' }}</div></div>
+            <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+        </summary>
+        <div class="body">
+          <div class="why">
+            <div class="why-title">Full breakdown &mdash; why this HR was chosen:</div>
+            <ul>
+              {% for reason in prop.reasoning %}<li>{{ reason }}</li>{% endfor %}
+            </ul>
           </div>
         </div>
-        <div class="why" style="margin-top:12px;">
-          <div class="why-title">Full breakdown &mdash; why this HR was chosen:</div>
-          <ul>
-            {% for reason in prop.reasoning %}<li>{{ reason }}</li>{% endfor %}
-          </ul>
-        </div>
-      </div>
+      </details>
       {% endfor %}
     {% else %}
       <div class="dropped">No HR prop candidates cleared today's strongest-signals bar.</div>
     {% endif %}
     {% endif %}
 
-    <div class="section-title">{{ sport }} &middot; Best Parlay</div>
+    <div class="section-title"><span>{{ sport }} &middot; Best Parlay</span></div>
     {% set par = sport_parlays.get(sport) %}
     {% if par and par.legs %}
     <div class="parlay">
@@ -245,7 +264,7 @@
 
   <!-- ============ TOP PARLAY (cross-sport) ============ -->
   <div class="view-panel" id="view-top" style="display:none;">
-    <div class="section-title">Top Parlay of the Day &middot; all sports combined</div>
+    <div class="section-title"><span>Top Parlay of the Day &middot; all sports combined</span></div>
     {% if top_parlay and top_parlay.legs %}
     <div class="parlay">
       <div class="legs">{{ top_parlay.leg_count }}-Leg Top Parlay</div>
@@ -265,7 +284,7 @@
   <!-- ============ HISTORY (combined ledger) ============ -->
   <div class="view-panel" id="view-history" style="display:none;">
     {% if bankroll %}
-    <div class="bankroll" style="margin-top:0;">
+    <div class="bankroll">
       <div class="col"><div class="num">{{ bankroll.wins|default(0) }}-{{ bankroll.losses|default(0) }}</div><div class="lbl">Moneyline Record</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">{% if bankroll.ml_since %}Since {{ bankroll.ml_since }}{% else %}No graded picks yet{% endif %}</div></div>
       <div class="col"><div class="num">{{ bankroll.hr_wins|default(0) }}-{{ bankroll.hr_losses|default(0) }}</div><div class="lbl">HR Prop Record</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">{% if bankroll.hr_since %}Since {{ bankroll.hr_since }}{% else %}No graded picks yet{% endif %}</div></div>
       <div class="col"><div class="num" style="color:{% if bankroll.clv_avg is not none and bankroll.clv_avg > 0 %}var(--accent){% elif bankroll.clv_avg is not none and bankroll.clv_avg < 0 %}var(--warn){% else %}var(--fg){% endif %};">{% if bankroll.clv_avg is not none %}{{ '%+.1f' | format(bankroll.clv_avg) }}%{% else %}--{% endif %}</div><div class="lbl">Avg CLV (ML)</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">{% if bankroll.clv_n %}beat close {{ bankroll.clv_beat|int }}% &middot; n={{ bankroll.clv_n }}{% else %}building sample{% endif %}</div></div>
@@ -322,6 +341,19 @@
       var btns = document.querySelectorAll('.tab-btn');
       for (var j = 0; j < btns.length; j++) btns[j].classList.remove('active');
       btn.classList.add('active');
+    }
+    function toggleAll(link) {
+      var panel = link.closest('.view-panel');
+      var section = link.closest('.section-title');
+      var picks = [];
+      var el = section.nextElementSibling;
+      while (el && !el.classList.contains('section-title')) {
+        if (el.tagName === 'DETAILS') picks.push(el);
+        el = el.nextElementSibling;
+      }
+      var anyClosed = picks.some(function (p) { return !p.open; });
+      picks.forEach(function (p) { p.open = anyClosed; });
+      link.textContent = anyClosed ? 'Collapse all' : 'Expand all';
     }
     window.addEventListener('DOMContentLoaded', function () {
       var first = document.querySelector('.tab-btn');
