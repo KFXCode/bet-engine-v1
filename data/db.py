@@ -171,6 +171,18 @@ class Database:
             )
             return cur.fetchone()
 
+    def get_last_real_line(self, game_id):
+        """Most recent NON-mock (real sportsbook) line for a game. Used to
+        restore the true pre-game FanDuel odds once a game starts and drops
+        out of the live feed, instead of showing synthetic mock numbers."""
+        with self.cursor() as cur:
+            cur.execute(
+                """SELECT * FROM odds_snapshots WHERE game_id=? AND book!='mock'
+                   ORDER BY captured_at DESC LIMIT 1""",
+                (game_id,),
+            )
+            return cur.fetchone()
+
     def record_public_split(self, game_id, split, captured_at):
         with self.cursor() as cur:
             cur.execute(
