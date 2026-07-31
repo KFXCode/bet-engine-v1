@@ -46,7 +46,7 @@ from engine.scoring import evaluate_game
 from engine.strategy_rules import select_daily_plays, select_fade_teams, get_parlay_pool
 from engine.hr_props import evaluate_hr_prop_candidates
 from engine.parlay import maybe_build_parlay, build_daily_parlay, build_double_parlay
-from engine.models import DailyReport, ProbablePitcher
+from engine.models import DailyReport, ProbablePitcher, MoneylineOdds
 
 from output.terminal_report import print_daily_report
 from output.html_report import render_daily_report
@@ -111,6 +111,15 @@ def _load_team_records(games, run_date, data_warnings):
         else:
             data_warnings.append(f"{sport} standings unavailable -- {sport} talent/motivation factors are running neutral today.")
     return records
+
+
+def _row_to_odds(row):
+    """Rebuild a MoneylineOdds from a stored odds_snapshots row."""
+    return MoneylineOdds(
+        book=row["book"], home_ml=row["home_ml"], away_ml=row["away_ml"],
+        captured_at=row["captured_at"], home_spread=row["home_spread"],
+        away_spread=row["away_spread"], total=row["total"],
+    )
 
 
 def main(argv=None):
@@ -183,13 +192,25 @@ def main(argv=None):
         if not sport_games:
             continue
         odds_by_game.update(get_odds_provider(sport).get_odds(sport_games))
+
+    # Once a game starts it drops out of the live odds feed, so the provider
+    # returns synthetic "mock" numbers for it. Rather than show those fake
+    # odds, restore the last REAL FanDuel line we captured pre-game. And only
+    # ever snapshot real lines -- never let mock numbers into the DB.
     now_iso = datetime.now(timezone.utc).isoformat()
     for game in games:
         odds = odds_by_game.get(game.game_id)
         if not odds:
             continue
-        is_opening = db.get_opening_line(game.game_id) is None
-        db.record_odds_snapshot(game.game_id, odds, now_iso, is_opening=is_opening)
+        if odds.book == "mock":
+            real = db.get_last_real_line(game.game_id)
+            if real:
+                odds = _row_to_odds(real)
+                odds_by_game[game.game_id] = odds
+                logger.info("Game %s already started/not in live feed -- restored last real FanDuel line.", game.game_id)
+        if odds.book != "mock":
+            is_opening = db.get_opening_line(game.game_id) is None
+            db.record_odds_snapshot(game.game_id, odds, now_iso, is_opening=is_opening)
 
     ensure_injury_template(date_str)
     public_splits = get_public_betting_provider().get_splits(games, date_str)
