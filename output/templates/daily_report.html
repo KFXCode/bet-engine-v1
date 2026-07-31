@@ -71,7 +71,6 @@
              border-radius: 999px; border: 1px solid var(--card-border); background: transparent; color: var(--muted); }
   .tab-btn.active { border-color: var(--accent); background: var(--accent); color: oklch(0.16 0.01 155); }
 
-  /* Collapsible pick card */
   .pick { background: var(--card); border: 1px solid var(--accent-dim); border-radius: 16px;
           margin-bottom: 14px; position: relative; overflow: hidden; }
   .pick::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--accent); z-index: 1; }
@@ -90,7 +89,6 @@
   .pick .body { padding: 0 24px 22px; }
   .pick .odds { color: var(--muted); font-size: 15px; font-family: "SF Mono", "Roboto Mono", monospace; }
 
-  /* TOP pick highlight -- flashing green box */
   @keyframes topPulse {
     0%, 100% { border-color: var(--accent); box-shadow: 0 0 0 0 rgba(50, 210, 122, 0.0); }
     50% { border-color: oklch(0.82 0.20 150); box-shadow: 0 0 18px 2px rgba(50, 210, 122, 0.55); }
@@ -209,13 +207,13 @@
       <div class="cx-body">
         <div class="cx-row">
           <div class="cx-h">🌙 {{ celestial.phase }}{% if celestial.illumination is defined %} &middot; {{ '%.0f' | format(celestial.illumination * 100) }}% lit{% endif %}</div>
-          <div class="cx-t">{{ phase_meaning.get(celestial.phase, ['Moon-phase energy shading today\\'s slate.', 'neutral'])[0] }}</div>
+          <div class="cx-t">{{ phase_meaning.get(celestial.phase, ['Moon-phase energy shading the slate today.', 'neutral'])[0] }}</div>
           {% set pl = phase_meaning.get(celestial.phase, ['', 'neutral'])[1] %}
           {% if pl == 'fav' %}<span class="cx-lean lean-fav">Leans favorite</span>{% elif pl == 'dog' %}<span class="cx-lean lean-dog">Leans underdog</span>{% else %}<span class="cx-lean" style="color:var(--muted); background:rgba(255,255,255,0.06);">Neutral / coin-flip</span>{% endif %}
         </div>
         <div class="cx-row">
           <div class="cx-h">♒ Moon in {{ celestial.sign }}{% if el %} &middot; {{ el|capitalize }} sign{% endif %}</div>
-          <div class="cx-t">{{ element_meaning.get(el, ['The sign the Moon is transiting colors the day\\'s tone.', 'neutral'])[0] }}</div>
+          <div class="cx-t">{{ element_meaning.get(el, ['The sign the Moon is transiting colors the daily tone.', 'neutral'])[0] }}</div>
           {% set sl = element_meaning.get(el, ['', 'neutral'])[1] %}
           {% if sl == 'fav' %}<span class="cx-lean lean-fav">Leans favorite</span>{% elif sl == 'dog' %}<span class="cx-lean lean-dog">Leans underdog</span>{% else %}<span class="cx-lean" style="color:var(--muted); background:rgba(255,255,255,0.06);">Neutral</span>{% endif %}
         </div>
@@ -254,7 +252,6 @@
     <button class="tab-btn" data-target="view-history" onclick="showView(this)">HISTORY</button>
   </div>
 
-  <!-- ============ PER-SPORT PANELS ============ -->
   {% for sport in active_sports %}
   {% set sp_plays = plays | selectattr('sport', 'equalto', sport) | list %}
   <div class="view-panel" id="view-{{ sport }}" style="display:none;">
@@ -349,7 +346,6 @@
   </div>
   {% endfor %}
 
-  <!-- ============ TOP PARLAY (cross-sport) ============ -->
   <div class="view-panel" id="view-top" style="display:none;">
     {% if double_parlay and double_parlay.legs %}
     <div class="section-title"><span>Double Your Money &middot; 2 ML picks</span></div>
@@ -380,7 +376,6 @@
     {% endif %}
   </div>
 
-  <!-- ============ HISTORY (combined ledger) ============ -->
   <div class="view-panel" id="view-history" style="display:none;">
     {% if bankroll %}
     <div class="bankroll">
@@ -442,7 +437,6 @@
       btn.classList.add('active');
     }
     function toggleAll(link) {
-      var panel = link.closest('.view-panel');
       var section = link.closest('.section-title');
       var picks = [];
       var el = section.nextElementSibling;
