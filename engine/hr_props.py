@@ -1,37 +1,44 @@
 """
 engine/hr_props.py
 ===================
-HR Prop Workflow -- the "Grok HR Signal System": a weighted, multi-category
-signal-cluster model (0-100). Each pick's score is the sum of five weighted
-categories (points defined in config.HR_CATEGORY_POINTS):
+HR Prop Workflow (runs automatically every day alongside moneyline):
+  1. Barrel Signal Check       -- batter's own barrel%/recent trend
+  2. Pitcher Vulnerability     -- opposing SP's barrel%/hard-hit%/HR-9 allowed
+  3. Park + Motivation Overlay -- HR park factor + motivation context
+  4. Public Lean Filter        -- fade extremely public props unless elite
+  5. Final Selection           -- only the strongest signals survive
 
-  contact_quality (30) -- barrel%, avg+max exit velo, hard-hit%, xwOBA,
-                          HR/FB, hot-streak trend  (the Statcast core)
-  park_weather   (25)  -- park HR factor + LIVE temperature & wind direction
-  matchup        (25)  -- opposing SP HR-vulnerability (HR/9, barrel/hard-hit allowed)
-  pitcher_context(15)  -- overall SP quality (FIP/ERA, strikeout rate)
-  confirmation   (5)   -- season HR volume, pull%, lineup confirmation
+Composite score is 0-100. HR props are MLB-only.
 
-"Signal cluster" rule: a pick is only a STRONG play when >= config.
-HR_PROP_MIN_CLUSTERS of the four predictive categories each hit their 60%
-mark. Thin-cluster days are still shown but flagged, per your two-version spec.
-
-Pool is first restricted to the top-N season-HR sluggers on the slate, and
-deduped to ONE entry per player (best game on a doubleheader).
+DIAGNOSTICS: every batter considered is logged with the exact reason it was
+kept or dropped (missing Statcast data, below the season-HR floor, below the
+pool cut, etc). Read it in the GitHub Actions run log under "HR-DIAG" to see
+why a specific player (e.g. Acuna Jr) did or didn't surface -- real data, not
+guesswork.
 """
+
+import logging
 
 import config
 from data.park_factors import park_factor_for
-from data.weather import get_park_weather
+
+logger = logging.getLogger("hr_props")
 
 
 def evaluate_hr_prop_candidates(games, rosters, stats_provider, public_prop_splits,
                                  situational_by_team, lineup_source=None):
+    """
+    rosters: dict team_abbr -> list[str] batter names (confirmed lineup when
+             posted, else active roster -- see lineup_source)
+    public_prop_splits: dict (team_abbr, batter_name) -> pct_public_on_over (0-100), optional
+    situational_by_team: dict team_abbr -> summary dict
+    lineup_source: dict team_abbr -> "confirmed" | "roster"
+    """
     lineup_source = lineup_source or {}
-    pts = config.HR_CATEGORY_POINTS
+    candidates = []
+    considered = 0
+    dropped = {"no_data": [], "below_hr_floor": [], "public_fade": []}
 
-    # --- Step 0: eligible power-hitter pool (top-N by season HR) ----------
-    pool = []
     for game in games:
         for batting_team, opp_pitcher in (
             (game.home_team, game.away_pitcher),
@@ -39,210 +46,176 @@ def evaluate_hr_prop_candidates(games, rosters, stats_provider, public_prop_spli
         ):
             if not opp_pitcher:
                 continue
+            pitcher_profile = stats_provider.get_pitcher_profile(opp_pitcher.name)
+            hr_park_factor = park_factor_for(game.home_team)[1]
+            motivation = _motivation_note(situational_by_team.get(batting_team, {}))
+            pitcher_confirmed = getattr(game, "pitchers_confirmed", False)
+
             for batter_name in rosters.get(batting_team, []):
-                bp = stats_provider.get_batter_profile(batter_name, batting_team)
-                pool.append({"batter_name": batter_name, "batter_profile": bp,
-                             "batting_team": batting_team, "opp_pitcher": opp_pitcher,
-                             "game": game, "hr_count": bp.hr_count or 0})
+                considered += 1
+                batter_profile = stats_provider.get_batter_profile(batter_name, batting_team)
+                score, reasoning, quality = _score_candidate(
+                    batter_name, batter_profile, pitcher_profile, hr_park_factor, motivation
+                )
+                if score is None:
+                    if quality == "below_hr_floor":
+                        dropped["below_hr_floor"].append(
+                            f"{batter_name} ({batting_team}): {batter_profile.hr_count} HR < floor {config.HR_PROP_MIN_SEASON_HR}")
+                    else:
+                        dropped["no_data"].append(
+                            f"{batter_name} ({batting_team}): barrel_pct={batter_profile.barrel_pct}, quality={quality}")
+                    continue
 
-    pool = [c for c in pool if c["hr_count"] >= config.HR_PROP_MIN_SEASON_HR]
-    pool.sort(key=lambda c: c["hr_count"], reverse=True)
-    pool = pool[: config.HR_PROP_TOP_N_POOL]
+                public_lean = public_prop_splits.get((batting_team, batter_name)) if public_prop_splits else None
+                if public_lean is not None and public_lean >= 80:
+                    if score < 90:
+                        dropped["public_fade"].append(f"{batter_name} ({batting_team}): {public_lean:.0f}% public, score {score}")
+                        continue
+                    reasoning.append(f"Public is {public_lean:.0f}% on the OVER -- kept only because every other signal is elite.")
 
-    # weather is per-park; fetch once per home team, cache in this dict
-    weather_cache = {}
+                if score < config.HR_PROP_STRONG_SCORE:
+                    reasoning.append(
+                        f"Below our normal high-confidence bar ({config.HR_PROP_STRONG_SCORE}+) -- "
+                        f"thinner signal day, shown as the best available rather than a slam-dunk.")
 
-    candidates = []
-    for entry in pool:
-        game = entry["game"]
-        opp_pitcher = entry["opp_pitcher"]
-        batting_team = entry["batting_team"]
-        batter_name = entry["batter_name"]
-        batter = entry["batter_profile"]
+                lineup_flag = lineup_source.get(batting_team, "confirmed")
+                if lineup_flag == "roster":
+                    reasoning.append(
+                        "NOTE: starting lineup not posted yet -- confirm this player is actually "
+                        "in today's lineup before betting.")
+                if not pitcher_confirmed:
+                    reasoning.append(
+                        f"NOTE: opposing starter ({opp_pitcher.name}) is MLB's listed probable but NOT yet "
+                        f"confirmed for this game -- double-check before betting, and re-run closer to first pitch.")
 
-        if batter.data_quality in ("degraded", "not_found") or batter.barrel_pct is None:
-            continue
+                candidates.append({
+                    "player_name": batter_name,
+                    "team": batting_team,
+                    "game_id": game.game_id,
+                    "opponent_pitcher": opp_pitcher.name,
+                    "score": score,
+                    "reasoning": reasoning,
+                    "data_quality": "roster_unconfirmed" if lineup_flag == "roster" else quality,
+                })
 
-        pitcher = stats_provider.get_pitcher_profile(opp_pitcher.name)
-        hr_park_factor = park_factor_for(game.home_team)[1]
+    candidates.sort(key=lambda c: c["score"], reverse=True)
+    strongest = [c for c in candidates if c["score"] >= config.HR_PROP_MIN_SCORE]
+    final = strongest[: config.HR_PROP_MAX_PER_DAY]
 
-        if config.HR_WEATHER_ENABLED:
-            if game.home_team not in weather_cache:
-                weather_cache[game.home_team] = get_park_weather(game.home_team, game.game_time_utc)
-            weather = weather_cache[game.home_team]
-        else:
-            weather = {"available": False, "wind_effect": "neutral", "summary": "weather off"}
+    # ---- DIAGNOSTIC DUMP (read in the Actions log) ----
+    logger.info("HR-DIAG: %d batters considered across %d games.", considered, len(games))
+    logger.info("HR-DIAG: %d scored, %d made the final cut (max %d, min score %s).",
+                len(candidates), len(final), config.HR_PROP_MAX_PER_DAY, config.HR_PROP_MIN_SCORE)
+    if dropped["no_data"]:
+        logger.info("HR-DIAG: dropped %d for MISSING/BAD STATCAST DATA:", len(dropped["no_data"]))
+        for d in dropped["no_data"]:
+            logger.info("HR-DIAG:    - %s", d)
+    if dropped["below_hr_floor"]:
+        logger.info("HR-DIAG: dropped %d BELOW SEASON-HR FLOOR:", len(dropped["below_hr_floor"]))
+        for d in dropped["below_hr_floor"]:
+            logger.info("HR-DIAG:    - %s", d)
+    if dropped["public_fade"]:
+        logger.info("HR-DIAG: dropped %d for HEAVY PUBLIC FADE:", len(dropped["public_fade"]))
+        for d in dropped["public_fade"]:
+            logger.info("HR-DIAG:    - %s", d)
+    scored_but_cut = [c for c in candidates if c not in final]
+    if scored_but_cut:
+        logger.info("HR-DIAG: %d scored but below the pool cut:", len(scored_but_cut))
+        for c in scored_but_cut:
+            logger.info("HR-DIAG:    - %s (%s): scored %.1f", c["player_name"], c["team"], c["score"])
+    logger.info("HR-DIAG: FINAL PICKS: %s",
+                ", ".join(f"{c['player_name']} {c['score']:.1f}" for c in final) or "(none)")
 
-        cats, reasoning = _score_categories(batter, pitcher, hr_park_factor, weather, entry["hr_count"])
-
-        # weighted 0-100 total
-        score = round(sum(cats[name] / 100.0 * pts[name] for name in pts), 1)
-
-        # signal-cluster count across the 4 predictive categories
-        predictive = ["contact_quality", "park_weather", "matchup", "pitcher_context"]
-        clusters = sum(1 for name in predictive if cats[name] >= 60)
-        reasoning.append(f"[Signal Cluster] {clusters}/4 predictive categories are strong (60%+). "
-                         f"Need {config.HR_PROP_MIN_CLUSTERS}+ for a full-confluence STRONG play.")
-        if clusters < config.HR_PROP_MIN_CLUSTERS:
-            reasoning.append("NOTE: thin cluster -- shown as the best available today, not a full-confluence spot.")
-
-        public_lean = public_prop_splits.get((batting_team, batter_name)) if public_prop_splits else None
-        if public_lean is not None and public_lean >= 80:
-            if score < 90:
-                continue
-            reasoning.append(f"Public is {public_lean:.0f}% on the OVER -- kept only because the model is elite.")
-
-        lineup_flag = lineup_source.get(batting_team, "confirmed")
-        if lineup_flag == "roster":
-            reasoning.append("NOTE: starting lineup not posted yet -- confirm this player is actually in today's lineup.")
-
-        dh_note = game.dh_reasoning()
-        if dh_note:
-            reasoning.insert(0, dh_note)
-
-        reasoning.append(f"FINAL HR SCORE: {score}/100 (weighted across all 5 categories).")
-
-        candidates.append({
-            "player_name": batter_name + game.dh_label(),
-            "player_key": batter_name.strip().lower(),
-            "team": batting_team,
-            "game_id": game.game_id,
-            "opponent_pitcher": opp_pitcher.name,
-            "score": score,
-            "clusters": clusters,
-            "reasoning": reasoning,
-            "data_quality": "roster_unconfirmed" if lineup_flag == "roster" else "ok",
-        })
-
-    # --- dedupe to ONE entry per player (best game) ----------------------
-    best_by_player = {}
-    for c in candidates:
-        key = c["player_key"]
-        if key not in best_by_player or c["score"] > best_by_player[key]["score"]:
-            best_by_player[key] = c
-    deduped = sorted(best_by_player.values(), key=lambda c: c["score"], reverse=True)
-
-    strongest = [c for c in deduped if c["score"] >= config.HR_PROP_MIN_SCORE]
-    return strongest[: config.HR_PROP_MAX_PER_DAY]
+    return final
 
 
-def _score_categories(batter, pitcher, hr_park_factor, weather, hr_count):
-    """Returns (cats, reasoning). Each cats[name] is a 0-100 sub-score for that
-    category; the caller applies the category weights."""
+def _score_candidate(batter_name, batter, pitcher, hr_park_factor, motivation_note):
+    if batter.data_quality in ("degraded", "not_found") or batter.barrel_pct is None:
+        return None, None, batter.data_quality
+
+    if batter.hr_count is not None and batter.hr_count < config.HR_PROP_MIN_SEASON_HR:
+        return None, None, "below_hr_floor"
+
+    score = 50.0
     reasoning = []
-    cats = {}
+    reasoning.append(f"Starting score: 50 (baseline). Every factor below adds or subtracts points.")
 
-    # === 1. CONTACT QUALITY (Statcast core) ==============================
-    c = 50.0
-    if batter.barrel_pct is not None:
-        if batter.barrel_pct >= 15:
-            c += 22; reasoning.append(f"[Contact] ELITE {batter.barrel_pct:.1f}% barrel rate (15%+).")
-        elif batter.barrel_pct >= 12:
-            c += 15; reasoning.append(f"[Contact] Strong {batter.barrel_pct:.1f}% barrel rate (12%+).")
-        elif batter.barrel_pct < 6:
-            c -= 18; reasoning.append(f"[Contact] Weak {batter.barrel_pct:.1f}% barrel rate (under 6%).")
+    if batter.hr_count is not None:
+        if batter.hr_count >= 30:
+            score += 25
+            reasoning.append(f"[Season Power +25] {batter_name} has {batter.hr_count} HR this season -- ELITE "
+                             f"(30+, one of the league's premier power bats). This is the biggest single factor.")
+        elif batter.hr_count >= 22:
+            score += 18
+            reasoning.append(f"[Season Power +18] {batter_name} has {batter.hr_count} HR this season -- a genuine "
+                             f"middle-of-the-order slugger (22+).")
+        elif batter.hr_count >= 15:
+            score += 10
+            reasoning.append(f"[Season Power +10] {batter_name} has {batter.hr_count} HR this season -- solid, "
+                             f"legit power (15+).")
         else:
-            reasoning.append(f"[Contact] Average {batter.barrel_pct:.1f}% barrel rate.")
-    if batter.avg_exit_velo is not None:
-        if batter.avg_exit_velo >= 92:
-            c += 10; reasoning.append(f"[Contact] High avg exit velo {batter.avg_exit_velo:.1f} mph (92+).")
-        elif batter.avg_exit_velo < 87:
-            c -= 8; reasoning.append(f"[Contact] Low avg exit velo {batter.avg_exit_velo:.1f} mph.")
-    if batter.max_exit_velo is not None and batter.max_exit_velo >= 112:
-        c += 6; reasoning.append(f"[Contact] Big raw-power ceiling: {batter.max_exit_velo:.1f} mph max EV.")
-    if batter.hard_hit_pct is not None and batter.hard_hit_pct >= 45:
-        c += 6; reasoning.append(f"[Contact] Elite {batter.hard_hit_pct:.1f}% hard-hit rate.")
-    if batter.xwoba is not None:
-        if batter.xwoba >= 0.370:
-            c += 8; reasoning.append(f"[Contact] Elite xwOBA {batter.xwoba:.3f} (true-talent contact).")
-        elif batter.xwoba < 0.300:
-            c -= 8; reasoning.append(f"[Contact] Low xwOBA {batter.xwoba:.3f}.")
+            reasoning.append(f"[Season Power +0] {batter_name} has {batter.hr_count} HR this season -- cleared the "
+                             f"{config.HR_PROP_MIN_SEASON_HR}-HR eligibility floor but not a big-power bat.")
+    else:
+        reasoning.append("[Season Power n/a] Season HR total unavailable today -- scored on contact quality alone.")
+
+    if batter.barrel_pct >= 12:
+        score += 12
+        reasoning.append(f"[Barrel Signal +12] {batter_name} has an ELITE barrel rate of {batter.barrel_pct:.1f}% "
+                         f"(12%+ is top-tier power contact -- how often he squares a ball up for max damage).")
+    elif batter.barrel_pct < 6:
+        score -= 10
+        reasoning.append(f"[Barrel Signal -10] {batter_name}'s barrel rate is only {batter.barrel_pct:.1f}% "
+                         f"(under 6% -- weak power contact, drags this down).")
+    else:
+        reasoning.append(f"[Barrel Signal +0] {batter_name}'s barrel rate is {batter.barrel_pct:.1f}% (average range, neutral).")
     if batter.recent_barrel_trend and batter.recent_barrel_trend > 2:
-        c += 8; reasoning.append(f"[Contact] HOT: barrel% +{batter.recent_barrel_trend:.1f} pts over last 15 days.")
-    cats["contact_quality"] = _clamp(c)
+        score += 8
+        reasoning.append(f"[Hot Streak +8] Trending UP: barrel% is +{batter.recent_barrel_trend:.1f} points over the "
+                         f"last 15 days -- he's heating up right now.")
 
-    # === 2. PARK + WEATHER ================================================
-    c = 50.0
-    if hr_park_factor >= 110:
-        c += 20; reasoning.append(f"[Park] Big HR park (factor {hr_park_factor}).")
-    elif hr_park_factor >= 105:
-        c += 12; reasoning.append(f"[Park] Hitter-friendly park (factor {hr_park_factor}).")
-    elif hr_park_factor <= 92:
-        c -= 18; reasoning.append(f"[Park] Pitcher's park (factor {hr_park_factor}).")
-    else:
-        reasoning.append(f"[Park] Neutral park (factor {hr_park_factor}).")
-    if weather.get("available"):
-        temp = weather.get("temp_f")
-        if temp is not None:
-            if temp >= 85:
-                c += 10; reasoning.append(f"[Weather] Hot: {temp:.0f}\u00b0F -- ball carries.")
-            elif temp >= 75:
-                c += 5; reasoning.append(f"[Weather] Warm: {temp:.0f}\u00b0F.")
-            elif temp <= 55:
-                c -= 10; reasoning.append(f"[Weather] Cold: {temp:.0f}\u00b0F -- ball dies.")
-        eff = weather.get("wind_effect")
-        if eff == "out":
-            c += 14; reasoning.append(f"[Weather] {weather.get('summary')} -- HR BOOST.")
-        elif eff == "in":
-            c -= 14; reasoning.append(f"[Weather] {weather.get('summary')} -- HR SUPPRESSOR.")
-        elif weather.get("summary"):
-            reasoning.append(f"[Weather] {weather.get('summary')}.")
-    else:
-        reasoning.append("[Weather] No live reading -- park factor only.")
-    cats["park_weather"] = _clamp(c)
-
-    # === 3. MATCHUP (opposing SP HR vulnerability) =======================
-    c = 50.0
-    if pitcher and pitcher.hr_per_9 is not None:
-        if pitcher.hr_per_9 >= 1.5:
-            c += 22; reasoning.append(f"[Matchup] {pitcher.name} is very HR-prone: {pitcher.hr_per_9:.2f} HR/9.")
-        elif pitcher.hr_per_9 >= 1.2:
-            c += 12; reasoning.append(f"[Matchup] {pitcher.name} allows plenty of HRs: {pitcher.hr_per_9:.2f} HR/9.")
-        elif pitcher.hr_per_9 < 0.9:
-            c -= 18; reasoning.append(f"[Matchup] {pitcher.name} stingy on HRs: {pitcher.hr_per_9:.2f} HR/9.")
-        else:
-            reasoning.append(f"[Matchup] {pitcher.name} average HR rate: {pitcher.hr_per_9:.2f} HR/9.")
     if pitcher and pitcher.barrel_pct_allowed is not None:
         if pitcher.barrel_pct_allowed >= 9:
-            c += 14; reasoning.append(f"[Matchup] {pitcher.name} allows a high {pitcher.barrel_pct_allowed:.1f}% barrel rate.")
+            score += 12
+            reasoning.append(f"[Pitcher Vulnerability +12] Opposing SP {pitcher.name} allows a HIGH barrel rate of "
+                             f"{pitcher.barrel_pct_allowed:.1f}% (9%+ -- gives up hard, square contact often).")
         elif pitcher.barrel_pct_allowed < 5:
-            c -= 10; reasoning.append(f"[Matchup] {pitcher.name} suppresses barrels ({pitcher.barrel_pct_allowed:.1f}%).")
-    if pitcher and pitcher.hard_hit_pct_allowed is not None and pitcher.hard_hit_pct_allowed >= 42:
-        c += 6; reasoning.append(f"[Matchup] {pitcher.name} allows hard contact ({pitcher.hard_hit_pct_allowed:.1f}% hard-hit).")
-    cats["matchup"] = _clamp(c)
-
-    # === 4. PITCHER CONTEXT (overall SP quality) =========================
-    c = 50.0
-    fip_or_era = None
-    if pitcher:
-        fip_or_era = pitcher.fip if pitcher.fip is not None else pitcher.era
-    if fip_or_era is not None:
-        if fip_or_era >= 5.0:
-            c += 20; reasoning.append(f"[Pitcher] Weak starter (FIP/ERA {fip_or_era:.2f}) -- exploitable.")
-        elif fip_or_era >= 4.3:
-            c += 10; reasoning.append(f"[Pitcher] Below-average starter (FIP/ERA {fip_or_era:.2f}).")
-        elif fip_or_era <= 3.3:
-            c -= 20; reasoning.append(f"[Pitcher] Strong starter (FIP/ERA {fip_or_era:.2f}) -- tough spot.")
+            score -= 10
+            reasoning.append(f"[Pitcher Vulnerability -10] {pitcher.name} only allows {pitcher.barrel_pct_allowed:.1f}% "
+                             f"barrels (under 5% -- tough to square up, works against this pick).")
         else:
-            reasoning.append(f"[Pitcher] Average starter (FIP/ERA {fip_or_era:.2f}).")
-    if pitcher and pitcher.k_pct is not None and pitcher.k_pct >= 26:
-        c -= 8; reasoning.append(f"[Pitcher] High strikeout rate ({pitcher.k_pct:.0f}%) -- fewer balls in play.")
-    cats["pitcher_context"] = _clamp(c)
+            reasoning.append(f"[Pitcher Vulnerability +0] {pitcher.name} allows {pitcher.barrel_pct_allowed:.1f}% barrels (average).")
+    if pitcher and pitcher.hr_per_9 is not None:
+        if pitcher.hr_per_9 >= 1.4:
+            score += 8
+            reasoning.append(f"[HR Rate Allowed +8] {pitcher.name} is running a {pitcher.hr_per_9:.2f} HR/9 "
+                             f"(1.4+ -- he serves up homers at a high clip).")
+        elif pitcher.hr_per_9 < 0.9:
+            score -= 8
+            reasoning.append(f"[HR Rate Allowed -8] {pitcher.name} only allows {pitcher.hr_per_9:.2f} HR/9 "
+                             f"(under 0.9 -- stingy with the long ball).")
+        else:
+            reasoning.append(f"[HR Rate Allowed +0] {pitcher.name} allows {pitcher.hr_per_9:.2f} HR/9 (average).")
 
-    # === 5. CONFIRMATION (volume, pull, lineup) ==========================
-    c = 50.0
-    if hr_count >= 30:
-        c += 26; reasoning.append(f"[Confirm] Elite season power: {hr_count} HR.")
-    elif hr_count >= 20:
-        c += 16; reasoning.append(f"[Confirm] Strong season power: {hr_count} HR.")
+    if hr_park_factor >= 108:
+        score += 10
+        reasoning.append(f"[Park Factor +10] This park's HR factor is {hr_park_factor} (108+ -- a hitter's park that "
+                         f"inflates home runs).")
+    elif hr_park_factor <= 92:
+        score -= 10
+        reasoning.append(f"[Park Factor -10] This park's HR factor is {hr_park_factor} (92 or below -- a pitcher's park "
+                         f"that suppresses home runs).")
     else:
-        c += 6; reasoning.append(f"[Confirm] {hr_count} HR this season (in the top-{config.HR_PROP_TOP_N_POOL} pool).")
-    if batter.pull_pct is not None and batter.pull_pct >= 40:
-        c += 10; reasoning.append(f"[Confirm] Pull-heavy ({batter.pull_pct:.0f}%) -- most HRs are pulled.")
-    cats["confirmation"] = _clamp(c)
+        reasoning.append(f"[Park Factor +0] This park's HR factor is {hr_park_factor} (roughly neutral for homers).")
+    if motivation_note:
+        reasoning.append(f"[Overlay] {motivation_note}")
 
-    return cats, reasoning
+    final = round(max(0, min(100, score)), 1)
+    reasoning.append(f"FINAL HR SCORE: {final}/100. Higher = stronger homer spot; today's picks are the highest scores on the slate.")
+    return final, reasoning, "ok"
 
 
-def _clamp(v):
-    return max(0.0, min(100.0, v))
+def _motivation_note(situational):
+    if situational and situational.get("park_runs_factor", 100) >= 110:
+        return "Hitter-friendly conditions today."
+    return None
