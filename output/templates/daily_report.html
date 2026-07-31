@@ -43,6 +43,20 @@
   .strip .item { font-size: 13px; color: var(--muted); }
   .strip .item b { color: var(--fg); }
 
+  .cosmic { max-width: 520px; margin: 14px auto 0; background: var(--card); border: 1px solid var(--card-border); border-radius: 12px; overflow: hidden; text-align: left; }
+  .cosmic > summary { list-style: none; cursor: pointer; padding: 12px 16px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent); }
+  .cosmic > summary::-webkit-details-marker { display: none; }
+  .cosmic .cx-chev { width: 14px; height: 14px; transition: transform 0.2s; }
+  .cosmic[open] .cx-chev { transform: rotate(180deg); }
+  .cosmic .cx-body { padding: 4px 18px 18px; }
+  .cosmic .cx-row { padding: 12px 0; border-top: 1px solid var(--card-border); }
+  .cosmic .cx-row:first-child { border-top: none; }
+  .cosmic .cx-h { font-size: 13px; font-weight: 700; color: var(--fg); margin-bottom: 3px; }
+  .cosmic .cx-t { font-size: 13px; color: var(--muted); line-height: 1.5; }
+  .cosmic .cx-lean { display: inline-block; margin-top: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 2px 8px; border-radius: 6px; }
+  .cosmic .lean-fav { color: var(--accent); background: var(--accent-dim); }
+  .cosmic .lean-dog { color: var(--warn); background: var(--warn-dim); }
+
   .warnbox { background: var(--warn-dim); border: 1px solid var(--warn); color: var(--fg);
              border-radius: 10px; padding: 14px 18px; margin-bottom: 24px; font-size: 14px; }
   .warnbox ul { margin: 6px 0 0; padding-left: 18px; }
@@ -143,6 +157,62 @@
       <div class="item">Moon: <b>{{ celestial.phase }}</b> in <b>{{ celestial.sign }}</b></div>
       <div class="item">Numerology: <b>{{ numerology.number }}</b></div>
     </div>
+
+    {% set phase_meaning = {
+      'New Moon': ['Fresh-start energy, a clean slate. Blank canvas favors the stronger, more disciplined side.', 'fav'],
+      'Waxing Crescent': ['Building momentum. Energy is rising toward the favorite as intention takes hold.', 'fav'],
+      'First Quarter': ['A tension/decision point. Push-and-pull energy makes it a coin-flip lean.', 'neutral'],
+      'Waxing Gibbous': ['Refinement before the peak. Slight letdown/overhype risk creeps toward the underdog.', 'dog'],
+      'Full Moon': ['Peak emotion and chaos. High-variance night -- fade the heavy public favorite, upsets spike.', 'dog'],
+      'Waning Gibbous': ['Release and letdown after the peak. Hot win-streak teams are prime fade spots here.', 'dog'],
+      'Last Quarter': ['Clearing out, re-evaluation. Energy is neutral and unsettled.', 'neutral'],
+      'Waning Crescent': ['Low-energy, fatigue, emotional wind-down. Rest/home-comfort edges matter; slight favorite lean.', 'fav']
+    } %}
+    {% set element_meaning = {
+      'fire': ['Fire signs (Aries, Leo, Sagittarius) bring bold, aggressive energy -- favors the stronger team asserting itself.', 'fav'],
+      'earth': ['Earth signs (Taurus, Virgo, Capricorn) are grounded and steady -- favors the disciplined, better-run team.', 'fav'],
+      'air': ['Air signs (Gemini, Libra, Aquarius) are unpredictable and scattered -- nudges toward chaos and the underdog.', 'dog'],
+      'water': ['Water signs (Cancer, Scorpio, Pisces) bring emotional swings and volatility -- underdog/upset energy.', 'dog']
+    } %}
+    {% set number_meaning = {
+      1: 'Leadership & new beginnings -- backs the front-runner.',
+      2: 'Partnership & balance -- close, evenly-matched energy.',
+      3: 'Expression & luck -- creative, favorable vibes.',
+      4: 'Structure disrupted -- foundations shaky, lean underdog.',
+      5: 'Change & chaos -- volatile, unpredictable day.',
+      6: 'Harmony & responsibility -- order favors the stronger side.',
+      7: 'Introspection -- quiet, neutral energy.',
+      8: 'Karma, power & reversal -- revenge spots and upsets carry weight.',
+      9: 'Completion & fulfillment -- things fall into place for the favorite.',
+      11: 'Master number -- heightened intuition, strong favorite energy.',
+      22: 'Master number -- the master builder under strain; upset energy.',
+      33: 'Master number -- rare harmony and balance.'
+    } %}
+    {% set el = celestial.element if celestial.element else '' %}
+    <details class="cosmic">
+      <summary>Why today's moon &amp; numbers matter <svg class="cx-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg></summary>
+      <div class="cx-body">
+        <div class="cx-row">
+          <div class="cx-h">🌙 {{ celestial.phase }}{% if celestial.illumination is defined %} &middot; {{ '%.0f' | format(celestial.illumination * 100) }}% lit{% endif %}</div>
+          <div class="cx-t">{{ phase_meaning.get(celestial.phase, ['Moon-phase energy shading today\\'s slate.', 'neutral'])[0] }}</div>
+          {% set pl = phase_meaning.get(celestial.phase, ['', 'neutral'])[1] %}
+          {% if pl == 'fav' %}<span class="cx-lean lean-fav">Leans favorite</span>{% elif pl == 'dog' %}<span class="cx-lean lean-dog">Leans underdog</span>{% else %}<span class="cx-lean" style="color:var(--muted); background:rgba(255,255,255,0.06);">Neutral / coin-flip</span>{% endif %}
+        </div>
+        <div class="cx-row">
+          <div class="cx-h">♒ Moon in {{ celestial.sign }}{% if el %} &middot; {{ el|capitalize }} sign{% endif %}</div>
+          <div class="cx-t">{{ element_meaning.get(el, ['The sign the Moon is transiting colors the day\\'s tone.', 'neutral'])[0] }}</div>
+          {% set sl = element_meaning.get(el, ['', 'neutral'])[1] %}
+          {% if sl == 'fav' %}<span class="cx-lean lean-fav">Leans favorite</span>{% elif sl == 'dog' %}<span class="cx-lean lean-dog">Leans underdog</span>{% else %}<span class="cx-lean" style="color:var(--muted); background:rgba(255,255,255,0.06);">Neutral</span>{% endif %}
+        </div>
+        <div class="cx-row">
+          <div class="cx-h">🔢 Numerology {{ numerology.number }}</div>
+          <div class="cx-t">{{ number_meaning.get(numerology.number, 'The date reduces to this number, setting the underlying tone.') }}</div>
+        </div>
+        <div class="cx-row">
+          <div class="cx-t" style="font-size:12px;">These are weighted <b style="color:var(--fg);">nudges</b>, not the driver -- they tip close calls but never override talent, pitching, and the money/sharp read.</div>
+        </div>
+      </div>
+    </details>
   </div>
 
   {% if data_warnings %}
