@@ -90,6 +90,19 @@
   .pick .body { padding: 0 24px 22px; }
   .pick .odds { color: var(--muted); font-size: 15px; font-family: "SF Mono", "Roboto Mono", monospace; }
 
+  /* TOP pick highlight -- flashing green box */
+  @keyframes topPulse {
+    0%, 100% { border-color: var(--accent); box-shadow: 0 0 0 0 rgba(50, 210, 122, 0.0); }
+    50% { border-color: oklch(0.82 0.20 150); box-shadow: 0 0 18px 2px rgba(50, 210, 122, 0.55); }
+  }
+  .pick.top-pick { border-width: 2px; animation: topPulse 1.6s ease-in-out infinite; }
+  .pick.top-pick::before { width: 6px; background: oklch(0.82 0.20 150); }
+  .top-badge { display: inline-block; background: var(--accent); color: oklch(0.16 0.01 155);
+               font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em;
+               padding: 3px 9px; border-radius: 999px; margin-bottom: 6px; }
+  .pick.top-prop { border-color: var(--accent); }
+  .pick.top-prop::before { background: oklch(0.82 0.20 150); }
+
   .metrics { display: flex; gap: 28px; margin: 6px 0 14px; flex-wrap: wrap; }
   .metric .num { font-size: 20px; font-weight: 700; font-family: "SF Mono", "Roboto Mono", monospace; }
   .metric .lbl { font-size: 11px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.05em; }
@@ -112,6 +125,8 @@
   .parlay .legs { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
   .parlay .odds { font-family: "SF Mono", "Roboto Mono", monospace; color: var(--accent); }
   .parlay .note { color: var(--muted); font-size: 13px; margin-top: 8px; }
+  .double { background: var(--card); border: 2px solid var(--accent); border-radius: 16px; padding: 22px; margin-bottom: 20px; }
+  .double .dh { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent); margin-bottom: 8px; }
 
   .dropped { font-size: 13px; color: var(--muted); background: var(--card); border: 1px solid var(--card-border);
              border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; }
@@ -248,9 +263,10 @@
     {% if sp_plays %}
       {% for play in sp_plays | sort(attribute='edge_pct', reverse=true) %}
       {% set ml_conf = [[((play.edge_pct * 100) + 2)|round(0)|int, 10]|min, 1]|max %}
-      <details class="pick">
+      <details class="pick{% if loop.first %} top-pick{% endif %}"{% if loop.first %} open{% endif %}>
         <summary>
           <div class="s-main">
+            {% if loop.first %}<div class="top-badge">★ Top {{ sport }} ML Today</div>{% endif %}
             <div class="s-team">{{ play.team }} <span class="sport-tag">{{ play.sport }}</span> ML</div>
             <div class="s-sub">Rank #{{ loop.index }} &middot; Confidence {{ ml_conf }}/10 &middot; <span class="odds">{{ '%+d' | format(play.odds_american) }}</span>{% if play.odds_source != 'fanduel' %} &middot; SIM ODDS{% endif %}</div>
           </div>
@@ -286,9 +302,10 @@
     {% if hr_props %}
       {% for prop in hr_props %}
       {% set strong = prop.score >= 70 %}
-      <details class="pick">
+      <details class="pick{% if loop.first %} top-prop{% endif %}">
         <summary>
           <div class="s-main">
+            {% if loop.first %}<div class="top-badge">★ Top MLB Prop Today</div>{% endif %}
             <div class="s-team">{{ prop.player_name }} <span style="font-size:14px; color:var(--muted); font-weight:600;">HR</span></div>
             <div class="s-sub">Rank #{{ loop.index }} &middot; {{ prop.team }} vs {{ prop.opponent_pitcher }}{% if prop.odds_american is not none %} &middot; <span class="odds">{{ '%+d' | format(prop.odds_american) }}</span>{% else %} &middot; odds n/a{% endif %}</div>
           </div>
@@ -334,6 +351,18 @@
 
   <!-- ============ TOP PARLAY (cross-sport) ============ -->
   <div class="view-panel" id="view-top" style="display:none;">
+    {% if double_parlay and double_parlay.legs %}
+    <div class="section-title"><span>Double Your Money &middot; 2 ML picks</span></div>
+    <div class="double">
+      <div class="dh">💵 ~2x payout &middot; combined {{ '%+d' | format(double_parlay.combined_odds_american) }}</div>
+      <div style="margin-top:6px;">
+        {% for leg in double_parlay.legs %}
+        <div class="leg-row"><span class="n">Leg {{ loop.index }}</span><span class="lbl">{{ leg.label }}</span><span class="kind-tag">{{ leg.sport }}</span></div>
+        {% endfor %}
+      </div>
+      <div class="note" style="color:var(--muted); font-size:13px; margin-top:8px;">The two safest ML picks across all sports that combine to roughly double a 1-unit stake. Flat 1 unit.</div>
+    </div>
+    {% endif %}
     <div class="section-title"><span>Top Parlay of the Day &middot; all sports combined</span></div>
     {% if top_parlay and top_parlay.legs %}
     <div class="parlay">
