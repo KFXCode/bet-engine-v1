@@ -23,6 +23,7 @@ from data.public_betting_provider import get_public_betting_provider
 from data.stats_provider import get_stats_provider
 from data.situational import park_and_situational_summary, ensure_injury_template, team_situational_summary
 from data.standings import get_all_team_records
+from data.standings_wnba import get_all_wnba_records
 from data.rosters import get_team_batters
 from data.lineups import get_confirmed_lineup, get_confirmed_pitcher
 from data.hr_odds import fetch_hr_odds
@@ -177,9 +178,20 @@ def main(argv=None):
             )
 
     stats_provider = get_stats_provider()
+    # Team records: MLB from MLB Stats API, WNBA from ESPN standings. Merged
+    # into one lookup so the talent-gap + motivation factors work for both.
     team_records = get_all_team_records()
+    if any(g.sport == "WNBA" for g in games):
+        wnba_records = get_all_wnba_records(season=run_date.year)
+        if wnba_records:
+            team_records = {**team_records, **wnba_records}
+        else:
+            data_warnings.append("WNBA standings unavailable -- WNBA talent/motivation factors are running neutral today.")
     if not team_records:
         data_warnings.append("Standings unavailable today -- talent gap & motivation factors are running blind.")
+
+    # Sports whose talent-gap/motivation factors can read real standings.
+    RECORD_SPORTS = {"MLB", "WNBA"}
 
     evaluations = []
     for game in games:
@@ -187,6 +199,7 @@ def main(argv=None):
         if not odds:
             continue
         is_mlb = game.sport == "MLB"
+        has_records = game.sport in RECORD_SPORTS
         home_pitcher_profile = (stats_provider.get_pitcher_profile(game.home_pitcher.name, game.home_pitcher.player_id)
                                  if is_mlb and game.home_pitcher else None)
         away_pitcher_profile = (stats_provider.get_pitcher_profile(game.away_pitcher.name, game.away_pitcher.player_id)
@@ -197,8 +210,8 @@ def main(argv=None):
                        if is_mlb else {})
         ev = evaluate_game(
             game, odds, home_pitcher_profile, away_pitcher_profile, home_offense, away_offense,
-            team_records.get(game.home_team, {}) if is_mlb else {},
-            team_records.get(game.away_team, {}) if is_mlb else {},
+            team_records.get(game.home_team, {}) if has_records else {},
+            team_records.get(game.away_team, {}) if has_records else {},
             public_splits.get(game.game_id), situational, run_date=run_date,
         )
         evaluations.append(ev)
