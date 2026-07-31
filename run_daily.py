@@ -24,6 +24,7 @@ from data.stats_provider import get_stats_provider
 from data.situational import park_and_situational_summary, ensure_injury_template, team_situational_summary
 from data.standings import get_all_team_records
 from data.standings_wnba import get_all_wnba_records
+from data.standings_espn import get_all_records_for_sport
 from data.rosters import get_team_batters
 from data.lineups import get_confirmed_lineup, get_confirmed_pitcher
 from data.hr_odds import fetch_hr_odds
@@ -65,6 +66,11 @@ SEED_OVERRIDE_DATES = {"2026-07-29", "2026-07-30"}
 # Order sports appear in the report's per-sport nav.
 SPORT_ORDER = ["MLB", "WNBA", "NFL", "NCAAF", "NCAAB", "NHL", "NBA"]
 
+# Sports whose talent-gap/motivation factors can read real standings.
+RECORD_SPORTS = {"MLB", "WNBA", "NFL", "NCAAF", "NCAAB", "NHL", "NBA"}
+# ESPN-fed standings sports (MLB uses its own feed; WNBA its own).
+ESPN_RECORD_SPORTS = {"NFL", "NCAAF", "NCAAB", "NHL", "NBA"}
+
 
 def _fetch_schedule(sport, date_str):
     if sport == "MLB":
@@ -83,6 +89,28 @@ def _fetch_schedule(sport, date_str):
         return get_todays_nba_games(date_str)
     logger.warning("No schedule provider wired for enabled sport %s -- skipping.", sport)
     return []
+
+
+def _load_team_records(games, run_date, data_warnings):
+    """Build one team-record lookup across every sport that has games today:
+    MLB from MLB Stats API, WNBA + the rest from ESPN. Merged into a single
+    dict keyed by team abbr."""
+    records = get_all_team_records()  # MLB
+    if any(g.sport == "WNBA" for g in games):
+        wnba = get_all_wnba_records(season=run_date.year)
+        if wnba:
+            records.update(wnba)
+        else:
+            data_warnings.append("WNBA standings unavailable -- WNBA talent/motivation factors are running neutral today.")
+    for sport in ESPN_RECORD_SPORTS:
+        if not any(g.sport == sport for g in games):
+            continue
+        sp = get_all_records_for_sport(sport, season=run_date.year)
+        if sp:
+            records.update(sp)
+        else:
+            data_warnings.append(f"{sport} standings unavailable -- {sport} talent/motivation factors are running neutral today.")
+    return records
 
 
 def main(argv=None):
@@ -178,20 +206,9 @@ def main(argv=None):
             )
 
     stats_provider = get_stats_provider()
-    # Team records: MLB from MLB Stats API, WNBA from ESPN standings. Merged
-    # into one lookup so the talent-gap + motivation factors work for both.
-    team_records = get_all_team_records()
-    if any(g.sport == "WNBA" for g in games):
-        wnba_records = get_all_wnba_records(season=run_date.year)
-        if wnba_records:
-            team_records = {**team_records, **wnba_records}
-        else:
-            data_warnings.append("WNBA standings unavailable -- WNBA talent/motivation factors are running neutral today.")
+    team_records = _load_team_records(games, run_date, data_warnings)
     if not team_records:
         data_warnings.append("Standings unavailable today -- talent gap & motivation factors are running blind.")
-
-    # Sports whose talent-gap/motivation factors can read real standings.
-    RECORD_SPORTS = {"MLB", "WNBA"}
 
     evaluations = []
     for game in games:
