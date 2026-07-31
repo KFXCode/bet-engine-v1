@@ -41,6 +41,7 @@ def render_daily_report(report):
         daily_parlay=report.daily_parlay,
         sport_parlays=report.sport_parlays,
         top_parlay=report.top_parlay,
+        double_parlay=report.double_parlay,
         active_sports=report.active_sports,
         unit_size=config.FLAT_STAKE_UNITS,
     )
