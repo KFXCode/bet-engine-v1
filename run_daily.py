@@ -59,7 +59,7 @@ logger = logging.getLogger("run_daily")
 
 LEDGER_CUTOFF = "2026-07-26"
 
-SEED_OVERRIDE_DATES = {"2026-07-29"}
+SEED_OVERRIDE_DATES = {"2026-07-29", "2026-07-30"}
 
 # Order sports appear in the report's per-sport nav.
 SPORT_ORDER = ["MLB", "WNBA", "NFL", "NCAAF", "NCAAB", "NHL", "NBA"]
@@ -119,13 +119,14 @@ def main(argv=None):
 
     if not games:
         logger.info("No games found across enabled sports (%s) for %s.", ", ".join(config.ENABLED_SPORTS), date_str)
+        history = _build_history(db, date_str)
         report = DailyReport(date=date_str, slate_size=0, plays=[], fade_teams=[], hr_props=[], parlay=None,
                               dropped_notes=[], celestial=_celestial_dict(run_date),
                               numerology=_numerology_dict(run_date),
-                              bankroll_summary=bankroll_summary(db),
+                              bankroll_summary=bankroll_summary(db, history),
                               data_warnings=["No games on today's schedule across enabled sports."],
                               results_recap=_build_results_recap(db, date_str),
-                              history=_build_history(db, date_str),
+                              history=history,
                               sport_parlays={}, top_parlay={}, active_sports=[])
         _emit(report)
         if args.auto:
@@ -276,12 +277,13 @@ def main(argv=None):
     log_recommendations(db, date_str, plays, hr_props, top_parlay,
                         sport_parlays=sport_parlays, first_pitch_utc=earliest_first_pitch)
 
+    history = _build_history(db, date_str)
     report = DailyReport(
         date=date_str, slate_size=len(games), plays=plays, fade_teams=fade_teams, hr_props=hr_props, parlay=parlay,
         dropped_notes=dropped_notes, celestial=_celestial_dict(run_date),
-        numerology=_numerology_dict(run_date), bankroll_summary=bankroll_summary(db),
+        numerology=_numerology_dict(run_date), bankroll_summary=bankroll_summary(db, history),
         data_warnings=data_warnings, results_recap=_build_results_recap(db, date_str),
-        history=_build_history(db, date_str),
+        history=history,
         daily_parlay=top_parlay,
         sport_parlays=sport_parlays, top_parlay=top_parlay, active_sports=active_sports,
     )
@@ -295,6 +297,18 @@ def _build_history(db, today_str):
     Dates through LEDGER_CUTOFF and any date in SEED_OVERRIDE_DATES come from
     the verified seed below; the DB supplies every other date after the cutoff."""
     seed = [
+        {"date": "2026-07-30",
+         "parlay": ["PIT ML (-112)", "TB ML (-178)", "ATL ML (-154)", "CWS ML (-116)"],
+         "picks": [
+            {"label": "TB ML (-178)", "status": "won", "kind": "moneyline"},
+            {"label": "ATL ML (-154)", "status": "won", "kind": "moneyline"},
+            {"label": "CWS ML (-116)", "status": "won", "kind": "moneyline"},
+            {"label": "PIT ML (-112)", "status": "lost", "kind": "moneyline"},
+            {"label": "MIA ML (+110)", "status": "lost", "kind": "moneyline"},
+            {"label": "Munetaka Murakami to hit a HR", "status": "lost", "kind": "hr_prop"},
+            {"label": "James Wood to hit a HR", "status": "lost", "kind": "hr_prop"},
+            {"label": "Drake Baldwin to hit a HR", "status": "lost", "kind": "hr_prop"},
+        ]},
         {"date": "2026-07-29",
          "parlay": ["TOR ML", "TB ML", "ATL (Gm 2) ML", "BOS ML"],
          "picks": [
