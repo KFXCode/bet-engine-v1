@@ -139,5 +139,7 @@ class DailyReport:
     sport_parlays: dict = field(default_factory=dict)
     # The single cross-sport TOP PARLAY -- best legs from any mix of sports.
     top_parlay: dict = field(default_factory=dict)
+    # The 2 safest ML picks combining to ~2x ("Double Your Money").
+    double_parlay: dict = field(default_factory=dict)
     # Sports that had at least one game today (drives which sections render).
     active_sports: list = field(default_factory=list)
