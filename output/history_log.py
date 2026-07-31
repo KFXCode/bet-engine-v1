@@ -106,7 +106,7 @@ def bankroll_summary(db, history_days=None):
     base["ml_since"] = min(ml_dates) if ml_dates else None
     base["hr_since"] = min(hr_dates) if hr_dates else None
 
-    history = db.get_ban kroll_history(limit=10000)
+    history = db.get_bankroll_history(limit=10000)
     if history:
         base["units_net"] = sum((h.get("units_won") or 0) - (h.get("units_staked") or 0) for h in history)
         base["dollars_net"] = sum((h.get("dollars_won") or 0) - (h.get("dollars_staked") or 0) for h in history)
