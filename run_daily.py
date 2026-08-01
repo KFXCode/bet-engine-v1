@@ -44,7 +44,7 @@ from data.numerology import numerology_signal_for, reduce_date
 
 from engine.scoring import evaluate_game
 from engine.strategy_rules import select_daily_plays, select_fade_teams, get_parlay_pool
-from engine.hr_props import evaluate_hr_prop_candidates
+from engine.hr_props import evaluate_hr_prop_candidates, finalize_hr_props
 from engine.parlay import maybe_build_parlay, build_daily_parlay, build_double_parlay
 from engine.models import DailyReport, ProbablePitcher, MoneylineOdds
 
@@ -295,12 +295,14 @@ def main(argv=None):
     hr_props = []
     if config.HR_PROPS_ENABLED:
         mlb_games = [g for g in games if g.sport == "MLB"]
-        hr_props = evaluate_hr_prop_candidates(mlb_games, rosters, stats_provider, {},
-                                                situational_by_team, lineup_source)
-        hr_odds = fetch_hr_odds(hr_props, games)
-        for prop in hr_props:
+        hr_pool = evaluate_hr_prop_candidates(mlb_games, rosters, stats_provider, {},
+                                              situational_by_team, lineup_source)
+        hr_odds = fetch_hr_odds(hr_pool, games)
+        for prop in hr_pool:
             key = (prop.get("game_id"), _norm_player(prop["player_name"]))
             prop["odds_american"] = hr_odds.get(key)
+        # +EV edge filter runs here, AFTER live FanDuel HR odds are attached.
+        hr_props = finalize_hr_props(hr_pool)
 
     raw_celestial, _, _ = celestial_signal_for(run_date)
     raw_numerology, _, _ = numerology_signal_for(run_date)
