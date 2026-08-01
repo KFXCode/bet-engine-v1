@@ -6,15 +6,16 @@ HR Prop Workflow (runs automatically every day alongside moneyline):
   2. Pitcher Vulnerability     -- opposing SP's barrel%/hard-hit%/HR-9 allowed
   3. Park + Motivation Overlay -- HR park factor + motivation context
   4. Public Lean Filter        -- fade extremely public props unless elite
-  5. Final Selection           -- only the strongest signals survive
+  5. +EV Edge Filter           -- our probability vs FanDuel implied (final cut)
+
+evaluate_hr_prop_candidates() returns the FULL scored pool (sorted best-first,
+NOT truncated). run_daily then attaches live FanDuel HR odds and calls
+finalize_hr_props(), which applies the +EV edge filter and takes the top N.
 
 Composite score is 0-100. HR props are MLB-only.
 
 DIAGNOSTICS: every batter considered is logged with the exact reason it was
-kept or dropped (missing Statcast data, below the season-HR floor, below the
-pool cut, etc). Read it in the GitHub Actions run log under "HR-DIAG" to see
-why a specific player (e.g. Acuna Jr) did or didn't surface -- real data, not
-guesswork.
+kept or dropped. Read it in the GitHub Actions run log under "HR-DIAG".
 """
 
 import logging
@@ -25,15 +26,21 @@ from data.park_factors import park_factor_for
 logger = logging.getLogger("hr_props")
 
 
+def score_to_probability(score):
+    """Map a 0-100 HR score to an estimated true HR probability for the game."""
+    p = config.HR_PROB_BASE + (score - 50) * config.HR_PROB_PER_POINT
+    return max(config.HR_PROB_MIN, min(config.HR_PROB_MAX, p))
+
+
+def american_to_implied(ml):
+    ml = float(ml)
+    return 100.0 / (ml + 100.0) if ml > 0 else -ml / (-ml + 100.0)
+
+
 def evaluate_hr_prop_candidates(games, rosters, stats_provider, public_prop_splits,
                                  situational_by_team, lineup_source=None):
-    """
-    rosters: dict team_abbr -> list[str] batter names (confirmed lineup when
-             posted, else active roster -- see lineup_source)
-    public_prop_splits: dict (team_abbr, batter_name) -> pct_public_on_over (0-100), optional
-    situational_by_team: dict team_abbr -> summary dict
-    lineup_source: dict team_abbr -> "confirmed" | "roster"
-    """
+    """Returns the FULL scored candidate pool (sorted, not truncated).
+    finalize_hr_props() does the +EV filter and final cut after odds attach."""
     lineup_source = lineup_source or {}
     candidates = []
     considered = 0
@@ -94,18 +101,15 @@ def evaluate_hr_prop_candidates(games, rosters, stats_provider, public_prop_spli
                     "game_id": game.game_id,
                     "opponent_pitcher": opp_pitcher.name,
                     "score": score,
+                    "model_prob": score_to_probability(score),
                     "reasoning": reasoning,
                     "data_quality": "roster_unconfirmed" if lineup_flag == "roster" else quality,
                 })
 
     candidates.sort(key=lambda c: c["score"], reverse=True)
-    strongest = [c for c in candidates if c["score"] >= config.HR_PROP_MIN_SCORE]
-    final = strongest[: config.HR_PROP_MAX_PER_DAY]
 
-    # ---- DIAGNOSTIC DUMP (read in the Actions log) ----
-    logger.info("HR-DIAG: %d batters considered across %d games.", considered, len(games))
-    logger.info("HR-DIAG: %d scored, %d made the final cut (max %d, min score %s).",
-                len(candidates), len(final), config.HR_PROP_MAX_PER_DAY, config.HR_PROP_MIN_SCORE)
+    logger.info("HR-DIAG: %d batters considered across %d games; %d scored into the pool.",
+                considered, len(games), len(candidates))
     if dropped["no_data"]:
         logger.info("HR-DIAG: dropped %d for MISSING/BAD STATCAST DATA:", len(dropped["no_data"]))
         for d in dropped["no_data"]:
@@ -118,14 +122,64 @@ def evaluate_hr_prop_candidates(games, rosters, stats_provider, public_prop_spli
         logger.info("HR-DIAG: dropped %d for HEAVY PUBLIC FADE:", len(dropped["public_fade"]))
         for d in dropped["public_fade"]:
             logger.info("HR-DIAG:    - %s", d)
-    scored_but_cut = [c for c in candidates if c not in final]
-    if scored_but_cut:
-        logger.info("HR-DIAG: %d scored but below the pool cut:", len(scored_but_cut))
-        for c in scored_but_cut:
-            logger.info("HR-DIAG:    - %s (%s): scored %.1f", c["player_name"], c["team"], c["score"])
-    logger.info("HR-DIAG: FINAL PICKS: %s",
-                ", ".join(f"{c['player_name']} {c['score']:.1f}" for c in final) or "(none)")
 
+    return candidates
+
+
+def finalize_hr_props(pool, max_per_day=None):
+    """Apply the +EV edge filter after live FanDuel HR odds are attached, then
+    take the top N. Each candidate should now carry 'odds_american' (or None).
+
+    Logic:
+      - odds present: edge = model_prob - implied_prob. Mark +EV if edge >= HR_MIN_EV_EDGE.
+      - odds missing: can't compute EV -> keep as score-only fallback.
+    +EV picks are always preferred and shown first (sorted by edge). If not
+    enough clear the bar, fill the remaining slots with the best score-only
+    candidates so the slate is never empty (per your rule)."""
+    max_per_day = max_per_day or config.HR_PROP_MAX_PER_DAY
+
+    plus_ev, no_odds, neg_ev = [], [], []
+    for c in pool:
+        odds = c.get("odds_american")
+        if odds is None:
+            c["ev_edge"] = None
+            c["reasoning"].append(
+                "[+EV] HR odds unavailable from the book right now -- shown on model score alone; "
+                "confirm the price is fair before betting.")
+            no_odds.append(c)
+            continue
+        implied = american_to_implied(odds)
+        edge = c["model_prob"] - implied
+        c["ev_edge"] = edge
+        c["implied_prob"] = implied
+        if edge >= config.HR_MIN_EV_EDGE:
+            c["reasoning"].append(
+                f"[+EV +{edge*100:.1f}%] Our model gives {c['player_name']} a {c['model_prob']*100:.1f}% HR chance "
+                f"vs the book's implied {implied*100:.1f}% at {odds:+d} -- real betting value, clears the "
+                f"{config.HR_MIN_EV_EDGE*100:.0f}% edge bar.")
+            plus_ev.append(c)
+        else:
+            c["reasoning"].append(
+                f"[No edge {edge*100:+.1f}%] Model {c['model_prob']*100:.1f}% vs implied {implied*100:.1f}% "
+                f"at {odds:+d} -- not enough value to clear the {config.HR_MIN_EV_EDGE*100:.0f}% bar.")
+            neg_ev.append(c)
+
+    plus_ev.sort(key=lambda c: c["ev_edge"], reverse=True)
+    final = list(plus_ev[:max_per_day])
+    if len(final) < max_per_day:
+        # Fill remaining slots with best score-only (no-odds first, then best-score neg-EV).
+        filler = no_odds + sorted(neg_ev, key=lambda c: c["score"], reverse=True)
+        for c in filler:
+            if len(final) >= max_per_day:
+                break
+            final.append(c)
+
+    logger.info("HR-DIAG: EV filter -- %d +EV, %d no-odds, %d no-edge. Final %d picks.",
+                len(plus_ev), len(no_odds), len(neg_ev), len(final))
+    logger.info("HR-DIAG: FINAL PICKS: %s",
+                ", ".join(f"{c['player_name']} score {c['score']:.0f}"
+                          + (f" +EV {c['ev_edge']*100:+.1f}%" if c.get('ev_edge') is not None else " (no odds)")
+                          for c in final) or "(none)")
     return final
 
 
@@ -211,7 +265,7 @@ def _score_candidate(batter_name, batter, pitcher, hr_park_factor, motivation_no
         reasoning.append(f"[Overlay] {motivation_note}")
 
     final = round(max(0, min(100, score)), 1)
-    reasoning.append(f"FINAL HR SCORE: {final}/100. Higher = stronger homer spot; today's picks are the highest scores on the slate.")
+    reasoning.append(f"FINAL HR SCORE: {final}/100. Higher = stronger homer spot.")
     return final, reasoning, "ok"
 
 
