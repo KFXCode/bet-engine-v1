@@ -91,6 +91,23 @@ HR_PROP_STRONG_SCORE = 70
 HR_PROP_MIN_SEASON_HR = 12
 HR_PROP_TOP_N_POOL = 20
 
+# --- HR +EV edge filter (now that FanDuel HR odds are live) ---------------
+# The system estimates each hitter's true HR probability from its 0-100 score
+# and compares it to the sportsbook's implied probability. A pick is +EV only
+# when our probability beats the book's implied by at least HR_MIN_EV_EDGE.
+# When a hitter's HR odds are unavailable (free-tier gaps), we CAN'T compute
+# EV -- those fall back to score-only so the slate is never empty, but genuine
+# +EV picks are always preferred and shown first.
+HR_EV_FILTER_ENABLED = True
+HR_MIN_EV_EDGE = 0.05           # our_prob - implied_prob must clear this
+# Score -> true HR probability map. Baseline hitter (~score 50) homers ~4.5%
+# of games; each point above 50 adds ~0.35%. Capped so nothing reads as a
+# lock. Tunable as real graded results come in.
+HR_PROB_BASE = 0.045
+HR_PROB_PER_POINT = 0.0035
+HR_PROB_MAX = 0.32
+HR_PROB_MIN = 0.02
+
 HR_CATEGORY_POINTS = {
     "contact_quality": 30,
     "park_weather": 25,
