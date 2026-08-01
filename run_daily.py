@@ -50,7 +50,7 @@ from engine.models import DailyReport, ProbablePitcher, MoneylineOdds
 
 from output.terminal_report import print_daily_report
 from output.html_report import render_daily_report
-from output.history_log import log_recommendations, bankroll_summary
+from output.history_log import log_recommendations, bankroll_summary, get_pick_changes
 from output.publish_github_pages import publish_latest_report
 
 from backtest.grader import grade_pending
@@ -165,7 +165,8 @@ def main(argv=None):
                               data_warnings=["No games on today's schedule across enabled sports."],
                               results_recap=_build_results_recap(db, date_str),
                               history=history,
-                              sport_parlays={}, top_parlay={}, double_parlay={}, active_sports=[])
+                              sport_parlays={}, top_parlay={}, double_parlay={}, active_sports=[],
+                              pick_changes=get_pick_changes(date_str))
         _emit(report)
         if args.auto:
             auto_gate.mark_published(date_str)
@@ -338,6 +339,7 @@ def main(argv=None):
         daily_parlay=top_parlay,
         sport_parlays=sport_parlays, top_parlay=top_parlay, double_parlay=double_parlay,
         active_sports=active_sports,
+        pick_changes=get_pick_changes(date_str),
     )
     _emit(report)
     if args.auto:
