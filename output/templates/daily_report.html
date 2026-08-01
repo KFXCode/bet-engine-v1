@@ -61,6 +61,13 @@
              border-radius: 10px; padding: 14px 18px; margin-bottom: 24px; font-size: 14px; }
   .warnbox ul { margin: 6px 0 0; padding-left: 18px; }
 
+  .changebox { background: var(--card); border: 1px solid var(--accent-dim); color: var(--fg);
+               border-radius: 10px; padding: 14px 18px; margin-bottom: 24px; font-size: 14px; }
+  .changebox .ch-title { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent); margin-bottom: 8px; }
+  .changebox .ch-row { display: flex; gap: 10px; padding: 5px 0; }
+  .changebox .ch-time { color: var(--muted); font-variant-numeric: tabular-nums; flex-shrink: 0; font-size: 12px; padding-top: 1px; }
+  .changebox .ch-text { color: var(--fg); }
+
   .nobet { background: var(--card); border: 1px solid var(--card-border); border-radius: 16px;
            padding: 40px; text-align: center; margin-bottom: 24px; }
   .nobet .big { font-size: 26px; font-weight: 700; color: var(--muted); }
@@ -234,6 +241,15 @@
     <ul>
       {% for w in data_warnings %}<li>{{ w }}</li>{% endfor %}
     </ul>
+  </div>
+  {% endif %}
+
+  {% if pick_changes %}
+  <div class="changebox">
+    <div class="ch-title">Picks updated earlier today</div>
+    {% for c in pick_changes %}
+    <div class="ch-row"><span class="ch-time">{{ c.time }}</span><span class="ch-text">{{ c.text }}</span></div>
+    {% endfor %}
   </div>
   {% endif %}
 
