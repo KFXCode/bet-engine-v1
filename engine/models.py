@@ -143,3 +143,5 @@ class DailyReport:
     double_parlay: dict = field(default_factory=dict)
     # Sports that had at least one game today (drives which sections render).
     active_sports: list = field(default_factory=list)
+    # Plain-English notes of any pre-lock pick changes made earlier today.
+    pick_changes: list = field(default_factory=list)
