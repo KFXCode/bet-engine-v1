@@ -5,11 +5,90 @@ Writes today's recommendations (picks + per-sport Best Parlay legs + the
 cross-sport TOP parlay legs) into the recommendations table, tagged by sport,
 and computes the rolling bankroll/P&L summary. Grading happens the NEXT run,
 in backtest/grader.py -- today's picks start "pending".
+
+Pre-lock change tracking: each time a pre-game re-run REPLACES the day's
+picks, we diff the new set against the previous set and append a plain-English
+note to data_store/pick_changes_<date>.json. run_daily reads these back so the
+report can show what changed during the day before the slate locked.
 """
 
+import json
 from datetime import datetime, timezone
 
+import config
+
 LEDGER_CUTOFF = "2026-07-25"
+
+
+def _changes_path(date_str):
+    return config.DATA_STORE_DIR / f"pick_changes_{date_str}.json"
+
+
+def get_pick_changes(date_str):
+    p = _changes_path(date_str)
+    if p.exists():
+        try:
+            return json.loads(p.read_text())
+        except Exception:
+            return []
+    return []
+
+
+def _save_pick_changes(date_str, changes):
+    _changes_path(date_str).write_text(json.dumps(changes))
+
+
+def _ml_labels(recs):
+    return [r["team"] for r in recs if r["kind"] == "moneyline" and r.get("team")]
+
+
+def _hr_labels(recs):
+    return [r["side_or_player"] for r in recs if r["kind"] == "hr_prop"]
+
+
+def _diff(old, new):
+    old_s, new_s = set(old), set(new)
+    return sorted(new_s - old_s), sorted(old_s - new_s)
+
+
+def _phrase(kind_label, added, removed):
+    """Friendly sentence describing a change, e.g.
+    'Moneyline: now includes TEX; TB is no longer a pick.'"""
+    bits = []
+    if added:
+        bits.append(f"now includes {', '.join(added)}")
+    if removed:
+        verb = "is" if len(removed) == 1 else "are"
+        bits.append(f"{', '.join(removed)} {verb} no longer a pick")
+    return f"{kind_label}: " + "; ".join(bits) + "."
+
+
+def _record_changes(date_str, existing, plays, hr_props):
+    """Diff the outgoing picks (existing) against the incoming set and append
+    a friendly note if anything actually changed. First run of the day (no
+    existing picks) records nothing -- it's the baseline, not a change."""
+    if not existing:
+        return
+    old_ml, old_hr = _ml_labels(existing), _hr_labels(existing)
+    new_ml = [p.team for p in plays]
+    new_hr = [h["player_name"] for h in hr_props]
+
+    parts = []
+    add_ml, drop_ml = _diff(old_ml, new_ml)
+    if add_ml or drop_ml:
+        parts.append(_phrase("Moneyline", add_ml, drop_ml))
+    add_hr, drop_hr = _diff(old_hr, new_hr)
+    if add_hr or drop_hr:
+        parts.append(_phrase("Home run", add_hr, drop_hr))
+
+    if not parts:
+        return
+    changes = get_pick_changes(date_str)
+    changes.append({
+        "time": datetime.now(timezone.utc).astimezone().strftime("%-I:%M %p"),
+        "text": " ".join(parts),
+    })
+    _save_pick_changes(date_str, changes)
 
 
 def log_recommendations(db, date_str, plays, hr_props, top_parlay=None,
@@ -31,6 +110,7 @@ def log_recommendations(db, date_str, plays, hr_props, top_parlay=None,
                 locked = True
         if locked:
             return
+        _record_changes(date_str, existing, plays, hr_props)
         db.delete_pending_recommendations_for_date(date_str)
 
     for play in plays:
@@ -56,8 +136,6 @@ def log_recommendations(db, date_str, plays, hr_props, top_parlay=None,
             created_at=now_iso,
         )
 
-    # Per-sport Best Parlay legs (kind='parlay_leg', tagged by that sport) --
-    # so each sport's History shows the parlay it ran that day.
     for sport, par in sport_parlays.items():
         for leg in (par or {}).get("legs", []):
             db.insert_recommendation(
@@ -68,7 +146,6 @@ def log_recommendations(db, date_str, plays, hr_props, top_parlay=None,
                 created_at=now_iso,
             )
 
-    # The cross-sport TOP parlay legs (kind='top_parlay_leg', sport='TOP').
     if top_parlay and top_parlay.get("legs"):
         for leg in top_parlay["legs"]:
             db.insert_recommendation(
