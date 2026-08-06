@@ -67,6 +67,7 @@ def build_grading_context(game, odds, home_pitcher_profile, away_pitcher_profile
         public_split=public_split, situational=situational,
         celestial_signal=celestial_signal, celestial_reasoning=celestial_reasoning,
         numerology_signal=numerology_signal, numerology_reasoning=numerology_reasoning,
+        home_ml=odds.home_ml, away_ml=odds.away_ml,
     )
     return ctx, fair_home, fair_away
 
