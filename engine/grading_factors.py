@@ -39,6 +39,8 @@ class GradingContext:
     celestial_reasoning: str
     numerology_signal: float    # already home/away convention
     numerology_reasoning: str
+    home_ml: int = None         # American odds, set by scoring.py when available
+    away_ml: int = None
 
 
 def _clip(x):
@@ -104,6 +106,93 @@ def score_advanced_analytics(ctx):
     signal = _clip(total / n)
     return FactorScore("advanced_analytics", "Advanced analytics (FIP/xERA/barrel/hard-hit)", signal,
                         config.FACTOR_WEIGHTS["advanced_analytics"], "; ".join(parts), "ok")
+
+
+def score_underdog_value(ctx):
+    """Research-backed dog edge. Leans the model TOWARD an underdog that the
+    market is likely shading against, so the system can win money on dogs and
+    not just favorites. Three additive signals, all pointing at the dog:
+
+      1. Home underdog +120 or longer -- historically +ROI in 14 of last 20
+         seasons (home dogs are chronically underpriced).
+      2. Fade the shaded favorite -- public piled on the favorite (tickets%),
+         so its price is inflated and the dog's is inflated in our favor.
+      3. Competitive dog -- the dog isn't actually much worse on run
+         differential (pyth), i.e. the price gap overstates the talent gap.
+
+    Signal sign is home/away convention (+ leans home). Neutral (0) when we
+    can't identify a real dog or there's no supporting signal.
+    """
+    w = config.FACTOR_WEIGHTS["underdog_value"]
+    home_ml, away_ml = ctx.home_ml, ctx.away_ml
+
+    # Identify the underdog by price when we have odds; else by record.
+    dog_side = None
+    dog_ml = None
+    if home_ml is not None and away_ml is not None:
+        if home_ml > 0 and away_ml < 0:
+            dog_side, dog_ml = "home", home_ml
+        elif away_ml > 0 and home_ml < 0:
+            dog_side, dog_ml = "away", away_ml
+        elif home_ml > away_ml:  # both same sign: bigger positive / smaller negative = dog
+            dog_side, dog_ml = "home", home_ml
+        else:
+            dog_side, dog_ml = "away", away_ml
+    else:
+        hr = ctx.home_record or {}
+        ar = ctx.away_record or {}
+        hp = _pyth_win_pct(hr.get("runs_scored"), hr.get("runs_allowed"))
+        ap = _pyth_win_pct(ar.get("runs_scored"), ar.get("runs_allowed"))
+        if hp is not None and ap is not None:
+            dog_side = "home" if hp < ap else "away"
+
+    if dog_side is None:
+        return FactorScore("underdog_value", "Underdog value (home-dog / fade shaded favorite)", 0.0,
+                            w, "No odds or records yet to identify a live underdog -- neutral.", "degraded")
+
+    dir_to_home = 1.0 if dog_side == "home" else -1.0
+    strength = 0.0
+    notes = []
+
+    # 1. Home underdog at +120 or longer.
+    if dog_side == "home" and dog_ml is not None and dog_ml >= 120:
+        strength += 0.45
+        notes.append(f"home dog at {dog_ml:+d} (+120-or-longer home dogs are historically underpriced)")
+    elif dog_side == "home" and dog_ml is not None and dog_ml >= 100:
+        strength += 0.25
+        notes.append(f"home dog at {dog_ml:+d}")
+
+    # 2. Fade the shaded favorite: heavy public tickets on the favorite side.
+    split = ctx.public_split
+    if split and split.data_quality not in ("mock", "missing"):
+        fav_tickets = (100 - split.tickets_pct_home) if dog_side == "home" else split.tickets_pct_home
+        if fav_tickets >= 65:
+            strength += 0.40
+            notes.append(f"public {fav_tickets:.0f}% on the favorite -- price is shaded, dog gains value")
+        elif fav_tickets >= 58:
+            strength += 0.20
+            notes.append(f"public leaning {fav_tickets:.0f}% to the favorite")
+
+    # 3. Competitive dog on run differential (price gap overstates talent gap).
+    hr = ctx.home_record or {}
+    ar = ctx.away_record or {}
+    hp = _pyth_win_pct(hr.get("runs_scored"), hr.get("runs_allowed"))
+    ap = _pyth_win_pct(ar.get("runs_scored"), ar.get("runs_allowed"))
+    if hp is not None and ap is not None:
+        dog_pyth = hp if dog_side == "home" else ap
+        fav_pyth = ap if dog_side == "home" else hp
+        if dog_pyth >= fav_pyth - 0.03:
+            strength += 0.30
+            notes.append(f"dog's run differential ({dog_pyth:.3f}) nearly matches the favorite ({fav_pyth:.3f})")
+
+    if strength <= 0:
+        return FactorScore("underdog_value", "Underdog value (home-dog / fade shaded favorite)", 0.0,
+                            w, "No live underdog value today -- no home-dog price, public fade, or competitive-dog signal.", "ok")
+
+    signal = _clip(dir_to_home * strength)
+    reasoning = f"Underdog value on {dog_side}: " + "; ".join(notes)
+    return FactorScore("underdog_value", "Underdog value (home-dog / fade shaded favorite)", signal,
+                        w, reasoning, "ok")
 
 
 def score_motivation(ctx):
@@ -184,6 +273,7 @@ ALL_FACTOR_SCORERS = [
     score_talent_gap,
     score_matchup_pitching,
     score_advanced_analytics,
+    score_underdog_value,
     score_motivation,
     score_public_sharp_split,
     score_situational,
