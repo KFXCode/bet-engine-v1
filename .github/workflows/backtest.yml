@@ -1,0 +1,34 @@
+name: MLB Backtest
+
+on:
+  workflow_dispatch:
+    inputs:
+      start:
+        description: "Start date (YYYY-MM-DD)"
+        required: true
+        default: "2026-04-01"
+      end:
+        description: "End date (YYYY-MM-DD)"
+        required: true
+        default: "2026-07-23"
+      min_lean:
+        description: "Minimum lean filter (0.06 ~ live floor)"
+        required: true
+        default: "0.06"
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Run MLB directional backtest
+        run: |
+          python -m backtest.backtest_mlb \
+            --start "${{ github.event.inputs.start }}" \
+            --end "${{ github.event.inputs.end }}" \
+            --min-lean "${{ github.event.inputs.min_lean }}"
