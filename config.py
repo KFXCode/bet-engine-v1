@@ -36,9 +36,6 @@ ODDS_API_KEY = os.getenv("ODDS_API_KEY", "")
 ODDS_API_BOOKMAKER = "fanduel"
 ODDS_API_BASE_URL = "https://api.the-odds-api.com/v4"
 
-# HR prop odds (FanDuel). NOTE: player props are a PAID Odds API market -- on
-# the free tier this returns nothing and the report shows "odds n/a". That's
-# expected, not a bug.
 HR_ODDS_ENABLED = True
 ODDS_API_HR_MARKET = "batter_home_runs"
 
@@ -61,8 +58,6 @@ TARGET_EDGE_MAX = 0.05
 # ---------------------------------------------------------------------------
 # Sports covered
 # ---------------------------------------------------------------------------
-# Each sport activates automatically when its schedule opens; off-season it
-# just returns no games. All six leagues are wired.
 ENABLED_SPORTS = ["MLB", "WNBA", "NFL", "NCAAF", "NCAAB", "NHL", "NBA"]
 
 DIVERSIFICATION_LOOKBACK_DAYS = 3
@@ -91,18 +86,8 @@ HR_PROP_STRONG_SCORE = 70
 HR_PROP_MIN_SEASON_HR = 12
 HR_PROP_TOP_N_POOL = 20
 
-# --- HR +EV edge filter (now that FanDuel HR odds are live) ---------------
-# The system estimates each hitter's true HR probability from its 0-100 score
-# and compares it to the sportsbook's implied probability. A pick is +EV only
-# when our probability beats the book's implied by at least HR_MIN_EV_EDGE.
-# When a hitter's HR odds are unavailable (free-tier gaps), we CAN'T compute
-# EV -- those fall back to score-only so the slate is never empty, but genuine
-# +EV picks are always preferred and shown first.
 HR_EV_FILTER_ENABLED = True
-HR_MIN_EV_EDGE = 0.05           # our_prob - implied_prob must clear this
-# Score -> true HR probability map. Baseline hitter (~score 50) homers ~4.5%
-# of games; each point above 50 adds ~0.35%. Capped so nothing reads as a
-# lock. Tunable as real graded results come in.
+HR_MIN_EV_EDGE = 0.05
 HR_PROB_BASE = 0.045
 HR_PROB_PER_POINT = 0.0035
 HR_PROB_MAX = 0.32
@@ -128,20 +113,26 @@ PARLAY_MAX_LEGS = 4
 PARLAY_MIN_LEGS = 2
 
 # ---------------------------------------------------------------------------
-# Grading factor weights (sum to 0.30 so the model nudges the market, not replaces it)
+# Grading factor weights (model nudges the market, not replaces it)
 # ---------------------------------------------------------------------------
+# underdog_value is the research-backed dog edge: home underdogs of +120 or
+# longer have shown positive ROI in 14 of the past 20 seasons, books shade
+# favorite prices toward the public, and divisional dogs benefit from
+# familiarity. It leans the model TOWARD an undervalued underdog so the
+# system can win money on both sides, not just favorites.
 FACTOR_WEIGHTS = {
     "matchup_pitching": 0.065,
-    "public_sharp_split": 0.05,
+    "public_sharp_split": 0.06,
     "advanced_analytics": 0.045,
     "historical_form": 0.045,
+    "underdog_value": 0.03,
     "talent_gap": 0.025,
     "moon_zodiac": 0.03,
     "numerology": 0.02,
     "situational": 0.01,
     "motivation": 0.01,
 }
-assert abs(sum(FACTOR_WEIGHTS.values()) - 0.30) < 1e-9
+assert abs(sum(FACTOR_WEIGHTS.values()) - 0.34) < 1e-9
 
 # ---------------------------------------------------------------------------
 # Scheduler
