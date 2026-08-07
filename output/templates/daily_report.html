@@ -195,15 +195,15 @@
       'water': ['Water signs (Cancer, Scorpio, Pisces) bring emotional swings and volatility -- underdog/upset energy.', 'dog']
     } %}
     {% set number_meaning = {
-      1: 'Leadership & new beginnings -- backs the front-runner.',
-      2: 'Partnership & balance -- close, evenly-matched energy.',
-      3: 'Expression & luck -- creative, favorable vibes.',
+      1: 'Leadership &amp; new beginnings -- backs the front-runner.',
+      2: 'Partnership &amp; balance -- close, evenly-matched energy.',
+      3: 'Expression &amp; luck -- creative, favorable vibes.',
       4: 'Structure disrupted -- foundations shaky, lean underdog.',
-      5: 'Change & chaos -- volatile, unpredictable day.',
-      6: 'Harmony & responsibility -- order favors the stronger side.',
+      5: 'Change &amp; chaos -- volatile, unpredictable day.',
+      6: 'Harmony &amp; responsibility -- order favors the stronger side.',
       7: 'Introspection -- quiet, neutral energy.',
-      8: 'Karma, power & reversal -- revenge spots and upsets carry weight.',
-      9: 'Completion & fulfillment -- things fall into place for the favorite.',
+      8: 'Karma, power &amp; reversal -- revenge spots and upsets carry weight.',
+      9: 'Completion &amp; fulfillment -- things fall into place for the favorite.',
       11: 'Master number -- heightened intuition, strong favorite energy.',
       22: 'Master number -- the master builder under strain; upset energy.',
       33: 'Master number -- rare harmony and balance.'
@@ -313,6 +313,9 @@
     {% if sport == 'MLB' %}
     <div class="section-title"><span>HR Props</span><span class="expand-all" onclick="toggleAll(this)">Expand all</span></div>
     {% if hr_props %}
+      {% if (hr_props | selectattr('odds_american', 'none') | list | length) == (hr_props | length) %}
+      <div class="dropped" style="border-color:var(--accent-dim); margin-bottom:14px;">💡 HR odds populate closer to game time — FanDuel usually posts HR props a few hours before first pitch. The picks below are locked in; re-run the report early-afternoon for live odds.</div>
+      {% endif %}
       {% for prop in hr_props %}
       {% set strong = prop.score >= 70 %}
       <details class="pick{% if loop.first %} top-prop{% endif %}">
