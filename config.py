@@ -50,6 +50,27 @@ FLAT_STAKE_UNITS = 1.0
 # Strategy engine thresholds
 # ---------------------------------------------------------------------------
 MIN_EDGE = 0.02
+# Per-sport minimum edge. MLB carries many data factors (pitching, OPS, HR/9,
+# park) so it clears 2% readily. Sports with fewer live factors (records +
+# public + astro only) produce smaller edges, so they get a slightly lower
+# floor -- otherwise they'd almost never trigger a pick, which is why WNBA kept
+# coming up empty. Still a real edge bar, just calibrated to each sport's
+# available signal. As the scores-based records accumulate, these edges grow.
+MIN_EDGE_BY_SPORT = {
+    "MLB": 0.02,
+    "WNBA": 0.015,
+    "NBA": 0.015,
+    "NHL": 0.015,
+    "NFL": 0.015,
+    "NCAAF": 0.015,
+    "NCAAB": 0.015,
+}
+
+
+def min_edge_for(sport):
+    return MIN_EDGE_BY_SPORT.get(sport, MIN_EDGE)
+
+
 MAX_PLAYS_PER_DAY = 5
 SECOND_PLAY_TOLERANCE = 0.0
 TARGET_EDGE_MIN = 0.045
@@ -115,10 +136,6 @@ PARLAY_MIN_LEGS = 2
 # ---------------------------------------------------------------------------
 # Grading factor weights (model nudges the market, not replaces it)
 # ---------------------------------------------------------------------------
-# bullpen_fatigue: leans toward the team whose bullpen is more rested (fewer
-# games + no extra-inning marathons in the last 3 days). An overworked
-# favorite's pen is a real, research-backed upset lever -- carved out of the
-# unused historical_form weight so the total is unchanged.
 FACTOR_WEIGHTS = {
     "matchup_pitching": 0.065,
     "public_sharp_split": 0.06,
