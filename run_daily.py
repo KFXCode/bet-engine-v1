@@ -18,6 +18,7 @@ from data.schedule_provider_ncaaf import get_todays_ncaaf_games
 from data.schedule_provider_ncaab import get_todays_ncaab_games
 from data.schedule_provider_nhl import get_todays_nhl_games
 from data.schedule_provider_nba import get_todays_nba_games
+from data.odds_api_schedule import schedule_from_odds_api
 from data.odds_providers import get_odds_provider
 from data.public_betting_provider import get_public_betting_provider
 from data.stats_provider import get_stats_provider
@@ -71,22 +72,29 @@ RECORD_SPORTS = {"MLB", "WNBA", "NFL", "NCAAF", "NCAAB", "NHL", "NBA"}
 # ESPN-fed standings sports (MLB uses its own feed; WNBA its own).
 ESPN_RECORD_SPORTS = {"NFL", "NCAAF", "NCAAB", "NHL", "NBA"}
 
+# ESPN-based schedule providers. ESPN blocks the runner's IP, so each of these
+# falls back to The Odds API (schedule_from_odds_api) when it returns nothing.
+_ESPN_SCHEDULE_PROVIDERS = {
+    "NFL": get_todays_nfl_games,
+    "NCAAF": get_todays_ncaaf_games,
+    "NCAAB": get_todays_ncaab_games,
+    "NHL": get_todays_nhl_games,
+    "NBA": get_todays_nba_games,
+}
+
 
 def _fetch_schedule(sport, date_str):
     if sport == "MLB":
         return get_todays_games(date_str)
     if sport == "WNBA":
-        return get_todays_wnba_games(date_str)
-    if sport == "NFL":
-        return get_todays_nfl_games(date_str)
-    if sport == "NCAAF":
-        return get_todays_ncaaf_games(date_str)
-    if sport == "NCAAB":
-        return get_todays_ncaab_games(date_str)
-    if sport == "NHL":
-        return get_todays_nhl_games(date_str)
-    if sport == "NBA":
-        return get_todays_nba_games(date_str)
+        return get_todays_wnba_games(date_str)  # has its own Odds API fallback
+    provider = _ESPN_SCHEDULE_PROVIDERS.get(sport)
+    if provider:
+        games = provider(date_str)
+        if games:
+            return games
+        # ESPN empty (often an IP block on the runner) -> Odds API fallback.
+        return schedule_from_odds_api(sport, date_str)
     logger.warning("No schedule provider wired for enabled sport %s -- skipping.", sport)
     return []
 
@@ -194,10 +202,6 @@ def main(argv=None):
             continue
         odds_by_game.update(get_odds_provider(sport).get_odds(sport_games))
 
-    # Once a game starts it drops out of the live odds feed, so the provider
-    # returns synthetic "mock" numbers for it. Rather than show those fake
-    # odds, restore the last REAL FanDuel line we captured pre-game. And only
-    # ever snapshot real lines -- never let mock numbers into the DB.
     now_iso = datetime.now(timezone.utc).isoformat()
     for game in games:
         odds = odds_by_game.get(game.game_id)
@@ -302,7 +306,6 @@ def main(argv=None):
         for prop in hr_pool:
             key = (prop.get("game_id"), _norm_player(prop["player_name"]))
             prop["odds_american"] = hr_odds.get(key)
-        # +EV edge filter runs here, AFTER live FanDuel HR odds are attached.
         hr_props = finalize_hr_props(hr_pool)
 
     raw_celestial, _, _ = celestial_signal_for(run_date)
@@ -310,7 +313,6 @@ def main(argv=None):
     parlay_pool = get_parlay_pool(evaluations)
     parlay = maybe_build_parlay(parlay_pool, raw_celestial, raw_numerology)
 
-    # --- Per-sport best parlays + one cross-sport TOP parlay ------------
     sport_parlays = {}
     active_sports = [s for s in SPORT_ORDER if any(g.sport == s for g in games)]
     for sport in active_sports:
@@ -322,7 +324,6 @@ def main(argv=None):
     top_parlay = build_daily_parlay(plays, hr_props)
     double_parlay = build_double_parlay(plays)
 
-    # Earliest first pitch today -> pre-game refinement, then lock at first game.
     first_pitches = [g.game_time_utc for g in games if g.game_time_utc]
     earliest_first_pitch = min(first_pitches) if first_pitches else None
 
