@@ -2,16 +2,15 @@
 data/standings_wnba.py
 =======================
 WNBA team records from ESPN's public standings endpoint (free, no key).
-Returns the SAME dict shape as data/standings.py (MLB) so the existing
+Returns the SAME dict shape as data/standings.py (MLB) so the shared
 talent-gap (Pythagorean win% from points for/against) and motivation
 (games back + streak) factors work for WNBA with zero changes:
 
     {abbr: {wins, losses, runs_scored, runs_allowed, games_back, streak}}
 
-"runs_scored"/"runs_allowed" hold points-for/points-against so the shared
-Pythagorean math applies. Keyed by the same normalize_wnba_team() output the
-schedule provider uses, so game team abbrs line up. Never raises -- returns
-{} on any failure so the daily run still produces a report.
+ESPN blocks default python-requests from datacenter IPs, so we send a browser
+User-Agent (BROWSER_HEADERS) -- the same fix the schedule provider uses.
+Never raises -- returns {} on any failure so the daily run still produces a report.
 """
 
 import logging
@@ -24,9 +23,16 @@ logger = logging.getLogger(__name__)
 
 ESPN_STANDINGS = "https://site.api.espn.com/apis/v2/sports/basketball/wnba/standings"
 
+BROWSER_HEADERS = {
+    "User-Agent": ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                   "AppleWebKit/537.36 (KHTML, like Gecko) "
+                   "Chrome/125.0.0.0 Safari/537.36"),
+    "Accept": "application/json, text/plain, */*",
+    "Referer": "https://www.espn.com/wnba/standings",
+}
+
 
 def _stat(stats, *names):
-    """Pull the first matching stat value by name/type/abbreviation."""
     for s in stats:
         key = (s.get("name") or s.get("type") or s.get("abbreviation") or "").lower()
         if key in names:
@@ -40,7 +46,7 @@ def _stat(stats, *names):
 def get_all_wnba_records(season=None):
     try:
         params = {"season": season} if season else {}
-        resp = requests.get(ESPN_STANDINGS, params=params, timeout=15)
+        resp = requests.get(ESPN_STANDINGS, params=params, headers=BROWSER_HEADERS, timeout=15)
         resp.raise_for_status()
         payload = resp.json()
     except Exception as exc:
@@ -49,6 +55,7 @@ def get_all_wnba_records(season=None):
 
     records = {}
     entries = _collect_entries(payload)
+    logger.info("WNBA standings: %d team entries.", len(entries))
     for entry in entries:
         try:
             team = entry.get("team", {})
@@ -77,8 +84,6 @@ def get_all_wnba_records(season=None):
 
 
 def _collect_entries(payload):
-    """ESPN nests standings.entries under children (conferences) or at the
-    top level depending on the endpoint shape -- gather from wherever."""
     entries = []
     std = payload.get("standings")
     if isinstance(std, dict) and std.get("entries"):
