@@ -2,40 +2,36 @@
 engine/strategy_rules.py
 =========================
 Non-negotiable rules layered on top of raw edge numbers:
-  - never below MIN_EDGE
+  - never below the sport's edge floor (config.min_edge_for(sport))
   - flat 1-unit sizing
   - up to MAX_PLAYS_PER_DAY plays PER SPORT
   - team diversification (no same team 3+ days without stricter re-confirm)
   - line movement (only drop on significant adverse move AND heavy money)
   - doubleheader safety (one game per pairing; every label names Gm 1/Gm 2)
 
-The reasoning each pick carries is now SPLIT so the card is honest:
-  1. an EDGE SOURCE line -- how much of the edge came from DATA factors vs the
-     astrology/numerology nudges (a healthy pick is data-driven),
-  2. the factors that SUPPORT the pick,
-  3. neutral context,
-  4. any COUNTER-signals that leaned the other way (so a factor arguing for the
-     opponent never masquerades as a reason the bet "clears").
+Edge floor is now PER SPORT: MLB has many data factors so it clears a 2% bar
+readily; sports with fewer live factors (WNBA/NBA/NHL/...) use a slightly
+lower floor so they surface real-but-smaller edges instead of coming up empty.
+
+The reasoning each pick carries is SPLIT so the card is honest:
+  1. an EDGE SOURCE line -- data factors vs astrology/numerology,
+  2. supporting factors, 3. neutral context, 4. counter-signals.
 """
 
 import config
 from engine.models import Recommendation, FadeTeam
 
-# Factors that are "soft" nudges rather than hard data -- used to show the
-# user how much of an edge is real analysis vs cosmic tie-breaker.
 ASTRO_KEYS = {"moon_zodiac", "numerology"}
 
 
 def _build_reasoning(ev, dh_note=None):
-    """Returns (reasoning_list, edge_data_pct, edge_astro_pct). Splits factors
-    into support / context / counter relative to the recommended side, and
-    tallies how much of the edge is data-driven vs astro."""
+    """Returns (reasoning_list, edge_data_pct, edge_astro_pct)."""
     side = ev.recommended_side
     support, context, counter = [], [], []
     edge_data = 0.0
     edge_astro = 0.0
     for fs in ev.factor_scores:
-        toward = fs.signal if side == "home" else -fs.signal   # + = helps the pick
+        toward = fs.signal if side == "home" else -fs.signal
         contribution = toward * fs.weight
         if fs.key in ASTRO_KEYS:
             edge_astro += contribution
@@ -68,7 +64,8 @@ def _build_reasoning(ev, dh_note=None):
 
 
 def select_daily_plays(evaluations, db, public_splits, run_date_str):
-    candidates = [e for e in evaluations if e.recommended_side and e.edge_pct >= config.MIN_EDGE]
+    candidates = [e for e in evaluations
+                  if e.recommended_side and e.edge_pct >= config.min_edge_for(e.game.sport)]
     candidates.sort(key=_edge_rank_key)
 
     recent_picks = {p["team"] for p in db.get_recent_team_picks(run_date_str, config.DIVERSIFICATION_LOOKBACK_DAYS)}
@@ -96,7 +93,7 @@ def select_daily_plays(evaluations, db, public_splits, run_date_str):
         diversification_flag = None
         if team in recent_picks:
             strong_factors = sum(1 for fs in ev.factor_scores if abs(fs.signal) >= 0.5)
-            required_edge = config.MIN_EDGE + config.DIVERSIFICATION_EXTRA_EDGE
+            required_edge = config.min_edge_for(sport) + config.DIVERSIFICATION_EXTRA_EDGE
             if ev.edge_pct < required_edge or strong_factors < config.DIVERSIFICATION_MIN_STRONG_FACTORS:
                 dropped_notes.append(
                     f"{label} ({matchup}): skipped -- played in the last {config.DIVERSIFICATION_LOOKBACK_DAYS} "
@@ -171,10 +168,11 @@ def select_fade_teams(evaluations):
 
 
 def get_parlay_pool(evaluations):
-    """All games that independently cleared MIN_EDGE, sorted by edge desc.
-    Best-edge-first + the seen-team guard means a doubleheader contributes
-    only its STRONGER game to the parlay -- never both CIN games."""
-    candidates = [e for e in evaluations if e.recommended_side and e.edge_pct >= config.MIN_EDGE]
+    """All games that independently cleared their sport's edge floor, sorted by
+    edge desc. Best-edge-first + the seen-team guard means a doubleheader
+    contributes only its STRONGER game to the parlay."""
+    candidates = [e for e in evaluations
+                  if e.recommended_side and e.edge_pct >= config.min_edge_for(e.game.sport)]
     candidates.sort(key=lambda e: e.edge_pct, reverse=True)
     pool = []
     seen_teams = set()
