@@ -1,16 +1,11 @@
 """
 engine/grading_factors.py
 ==========================
-One function per grading factor from the strategy spec. Every function takes
-a GradingContext and returns an engine.models.FactorScore:
-    signal   : -1..+1, positive leans HOME, negative leans AWAY
-    weight   : pulled from config.FACTOR_WEIGHTS
-    reasoning: one readable sentence for the report
-    data_quality: "ok" | "mock" | "manual" | "missing" | "degraded" | "partial"
+One function per grading factor. Each takes a GradingContext and returns an
+engine.models.FactorScore (signal -1..+1, + leans HOME).
 
-IMPORTANT convention note: celestial_signal / numerology_signal on the
-context are already converted to the home/away convention by
-engine/scoring.py before this module ever sees them.
+celestial_signal / numerology_signal arrive already converted to home/away
+convention by engine/scoring.py.
 """
 
 from dataclasses import dataclass
@@ -40,6 +35,10 @@ class GradingContext:
 
 def _clip(x):
     return max(-1.0, min(1.0, x))
+
+
+def _g(obj, attr):
+    return getattr(obj, attr, None) if obj else None
 
 
 def score_talent_gap(ctx):
@@ -79,33 +78,48 @@ def score_matchup_pitching(ctx):
 
 
 def score_advanced_analytics(ctx):
+    """Advanced pitching/hitting edge, anchored on RELIABLE MLB Stats API data
+    (team OPS, pitcher HR/9 allowed, pitcher K%) so it stops sitting neutral.
+    Barrel% / hard-hit% (Statcast via pybaseball) are used only as a bonus
+    when they happen to load. Averages every available sub-signal."""
     hp, ap = ctx.home_pitcher_profile, ctx.away_pitcher_profile
     ho, ao = ctx.home_offense, ctx.away_offense
     parts = []
-    total = 0.0
-    n = 0
+    subs = []
+
+    # 1. Team OPS gap -- always available from statsapi (no scraping).
+    ho_ops, ao_ops = _g(ho, "ops"), _g(ao, "ops")
+    if ho_ops is not None and ao_ops is not None:
+        subs.append(_clip((ho_ops - ao_ops) / 0.060))
+        parts.append(f"team OPS: home {ho_ops:.3f} vs away {ao_ops:.3f}")
+
+    # 2. Starter HR/9 allowed -- lower = home SP suppresses power more.
+    if hp and ap and hp.hr_per_9 is not None and ap.hr_per_9 is not None:
+        subs.append(_clip((ap.hr_per_9 - hp.hr_per_9) / 0.8))
+        parts.append(f"HR/9 allowed: home SP {hp.hr_per_9:.2f} vs away SP {ap.hr_per_9:.2f}")
+
+    # 3. Starter K% -- higher = more dominant.
+    if hp and ap and hp.k_pct is not None and ap.k_pct is not None:
+        subs.append(_clip((hp.k_pct - ap.k_pct) / 8.0))
+        parts.append(f"K%: home SP {hp.k_pct:.1f} vs away SP {ap.k_pct:.1f}")
+
+    # 4. BONUS Statcast hard-hit% allowed (only if pybaseball loaded it).
     if hp and ap and hp.hard_hit_pct_allowed is not None and ap.hard_hit_pct_allowed is not None:
-        gap = ap.hard_hit_pct_allowed - hp.hard_hit_pct_allowed
-        total += _clip(gap / 10.0)
-        n += 1
+        subs.append(_clip((ap.hard_hit_pct_allowed - hp.hard_hit_pct_allowed) / 10.0))
         parts.append(f"hard-hit% allowed: home SP {hp.hard_hit_pct_allowed:.1f} vs away SP {ap.hard_hit_pct_allowed:.1f}")
-    if ho and ao and ho.woba is not None and ao.woba is not None:
-        gap = ho.woba - ao.woba
-        total += _clip(gap / 0.05)
-        n += 1
-        parts.append(f"team wOBA: home {ho.woba:.3f} vs away {ao.woba:.3f}")
-    if n == 0:
-        return FactorScore("advanced_analytics", "Advanced analytics (FIP/xERA/barrel/hard-hit)", 0.0,
+
+    if not subs:
+        return FactorScore("advanced_analytics", "Advanced analytics (OPS/HR9/K%/barrel)", 0.0,
                             config.FACTOR_WEIGHTS["advanced_analytics"],
-                            "Statcast/FanGraphs data unavailable today -- neutral.", "degraded")
-    signal = _clip(total / n)
-    return FactorScore("advanced_analytics", "Advanced analytics (FIP/xERA/barrel/hard-hit)", signal,
+                            "No advanced data available today (team OPS + pitcher stats both missing) -- neutral.",
+                            "degraded")
+    signal = _clip(sum(subs) / len(subs))
+    return FactorScore("advanced_analytics", "Advanced analytics (OPS/HR9/K%/barrel)", signal,
                         config.FACTOR_WEIGHTS["advanced_analytics"], "; ".join(parts), "ok")
 
 
 def score_underdog_value(ctx):
-    """Research-backed dog edge. Leans the model TOWARD an underdog that the
-    market is likely shading against."""
+    """Research-backed dog edge -- leans TOWARD an underdog the market shades against."""
     w = config.FACTOR_WEIGHTS["underdog_value"]
     home_ml, away_ml = ctx.home_ml, ctx.away_ml
 
@@ -175,10 +189,6 @@ def score_underdog_value(ctx):
 
 
 def score_bullpen_fatigue(ctx):
-    """Leans toward the team whose bullpen is more RESTED. An overworked
-    favorite's pen (3 straight games, extra-inning marathons) is a real upset
-    lever; a fresh dog pen holds late leads. Positive signal = home more
-    rested (favored)."""
     w = config.FACTOR_WEIGHTS["bullpen_fatigue"]
     sit = ctx.situational or {}
     hb = sit.get("home_bullpen") or {}
@@ -188,7 +198,6 @@ def score_bullpen_fatigue(ctx):
     if hf is None or af is None:
         return FactorScore("bullpen_fatigue", "Bullpen fatigue (rested vs overworked pen)", 0.0,
                             w, "Recent bullpen workload unavailable -- neutral.", "degraded")
-    # away more tired (higher fatigue) => lean home, and vice versa.
     signal = _clip((af - hf) * 1.5)
     reasoning = (f"Bullpen load (last 3d): home {hb.get('games','?')}g/"
                  f"{hb.get('extra_innings',0)} extra-inn (fatigue {hf:.2f}) "
