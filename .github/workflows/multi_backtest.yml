@@ -1,0 +1,57 @@
+name: Multi-Sport Backtest
+
+on:
+  workflow_dispatch:
+    inputs:
+      sport:
+        description: "Sport to backtest"
+        required: true
+        default: "NFL"
+        type: choice
+        options:
+          - "NFL"
+          - "NCAAF"
+          - "NCAAB"
+          - "NHL"
+          - "NBA"
+      start:
+        description: "Start date (YYYY-MM-DD, must be IN-SEASON)"
+        required: true
+        default: "2024-09-05"
+      end:
+        description: "End date (YYYY-MM-DD)"
+        required: true
+        default: "2025-01-05"
+      min_lean:
+        description: "Minimum lean filter (0.06 ~ live floor)"
+        required: true
+        default: "0.06"
+      use_odds:
+        description: "Compute UNITS/ROI from historical odds (uses paid API credits)"
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Run multi-sport backtest
+        env:
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+        run: |
+          python -m backtest.backtest_multi \
+            --sport "${{ github.event.inputs.sport }}" \
+            --start "${{ github.event.inputs.start }}" \
+            --end "${{ github.event.inputs.end }}" \
+            --min-lean "${{ github.event.inputs.min_lean }}" \
+            ${{ github.event.inputs.use_odds == 'true' && '--use-odds' || '' }}
