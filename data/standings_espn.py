@@ -9,13 +9,11 @@ every sport with zero factor changes:
 
     {abbr: {wins, losses, runs_scored, runs_allowed, games_back, streak}}
 
-"runs_scored"/"runs_allowed" hold points-for/against (goals for NHL) so the
-shared Pythagorean math applies. Keyed by each sport's own normalize_*()
-output so game team abbrs line up. Never raises -- returns {} on failure so
-the daily run still produces a report.
-
-Off-season sports simply return no games, so this is never even called for
-them until their season opens.
+ESPN blocks default python-requests from datacenter IPs, so we send a browser
+User-Agent (BROWSER_HEADERS) -- the same fix the schedule providers use.
+Never raises -- returns {} on failure so the daily run still produces a report.
+Off-season sports return no games, so this is never called for them until
+their season opens.
 """
 
 import logging
@@ -28,6 +26,14 @@ from data.teams_nfl import normalize_nfl_team
 from data.teams_college import normalize_college_team
 
 logger = logging.getLogger(__name__)
+
+BROWSER_HEADERS = {
+    "User-Agent": ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                   "AppleWebKit/537.36 (KHTML, like Gecko) "
+                   "Chrome/125.0.0.0 Safari/537.36"),
+    "Accept": "application/json, text/plain, */*",
+    "Referer": "https://www.espn.com/",
+}
 
 # sport -> (ESPN league path, normalize fn, (for-stat names), (against-stat names))
 _SPORT_CONFIG = {
@@ -53,7 +59,8 @@ def get_all_records_for_sport(sport, season=None):
     path, normalize, for_names, against_names = cfg
     try:
         params = {"season": season} if season else {}
-        resp = requests.get(_STANDINGS_URL.format(path=path), params=params, timeout=15)
+        resp = requests.get(_STANDINGS_URL.format(path=path), params=params,
+                            headers=BROWSER_HEADERS, timeout=15)
         resp.raise_for_status()
         payload = resp.json()
     except Exception as exc:
@@ -61,7 +68,9 @@ def get_all_records_for_sport(sport, season=None):
         return {}
 
     records = {}
-    for entry in _collect_entries(payload):
+    entries = _collect_entries(payload)
+    logger.info("%s standings: %d team entries.", sport, len(entries))
+    for entry in entries:
         try:
             team = entry.get("team", {})
             name = team.get("displayName") or team.get("name") or ""
