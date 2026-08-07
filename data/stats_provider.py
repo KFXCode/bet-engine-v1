@@ -1,8 +1,3 @@
-Confirmed the root cause. The advanced-analytics factor depends on pybaseball (which scrapes FanGraphs + Baseball Savant), and pybaseball is notoriously blocked/rate-limited from GitHub Actions cloud IPs — so hard_hit_pct_allowed and wOBA come back None and the factor sits neutral every day. It's core to your system, so we fix it, not delete it — by moving it onto the MLB Stats API (statsapi), the same reliable source everything else already uses and which never fails in CI.
-
-The new advanced factor is anchored on team OPS (always available from statsapi — needs only the team, no scraping) plus pitcher HR/9 allowed and K% when we have them. Barrel/hard-hit stay as a bonus if pybaseball happens to load, but they're no longer required.
-
-File 1 — data/stats_provider.py full file (statsapi team-OPS, reliable). https://github.com/KFXCode/mlb-picks/edit/main/data/stats_provider.py → Select All → delete → paste → Commit:
 
 """
 data/stats_provider.py
