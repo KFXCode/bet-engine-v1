@@ -43,7 +43,7 @@
   .strip .item { font-size: 13px; color: var(--muted); }
   .strip .item b { color: var(--fg); }
 
-  .cosmic { max-width: 520px; margin: 14px auto 0; background: var(--card); border: 1px solid var(--card-border); border-radius: 12px; overflow: hidden; text-align: left; }
+  .cosmic { max-width: 560px; margin: 14px auto 0; background: var(--card); border: 1px solid var(--card-border); border-radius: 12px; overflow: hidden; text-align: left; }
   .cosmic > summary { list-style: none; cursor: pointer; padding: 12px 16px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent); }
   .cosmic > summary::-webkit-details-marker { display: none; }
   .cosmic .cx-chev { width: 14px; height: 14px; transition: transform 0.2s; }
@@ -56,6 +56,7 @@
   .cosmic .cx-lean { display: inline-block; margin-top: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 2px 8px; border-radius: 6px; }
   .cosmic .lean-fav { color: var(--accent); background: var(--accent-dim); }
   .cosmic .lean-dog { color: var(--warn); background: var(--warn-dim); }
+  .cosmic .cx-pick { display: block; margin-top: 5px; font-size: 12px; color: var(--fg); }
 
   .warnbox { background: var(--warn-dim); border: 1px solid var(--warn); color: var(--fg);
              border-radius: 10px; padding: 14px 18px; margin-bottom: 24px; font-size: 14px; }
@@ -171,7 +172,7 @@
   <div class="header">
     <h1>Daily Betting Report</h1>
     <p class="date">2026-08-07</p>
-    <p class="updated"><span class="dot"></span>Updated Aug 7, 2026 - 10:49 AM EDT</p>
+    <p class="updated"><span class="dot"></span>Updated Aug 7, 2026 - 12:10 PM EDT</p>
     <div class="strip">
       <div class="item">Slate: <b>15 games</b></div>
       <div class="item">Moon: <b>Waning Crescent</b> in <b>Gemini</b></div>
@@ -182,24 +183,26 @@
     
     
     
+    
     <details class="cosmic">
       <summary>Why today's moon &amp; numbers matter <svg class="cx-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg></summary>
       <div class="cx-body">
         <div class="cx-row">
           <div class="cx-h">🌙 Waning Crescent &middot; 34% lit</div>
-          <div class="cx-t">Low-energy, fatigue, emotional wind-down. Rest/home-comfort edges matter; slight favorite lean.</div>
-          
+          <div class="cx-t">Low energy. Fatigue hits hardest.</div>
+          <span class="cx-pick"><b style="color:var(--fg);">Pick lean:</b> Travel/rest fades matter more.</span>
           <span class="cx-lean lean-fav">Leans favorite</span>
         </div>
         <div class="cx-row">
-          <div class="cx-h">♒ Moon in Gemini</div>
-          <div class="cx-t">The sign the Moon is transiting colors the daily tone.</div>
-          
-          <span class="cx-lean" style="color:var(--muted); background:rgba(255,255,255,0.06);">Neutral</span>
+          <div class="cx-h">♒ Moon in Gemini &middot; style of play</div>
+          <div class="cx-t">Chaos, swings, momentum shifts.</div>
+          <span class="cx-pick"><b style="color:var(--fg);">Favors:</b> Avoid big favorites.</span>
+          <span class="cx-lean lean-dog">Leans underdog</span>
         </div>
         <div class="cx-row">
           <div class="cx-h">🔢 Numerology 7</div>
           <div class="cx-t">Introspection -- quiet, neutral energy.</div>
+          <span class="cx-pick" style="color:var(--muted);">Numerology never decides a pick alone -- it confirms or denies the moon read.</span>
         </div>
         <div class="cx-row">
           <div class="cx-t" style="font-size:12px;">These are weighted <b style="color:var(--fg);">nudges</b>, not the driver -- they tip close calls but never override talent, pitching, and the money/sharp read.</div>
@@ -212,7 +215,7 @@
   <div class="warnbox">
     <b>Data quality warnings</b>
     <ul>
-      <li>3 MLB game(s) have no probable pitcher posted by MLB yet -- pitching-matchup grading and HR props are skipped for those until confirmed: CIN@WSH, CHC@KC, DET@SF</li><li>Starting lineups haven't posted yet -- HR picks are drawn from active rosters (may include players who end up benched). Re-run closer to first pitch for confirmed lineups.</li>
+      <li>2 MLB game(s) have no probable pitcher posted by MLB yet -- pitching-matchup grading and HR props are skipped for those until confirmed: CHC@KC, DET@SF</li><li>Starting lineups haven't posted yet -- HR picks are drawn from active rosters (may include players who end up benched). Re-run closer to first pitch for confirmed lineups.</li>
     </ul>
   </div>
   
@@ -241,48 +244,17 @@
         <summary>
           <div class="s-main">
             <div class="top-badge">★ Top MLB ML Today</div>
-            <div class="s-team">STL <span class="sport-tag">MLB</span> ML</div>
-            <div class="s-sub">Rank #1 &middot; Confidence 10/10 &middot; <span class="odds">-158</span></div>
-          </div>
-          <div class="s-right">
-            <div class="s-edge"><div class="n">8.9%</div><div class="l">Edge</div></div>
-            <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
-          </div>
-        </summary>
-        <div class="body">
-          <div class="metrics">
-            <div class="metric"><div class="num">69.0%</div><div class="lbl">Model win%</div></div>
-            <div class="metric"><div class="num">60.1%</div><div class="lbl">Market win%</div></div>
-          </div>
-          <div class="flags">
-            
-            
-          </div>
-          <div class="why">
-            <div class="why-title">Why this clears every layer:</div>
-            <ul>
-              <li>Pythagorean win%: home 0.491 vs away 0.419 (home the deeper team)</li><li>Starter ERA: Kyle Leahy 3.44 vs Ryan Feltner 5.75 -> edge to home starter</li><li>Statcast/FanGraphs data unavailable today -- neutral.</li><li>No live underdog value today -- no home-dog price, public fade, or competitive-dog signal.</li><li>Bullpen load (last 3d): home 2g/0 extra-inn (fatigue 0.67) vs away 2g/1 extra-inn (fatigue 0.83) -> fresher pen: home</li><li>games back: home 15.0 vs away 24.0; streak: home +1 vs away -3</li><li>Tickets 50% home / Handle 50% home -> no split</li><li>park run factor 97; rest: home 2d, away 2d</li><li>Waning Crescent (34% illuminated), Moon in Gemini (air sign) -> favorite lean</li><li>Date reduces to 7 -> favorite lean</li>
-            </ul>
-          </div>
-        </div>
-      </details>
-      
-      
-      <details class="pick">
-        <summary>
-          <div class="s-main">
-            
             <div class="s-team">MIL <span class="sport-tag">MLB</span> ML</div>
-            <div class="s-sub">Rank #2 &middot; Confidence 10/10 &middot; <span class="odds">-164</span></div>
+            <div class="s-sub">Rank #1 &middot; Confidence 10/10 &middot; <span class="odds">-164</span></div>
           </div>
           <div class="s-right">
-            <div class="s-edge"><div class="n">7.9%</div><div class="l">Edge</div></div>
+            <div class="s-edge"><div class="n">10.5%</div><div class="l">Edge</div></div>
             <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
           </div>
         </summary>
         <div class="body">
           <div class="metrics">
-            <div class="metric"><div class="num">68.7%</div><div class="lbl">Model win%</div></div>
+            <div class="metric"><div class="num">71.3%</div><div class="lbl">Model win%</div></div>
             <div class="metric"><div class="num">60.8%</div><div class="lbl">Market win%</div></div>
           </div>
           <div class="flags">
@@ -292,7 +264,7 @@
           <div class="why">
             <div class="why-title">Why this clears every layer:</div>
             <ul>
-              <li>Pythagorean win%: home 0.627 vs away 0.471 (home the deeper team)</li><li>Starter ERA: Shane Drohan 3.48 vs Zebby Matthews 5.22 -> edge to home starter</li><li>Statcast/FanGraphs data unavailable today -- neutral.</li><li>No live underdog value today -- no home-dog price, public fade, or competitive-dog signal.</li><li>Bullpen load (last 3d): home 3g/0 extra-inn (fatigue 1.00) vs away 3g/0 extra-inn (fatigue 1.00) -> fresher pen: even</li><li>games back: home 0.0 vs away 3.0; streak: home +3 vs away +1</li><li>Tickets 50% home / Handle 50% home -> no split</li><li>park run factor 103; rest: home 1d, away 1d</li><li>Waning Crescent (34% illuminated), Moon in Gemini (air sign) -> favorite lean</li><li>Date reduces to 7 -> favorite lean</li>
+              <li>Pythagorean win%: home 0.627 vs away 0.471 (home the deeper team)</li><li>Starter ERA: Shane Drohan 3.48 vs Zebby Matthews 5.22 -> edge to home starter</li><li>team OPS: home 0.734 vs away 0.722; HR/9 allowed: home SP 0.72 vs away SP 1.78; K%: home SP 24.5 vs away SP 20.2</li><li>No live underdog value today -- no home-dog price, public fade, or competitive-dog signal.</li><li>Bullpen load (last 3d): home 3g/0 extra-inn (fatigue 1.00) vs away 3g/0 extra-inn (fatigue 1.00) -> fresher pen: even</li><li>games back: home 0.0 vs away 3.0; streak: home +3 vs away +1</li><li>Tickets 50% home / Handle 50% home -> no split</li><li>park run factor 103; rest: home 1d, away 1d</li><li>Waning Crescent (34% illuminated), Moon in Gemini (air sign) -> favorite lean</li><li>Date reduces to 7 -> favorite lean</li>
             </ul>
           </div>
         </div>
@@ -303,18 +275,18 @@
         <summary>
           <div class="s-main">
             
-            <div class="s-team">MIA <span class="sport-tag">MLB</span> ML</div>
-            <div class="s-sub">Rank #3 &middot; Confidence 9/10 &middot; <span class="odds">-150</span></div>
+            <div class="s-team">STL <span class="sport-tag">MLB</span> ML</div>
+            <div class="s-sub">Rank #2 &middot; Confidence 10/10 &middot; <span class="odds">-164</span></div>
           </div>
           <div class="s-right">
-            <div class="s-edge"><div class="n">7.3%</div><div class="l">Edge</div></div>
+            <div class="s-edge"><div class="n">9.7%</div><div class="l">Edge</div></div>
             <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
           </div>
         </summary>
         <div class="body">
           <div class="metrics">
-            <div class="metric"><div class="num">66.3%</div><div class="lbl">Model win%</div></div>
-            <div class="metric"><div class="num">59.0%</div><div class="lbl">Market win%</div></div>
+            <div class="metric"><div class="num">70.5%</div><div class="lbl">Model win%</div></div>
+            <div class="metric"><div class="num">60.8%</div><div class="lbl">Market win%</div></div>
           </div>
           <div class="flags">
             
@@ -323,7 +295,7 @@
           <div class="why">
             <div class="why-title">Why this clears every layer:</div>
             <ul>
-              <li>Pythagorean win%: home 0.500 vs away 0.433 (home the deeper team)</li><li>Starter ERA: Tyler Phillips 3.53 vs George Klassen 11.57 -> edge to home starter</li><li>Statcast/FanGraphs data unavailable today -- neutral.</li><li>No live underdog value today -- no home-dog price, public fade, or competitive-dog signal.</li><li>Bullpen load (last 3d): home 3g/0 extra-inn (fatigue 1.00) vs away 3g/0 extra-inn (fatigue 1.00) -> fresher pen: even</li><li>games back: home 12.5 vs away 14.5; streak: home -3 vs away +1</li><li>Tickets 50% home / Handle 50% home -> no split</li><li>park run factor 92; rest: home 1d, away 1d</li><li>Waning Crescent (34% illuminated), Moon in Gemini (air sign) -> favorite lean</li><li>Date reduces to 7 -> favorite lean</li>
+              <li>Pythagorean win%: home 0.491 vs away 0.419 (home the deeper team)</li><li>Starter ERA: Kyle Leahy 3.44 vs Ryan Feltner 5.75 -> edge to home starter</li><li>team OPS: home 0.694 vs away 0.744; HR/9 allowed: home SP 1.01 vs away SP 2.01; K%: home SP 20.0 vs away SP 17.1</li><li>No live underdog value today -- no home-dog price, public fade, or competitive-dog signal.</li><li>Bullpen load (last 3d): home 2g/0 extra-inn (fatigue 0.67) vs away 2g/1 extra-inn (fatigue 0.83) -> fresher pen: home</li><li>games back: home 15.0 vs away 24.0; streak: home +1 vs away -3</li><li>Tickets 50% home / Handle 50% home -> no split</li><li>park run factor 97; rest: home 2d, away 2d</li><li>Waning Crescent (34% illuminated), Moon in Gemini (air sign) -> favorite lean</li><li>Date reduces to 7 -> favorite lean</li>
             </ul>
           </div>
         </div>
@@ -334,18 +306,18 @@
         <summary>
           <div class="s-main">
             
-            <div class="s-team">NYY <span class="sport-tag">MLB</span> ML</div>
-            <div class="s-sub">Rank #4 &middot; Confidence 8/10 &middot; <span class="odds">-134</span></div>
+            <div class="s-team">CHC <span class="sport-tag">MLB</span> ML</div>
+            <div class="s-sub">Rank #3 &middot; Confidence 7/10 &middot; <span class="odds">-164</span></div>
           </div>
           <div class="s-right">
-            <div class="s-edge"><div class="n">6.0%</div><div class="l">Edge</div></div>
+            <div class="s-edge"><div class="n">4.8%</div><div class="l">Edge</div></div>
             <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
           </div>
         </summary>
         <div class="body">
           <div class="metrics">
-            <div class="metric"><div class="num">62.2%</div><div class="lbl">Model win%</div></div>
-            <div class="metric"><div class="num">56.2%</div><div class="lbl">Market win%</div></div>
+            <div class="metric"><div class="num">65.7%</div><div class="lbl">Model win%</div></div>
+            <div class="metric"><div class="num">60.8%</div><div class="lbl">Market win%</div></div>
           </div>
           <div class="flags">
             
@@ -354,7 +326,38 @@
           <div class="why">
             <div class="why-title">Why this clears every layer:</div>
             <ul>
-              <li>Pythagorean win%: home 0.577 vs away 0.608 (away the deeper team)</li><li>Starter ERA: Max Fried 3.12 vs Tyler Mahle 5.13 -> edge to home starter</li><li>Statcast/FanGraphs data unavailable today -- neutral.</li><li>Underdog value on away: dog's run differential (0.608) nearly matches the favorite (0.577)</li><li>Bullpen load (last 3d): home 2g/0 extra-inn (fatigue 0.67) vs away 3g/0 extra-inn (fatigue 1.00) -> fresher pen: home</li><li>games back: home 4.5 vs away 0.0; streak: home -1 vs away +8</li><li>Tickets 50% home / Handle 50% home -> no split</li><li>park run factor 106; rest: home 2d, away 1d</li><li>Waning Crescent (34% illuminated), Moon in Gemini (air sign) -> favorite lean</li><li>Date reduces to 7 -> favorite lean</li>
+              <li>Pythagorean win%: home 0.412 vs away 0.583 (away the deeper team)</li><li>Probable starters' ERA unavailable -- neutral until confirmed.</li><li>team OPS: home 0.708 vs away 0.753</li><li>Underdog value on home: home dog at +150 (+120-or-longer home dogs are historically underpriced)</li><li>Bullpen load (last 3d): home 3g/0 extra-inn (fatigue 1.00) vs away 3g/1 extra-inn (fatigue 1.00) -> fresher pen: even</li><li>games back: home 12.0 vs away 5.5; streak: home -1 vs away +4</li><li>Tickets 50% home / Handle 50% home -> no split</li><li>park run factor 101; rest: home 1d, away 1d</li><li>Waning Crescent (34% illuminated), Moon in Gemini (air sign) -> favorite lean</li><li>Date reduces to 7 -> favorite lean</li>
+            </ul>
+          </div>
+        </div>
+      </details>
+      
+      
+      <details class="pick">
+        <summary>
+          <div class="s-main">
+            
+            <div class="s-team">CLE <span class="sport-tag">MLB</span> ML</div>
+            <div class="s-sub">Rank #4 &middot; Confidence 7/10 &middot; <span class="odds">-138</span></div>
+          </div>
+          <div class="s-right">
+            <div class="s-edge"><div class="n">4.5%</div><div class="l">Edge</div></div>
+            <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+        </summary>
+        <div class="body">
+          <div class="metrics">
+            <div class="metric"><div class="num">61.2%</div><div class="lbl">Model win%</div></div>
+            <div class="metric"><div class="num">56.7%</div><div class="lbl">Market win%</div></div>
+          </div>
+          <div class="flags">
+            
+            
+          </div>
+          <div class="why">
+            <div class="why-title">Why this clears every layer:</div>
+            <ul>
+              <li>Pythagorean win%: home 0.533 vs away 0.473 (home the deeper team)</li><li>Starter ERA: Noah Schultz 5.82 vs Parker Messick 2.57 -> edge to away starter</li><li>team OPS: home 0.720 vs away 0.680; HR/9 allowed: home SP 1.25 vs away SP 0.77; K%: home SP 20.3 vs away SP 24.8</li><li>Underdog value on home: home dog at +126 (+120-or-longer home dogs are historically underpriced); dog's run differential (0.533) nearly matches the favorite (0.473)</li><li>Bullpen load (last 3d): home 3g/1 extra-inn (fatigue 1.00) vs away 3g/1 extra-inn (fatigue 1.00) -> fresher pen: even</li><li>games back: home 0.0 vs away 3.0; streak: home -3 vs away -3</li><li>Tickets 50% home / Handle 50% home -> no split</li><li>park run factor 102; rest: home 1d, away 1d</li><li>Waning Crescent (34% illuminated), Moon in Gemini (air sign) -> favorite lean</li><li>Date reduces to 7 -> favorite lean</li>
             </ul>
           </div>
         </div>
@@ -369,13 +372,13 @@
             <div class="s-sub">Rank #5 &middot; Confidence 7/10 &middot; <span class="odds">-114</span></div>
           </div>
           <div class="s-right">
-            <div class="s-edge"><div class="n">5.0%</div><div class="l">Edge</div></div>
+            <div class="s-edge"><div class="n">4.5%</div><div class="l">Edge</div></div>
             <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
           </div>
         </summary>
         <div class="body">
           <div class="metrics">
-            <div class="metric"><div class="num">57.3%</div><div class="lbl">Model win%</div></div>
+            <div class="metric"><div class="num">56.8%</div><div class="lbl">Model win%</div></div>
             <div class="metric"><div class="num">52.3%</div><div class="lbl">Market win%</div></div>
           </div>
           <div class="flags">
@@ -385,7 +388,7 @@
           <div class="why">
             <div class="why-title">Why this clears every layer:</div>
             <ul>
-              <li>Pythagorean win%: home 0.488 vs away 0.479 (home the deeper team)</li><li>Starter ERA: Robbie Ray 3.08 vs Ronel Blanco 7.36 -> edge to home starter</li><li>Statcast/FanGraphs data unavailable today -- neutral.</li><li>Underdog value on away: dog's run differential (0.479) nearly matches the favorite (0.488)</li><li>Bullpen load (last 3d): home 3g/0 extra-inn (fatigue 1.00) vs away 2g/1 extra-inn (fatigue 0.83) -> fresher pen: away</li><li>games back: home 9.5 vs away 0.0; streak: home +1 vs away -1</li><li>Tickets 50% home / Handle 50% home -> no split</li><li>park run factor 93; rest: home 1d, away 2d</li><li>Waning Crescent (34% illuminated), Moon in Gemini (air sign) -> favorite lean</li><li>Date reduces to 7 -> favorite lean</li>
+              <li>Pythagorean win%: home 0.488 vs away 0.479 (home the deeper team)</li><li>Starter ERA: Robbie Ray 3.08 vs Ronel Blanco 7.36 -> edge to home starter</li><li>team OPS: home 0.696 vs away 0.738; HR/9 allowed: home SP 1.10 vs away SP 3.17; K%: home SP 20.9 vs away SP 25.8</li><li>Underdog value on away: dog's run differential (0.479) nearly matches the favorite (0.488)</li><li>Bullpen load (last 3d): home 3g/0 extra-inn (fatigue 1.00) vs away 2g/1 extra-inn (fatigue 0.83) -> fresher pen: away</li><li>games back: home 9.5 vs away 0.0; streak: home +1 vs away -1</li><li>Tickets 50% home / Handle 50% home -> no split</li><li>park run factor 93; rest: home 1d, away 2d</li><li>Waning Crescent (34% illuminated), Moon in Gemini (air sign) -> favorite lean</li><li>Date reduces to 7 -> favorite lean</li>
             </ul>
           </div>
         </div>
@@ -477,16 +480,16 @@
     
     <div class="parlay">
       <div class="legs">4-Leg MLB Parlay</div>
-      <div class="odds">Combined: +665 &middot; 19.5% est. win probability</div>
+      <div class="odds">Combined: +619 &middot; 20.2% est. win probability</div>
       <div style="margin-top:14px;">
         
-        <div class="leg-row"><span class="n">Leg 1</span><span class="lbl">STL ML (-158)</span><span class="kind-tag">ML</span></div>
+        <div class="leg-row"><span class="n">Leg 1</span><span class="lbl">MIL ML (-164)</span><span class="kind-tag">ML</span></div>
         
-        <div class="leg-row"><span class="n">Leg 2</span><span class="lbl">MIL ML (-164)</span><span class="kind-tag">ML</span></div>
+        <div class="leg-row"><span class="n">Leg 2</span><span class="lbl">STL ML (-164)</span><span class="kind-tag">ML</span></div>
         
-        <div class="leg-row"><span class="n">Leg 3</span><span class="lbl">MIA ML (-150)</span><span class="kind-tag">ML</span></div>
+        <div class="leg-row"><span class="n">Leg 3</span><span class="lbl">CHC ML (-164)</span><span class="kind-tag">ML</span></div>
         
-        <div class="leg-row"><span class="n">Leg 4</span><span class="lbl">NYY ML (-134)</span><span class="kind-tag">ML</span></div>
+        <div class="leg-row"><span class="n">Leg 4</span><span class="lbl">CLE ML (-138)</span><span class="kind-tag">ML</span></div>
         
       </div>
       <div class="note">Flat 1 unit. Built only from MLB legs the system graded today.</div>
@@ -500,12 +503,12 @@
     
     <div class="section-title"><span>Double Your Money &middot; 2 ML picks</span></div>
     <div class="double">
-      <div class="dh">💵 ~2x payout &middot; combined +163</div>
+      <div class="dh">💵 ~2x payout &middot; combined +159</div>
       <div style="margin-top:6px;">
         
-        <div class="leg-row"><span class="n">Leg 1</span><span class="lbl">STL ML (-158)</span><span class="kind-tag">MLB</span></div>
+        <div class="leg-row"><span class="n">Leg 1</span><span class="lbl">MIL ML (-164)</span><span class="kind-tag">MLB</span></div>
         
-        <div class="leg-row"><span class="n">Leg 2</span><span class="lbl">MIL ML (-164)</span><span class="kind-tag">MLB</span></div>
+        <div class="leg-row"><span class="n">Leg 2</span><span class="lbl">STL ML (-164)</span><span class="kind-tag">MLB</span></div>
         
       </div>
       <div class="note" style="color:var(--muted); font-size:13px; margin-top:8px;">The two safest ML picks across all sports that combine to roughly double a 1-unit stake. Flat 1 unit.</div>
@@ -515,16 +518,16 @@
     
     <div class="parlay">
       <div class="legs">4-Leg Top Parlay</div>
-      <div class="odds">Combined: +665 &middot; 19.5% est. win probability</div>
+      <div class="odds">Combined: +619 &middot; 20.2% est. win probability</div>
       <div style="margin-top:14px;">
         
-        <div class="leg-row"><span class="n">Leg 1</span><span class="lbl">STL ML (-158)</span><span class="kind-tag">ML</span></div>
+        <div class="leg-row"><span class="n">Leg 1</span><span class="lbl">MIL ML (-164)</span><span class="kind-tag">ML</span></div>
         
-        <div class="leg-row"><span class="n">Leg 2</span><span class="lbl">MIL ML (-164)</span><span class="kind-tag">ML</span></div>
+        <div class="leg-row"><span class="n">Leg 2</span><span class="lbl">STL ML (-164)</span><span class="kind-tag">ML</span></div>
         
-        <div class="leg-row"><span class="n">Leg 3</span><span class="lbl">MIA ML (-150)</span><span class="kind-tag">ML</span></div>
+        <div class="leg-row"><span class="n">Leg 3</span><span class="lbl">CHC ML (-164)</span><span class="kind-tag">ML</span></div>
         
-        <div class="leg-row"><span class="n">Leg 4</span><span class="lbl">NYY ML (-134)</span><span class="kind-tag">ML</span></div>
+        <div class="leg-row"><span class="n">Leg 4</span><span class="lbl">CLE ML (-138)</span><span class="kind-tag">ML</span></div>
         
       </div>
       <div class="note">Flat 1 unit. The single strongest ticket across every active sport &mdash; any mix of leagues and props the system rates highest today.</div>
