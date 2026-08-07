@@ -4,19 +4,67 @@ engine/strategy_rules.py
 Non-negotiable rules layered on top of raw edge numbers:
   - never below MIN_EDGE
   - flat 1-unit sizing
-  - up to MAX_PLAYS_PER_DAY plays PER SPORT (so each league fills its own
-    section/tab independently; a huge NCAA slate can't crowd out MLB)
-  - team diversification: don't play the same team 3+ days running without
-    stricter re-confirmation
-  - line movement: only drop on significant adverse movement AND heavy money
-  - doubleheader safety: at most ONE game per team pairing, and every pick's
-    team label names WHICH game (Gm 1 / Gm 2) so a bet is never ambiguous.
+  - up to MAX_PLAYS_PER_DAY plays PER SPORT
+  - team diversification (no same team 3+ days without stricter re-confirm)
+  - line movement (only drop on significant adverse move AND heavy money)
+  - doubleheader safety (one game per pairing; every label names Gm 1/Gm 2)
 
-select_daily_plays() is the single entry point run_daily.py calls.
+The reasoning each pick carries is now SPLIT so the card is honest:
+  1. an EDGE SOURCE line -- how much of the edge came from DATA factors vs the
+     astrology/numerology nudges (a healthy pick is data-driven),
+  2. the factors that SUPPORT the pick,
+  3. neutral context,
+  4. any COUNTER-signals that leaned the other way (so a factor arguing for the
+     opponent never masquerades as a reason the bet "clears").
 """
 
 import config
 from engine.models import Recommendation, FadeTeam
+
+# Factors that are "soft" nudges rather than hard data -- used to show the
+# user how much of an edge is real analysis vs cosmic tie-breaker.
+ASTRO_KEYS = {"moon_zodiac", "numerology"}
+
+
+def _build_reasoning(ev, dh_note=None):
+    """Returns (reasoning_list, edge_data_pct, edge_astro_pct). Splits factors
+    into support / context / counter relative to the recommended side, and
+    tallies how much of the edge is data-driven vs astro."""
+    side = ev.recommended_side
+    support, context, counter = [], [], []
+    edge_data = 0.0
+    edge_astro = 0.0
+    for fs in ev.factor_scores:
+        toward = fs.signal if side == "home" else -fs.signal   # + = helps the pick
+        contribution = toward * fs.weight
+        if fs.key in ASTRO_KEYS:
+            edge_astro += contribution
+        else:
+            edge_data += contribution
+        if toward > 0.02:
+            support.append(fs.reasoning)
+        elif toward < -0.02:
+            counter.append(fs.reasoning)
+        else:
+            context.append(fs.reasoning)
+
+    edge_data_pct = edge_data * 100
+    edge_astro_pct = edge_astro * 100
+
+    reasoning = []
+    if dh_note:
+        reasoning.append(dh_note)
+    reasoning.append(
+        f"EDGE SOURCE: data factors {edge_data_pct:+.1f}%, astrology/numerology "
+        f"{edge_astro_pct:+.1f}% (of the {ev.edge_pct * 100:.1f}% total edge). "
+        f"A healthy pick is driven mostly by DATA -- if astro is carrying it, treat it as thin."
+    )
+    reasoning += support
+    reasoning += context
+    if counter:
+        reasoning.append("— Counter-signals we weighed (leaned toward the other side but didn't outweigh the pick):")
+        reasoning += counter
+    return reasoning, edge_data_pct, edge_astro_pct
 
 
 def select_daily_plays(evaluations, db, public_splits, run_date_str):
@@ -25,7 +73,7 @@ def select_daily_plays(evaluations, db, public_splits, run_date_str):
 
     recent_picks = {p["team"] for p in db.get_recent_team_picks(run_date_str, config.DIVERSIFICATION_LOOKBACK_DAYS)}
     picked_today = {}
-    per_sport_count = {}   # each sport independently capped at MAX_PLAYS_PER_DAY
+    per_sport_count = {}
 
     plays = []
     dropped_notes = []
@@ -65,10 +113,8 @@ def select_daily_plays(evaluations, db, public_splits, run_date_str):
             dropped_notes.append(f"{label} ({matchup}): {line_flag}")
             continue
 
-        reasoning = [fs.reasoning for fs in ev.factor_scores]
         dh_note = ev.game.dh_reasoning()
-        if dh_note:
-            reasoning.insert(0, dh_note)
+        reasoning, edge_data_pct, edge_astro_pct = _build_reasoning(ev, dh_note)
 
         odds_american = ev.odds.home_ml if ev.recommended_side == "home" else ev.odds.away_ml
         plays.append(Recommendation(
@@ -140,12 +186,13 @@ def get_parlay_pool(evaluations):
         odds_american = ev.odds.home_ml if ev.recommended_side == "home" else ev.odds.away_ml
         model_prob = ev.model_prob_home if ev.recommended_side == "home" else ev.model_prob_away
         market_prob = ev.market_prob_home if ev.recommended_side == "home" else ev.market_prob_away
+        reasoning, _, _ = _build_reasoning(ev)
         pool.append(Recommendation(
             game=ev.game, side=ev.recommended_side, team=team + ev.game.dh_label(), sport=ev.game.sport,
             odds_american=odds_american, odds_source=ev.odds.book, edge_pct=ev.edge_pct,
             model_prob=model_prob, market_prob=market_prob,
             stake_units=config.FLAT_STAKE_UNITS, stake_dollars=config.FLAT_STAKE_UNITS * config.UNIT_SIZE_DOLLARS,
-            reasoning=[fs.reasoning for fs in ev.factor_scores], factor_scores=ev.factor_scores,
+            reasoning=reasoning, factor_scores=ev.factor_scores,
         ))
     return pool
 
