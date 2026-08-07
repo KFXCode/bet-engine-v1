@@ -26,6 +26,7 @@ from data.situational import park_and_situational_summary, ensure_injury_templat
 from data.standings import get_all_team_records
 from data.standings_wnba import get_all_wnba_records
 from data.standings_espn import get_all_records_for_sport
+from data.standings_scores import get_records as get_scores_records
 from data.rosters import get_team_batters
 from data.lineups import get_confirmed_lineup, get_confirmed_pitcher
 from data.hr_odds import fetch_hr_odds
@@ -64,16 +65,13 @@ LEDGER_CUTOFF = "2026-07-26"
 
 SEED_OVERRIDE_DATES = {"2026-07-29", "2026-07-30"}
 
-# Order sports appear in the report's per-sport nav.
 SPORT_ORDER = ["MLB", "WNBA", "NFL", "NCAAF", "NCAAB", "NHL", "NBA"]
 
-# Sports whose talent-gap/motivation factors can read real standings.
 RECORD_SPORTS = {"MLB", "WNBA", "NFL", "NCAAF", "NCAAB", "NHL", "NBA"}
-# ESPN-fed standings sports (MLB uses its own feed; WNBA its own).
-ESPN_RECORD_SPORTS = {"NFL", "NCAAF", "NCAAB", "NHL", "NBA"}
+# Non-MLB sports whose records we build from The Odds API scores feed
+# (runner-proof), with ESPN only as a local-dev fallback.
+SCORES_RECORD_SPORTS = {"WNBA", "NFL", "NCAAF", "NCAAB", "NHL", "NBA"}
 
-# ESPN-based schedule providers. ESPN blocks the runner's IP, so each of these
-# falls back to The Odds API (schedule_from_odds_api) when it returns nothing.
 _ESPN_SCHEDULE_PROVIDERS = {
     "NFL": get_todays_nfl_games,
     "NCAAF": get_todays_ncaaf_games,
@@ -93,36 +91,35 @@ def _fetch_schedule(sport, date_str):
         games = provider(date_str)
         if games:
             return games
-        # ESPN empty (often an IP block on the runner) -> Odds API fallback.
         return schedule_from_odds_api(sport, date_str)
     logger.warning("No schedule provider wired for enabled sport %s -- skipping.", sport)
     return []
 
 
 def _load_team_records(games, run_date, data_warnings):
-    """Build one team-record lookup across every sport that has games today:
-    MLB from MLB Stats API, WNBA + the rest from ESPN. Merged into a single
-    dict keyed by team abbr."""
+    """One team-record lookup across every sport with games today. MLB uses
+    the MLB Stats API. Every other sport uses the runner-proof Odds API scores
+    feed (data.standings_scores), which accumulates into full-season records
+    over time; ESPN is only a local-dev fallback when scores are empty."""
     records = get_all_team_records()  # MLB
-    if any(g.sport == "WNBA" for g in games):
-        wnba = get_all_wnba_records(season=run_date.year)
-        if wnba:
-            records.update(wnba)
-        else:
-            data_warnings.append("WNBA standings unavailable -- WNBA talent/motivation factors are running neutral today.")
-    for sport in ESPN_RECORD_SPORTS:
+    for sport in SCORES_RECORD_SPORTS:
         if not any(g.sport == sport for g in games):
             continue
-        sp = get_all_records_for_sport(sport, season=run_date.year)
+        sp = get_scores_records(sport, season=run_date.year)
+        if not sp:
+            # Fallback to ESPN (works locally; usually blocked on the runner).
+            sp = (get_all_wnba_records(season=run_date.year) if sport == "WNBA"
+                  else get_all_records_for_sport(sport, season=run_date.year))
         if sp:
             records.update(sp)
         else:
-            data_warnings.append(f"{sport} standings unavailable -- {sport} talent/motivation factors are running neutral today.")
+            data_warnings.append(
+                f"{sport} records still building (no results stored yet) -- {sport} talent/motivation "
+                f"factors run neutral until a few games are logged.")
     return records
 
 
 def _row_to_odds(row):
-    """Rebuild a MoneylineOdds from a stored odds_snapshots row."""
     return MoneylineOdds(
         book=row["book"], home_ml=row["home_ml"], away_ml=row["away_ml"],
         captured_at=row["captured_at"], home_spread=row["home_spread"],
