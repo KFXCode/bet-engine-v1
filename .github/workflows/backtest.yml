@@ -6,15 +6,23 @@ on:
       start:
         description: "Start date (YYYY-MM-DD)"
         required: true
-        default: "2026-04-01"
+        default: "2025-04-01"
       end:
         description: "End date (YYYY-MM-DD)"
         required: true
-        default: "2026-07-23"
+        default: "2025-09-28"
       min_lean:
         description: "Minimum lean filter (0.06 ~ live floor)"
         required: true
         default: "0.06"
+      use_odds:
+        description: "Compute UNITS/ROI from historical odds (uses paid API credits)"
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
 
 jobs:
   backtest:
@@ -26,9 +34,12 @@ jobs:
           python-version: "3.11"
       - name: Install dependencies
         run: pip install -r requirements.txt
-      - name: Run MLB directional backtest
+      - name: Run MLB backtest
+        env:
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
         run: |
           python -m backtest.backtest_mlb \
             --start "${{ github.event.inputs.start }}" \
             --end "${{ github.event.inputs.end }}" \
-            --min-lean "${{ github.event.inputs.min_lean }}"
+            --min-lean "${{ github.event.inputs.min_lean }}" \
+            ${{ github.event.inputs.use_odds == 'true' && '--use-odds' || '' }}
