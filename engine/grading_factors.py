@@ -8,14 +8,9 @@ a GradingContext and returns an engine.models.FactorScore:
     reasoning: one readable sentence for the report
     data_quality: "ok" | "mock" | "manual" | "missing" | "degraded" | "partial"
 
-Keeping every factor's math in ONE small function each is what makes the
-system auditable -- the daily report prints every one of these reasoning
-strings so you can see exactly why a play cleared (or didn't).
-
 IMPORTANT convention note: celestial_signal / numerology_signal on the
 context are already converted to the home/away convention by
-engine/scoring.py before this module ever sees them (their native convention
-is favorite/underdog).
+engine/scoring.py before this module ever sees them.
 """
 
 from dataclasses import dataclass
@@ -31,15 +26,15 @@ class GradingContext:
     away_pitcher_profile: object
     home_offense: object
     away_offense: object
-    home_record: dict           # {wins, losses, runs_scored, runs_allowed, games_back, streak}
+    home_record: dict
     away_record: dict
     public_split: object
     situational: dict
-    celestial_signal: float     # already home/away convention (see module docstring)
+    celestial_signal: float
     celestial_reasoning: str
-    numerology_signal: float    # already home/away convention
+    numerology_signal: float
     numerology_reasoning: str
-    home_ml: int = None         # American odds, set by scoring.py when available
+    home_ml: int = None
     away_ml: int = None
 
 
@@ -58,7 +53,7 @@ def score_talent_gap(ctx):
                             "Not enough season data yet to separate these teams on talent.",
                             "degraded")
     diff = home_pyth - away_pyth
-    signal = _clip(diff * 4)  # a 10-point pyth-win% gap -> full-strength signal
+    signal = _clip(diff * 4)
     reasoning = (f"Pythagorean win%: home {home_pyth:.3f} vs away {away_pyth:.3f} "
                  f"({'home' if diff > 0 else 'away'} the deeper team)")
     return FactorScore("talent_gap", "Talent gap / better team", signal,
@@ -72,8 +67,8 @@ def score_matchup_pitching(ctx):
                             config.FACTOR_WEIGHTS["matchup_pitching"],
                             "Probable starters' ERA unavailable -- neutral until confirmed.",
                             "degraded")
-    era_gap = ap.era - hp.era  # positive => home starter better (lower ERA)
-    signal = _clip(era_gap / 2.0)  # a full run of ERA gap = full-strength signal
+    era_gap = ap.era - hp.era
+    signal = _clip(era_gap / 2.0)
     better = "home" if era_gap > 0 else "away"
     home_name = ctx.game.home_pitcher.name if ctx.game.home_pitcher else "TBD"
     away_name = ctx.game.away_pitcher.name if ctx.game.away_pitcher else "TBD"
@@ -90,7 +85,7 @@ def score_advanced_analytics(ctx):
     total = 0.0
     n = 0
     if hp and ap and hp.hard_hit_pct_allowed is not None and ap.hard_hit_pct_allowed is not None:
-        gap = ap.hard_hit_pct_allowed - hp.hard_hit_pct_allowed  # positive => home SP allows less hard contact
+        gap = ap.hard_hit_pct_allowed - hp.hard_hit_pct_allowed
         total += _clip(gap / 10.0)
         n += 1
         parts.append(f"hard-hit% allowed: home SP {hp.hard_hit_pct_allowed:.1f} vs away SP {ap.hard_hit_pct_allowed:.1f}")
@@ -110,23 +105,10 @@ def score_advanced_analytics(ctx):
 
 def score_underdog_value(ctx):
     """Research-backed dog edge. Leans the model TOWARD an underdog that the
-    market is likely shading against, so the system can win money on dogs and
-    not just favorites. Three additive signals, all pointing at the dog:
-
-      1. Home underdog +120 or longer -- historically +ROI in 14 of last 20
-         seasons (home dogs are chronically underpriced).
-      2. Fade the shaded favorite -- public piled on the favorite (tickets%),
-         so its price is inflated and the dog's is inflated in our favor.
-      3. Competitive dog -- the dog isn't actually much worse on run
-         differential (pyth), i.e. the price gap overstates the talent gap.
-
-    Signal sign is home/away convention (+ leans home). Neutral (0) when we
-    can't identify a real dog or there's no supporting signal.
-    """
+    market is likely shading against."""
     w = config.FACTOR_WEIGHTS["underdog_value"]
     home_ml, away_ml = ctx.home_ml, ctx.away_ml
 
-    # Identify the underdog by price when we have odds; else by record.
     dog_side = None
     dog_ml = None
     if home_ml is not None and away_ml is not None:
@@ -134,7 +116,7 @@ def score_underdog_value(ctx):
             dog_side, dog_ml = "home", home_ml
         elif away_ml > 0 and home_ml < 0:
             dog_side, dog_ml = "away", away_ml
-        elif home_ml > away_ml:  # both same sign: bigger positive / smaller negative = dog
+        elif home_ml > away_ml:
             dog_side, dog_ml = "home", home_ml
         else:
             dog_side, dog_ml = "away", away_ml
@@ -154,7 +136,6 @@ def score_underdog_value(ctx):
     strength = 0.0
     notes = []
 
-    # 1. Home underdog at +120 or longer.
     if dog_side == "home" and dog_ml is not None and dog_ml >= 120:
         strength += 0.45
         notes.append(f"home dog at {dog_ml:+d} (+120-or-longer home dogs are historically underpriced)")
@@ -162,7 +143,6 @@ def score_underdog_value(ctx):
         strength += 0.25
         notes.append(f"home dog at {dog_ml:+d}")
 
-    # 2. Fade the shaded favorite: heavy public tickets on the favorite side.
     split = ctx.public_split
     if split and split.data_quality not in ("mock", "missing"):
         fav_tickets = (100 - split.tickets_pct_home) if dog_side == "home" else split.tickets_pct_home
@@ -173,7 +153,6 @@ def score_underdog_value(ctx):
             strength += 0.20
             notes.append(f"public leaning {fav_tickets:.0f}% to the favorite")
 
-    # 3. Competitive dog on run differential (price gap overstates talent gap).
     hr = ctx.home_record or {}
     ar = ctx.away_record or {}
     hp = _pyth_win_pct(hr.get("runs_scored"), hr.get("runs_allowed"))
@@ -195,6 +174,30 @@ def score_underdog_value(ctx):
                         w, reasoning, "ok")
 
 
+def score_bullpen_fatigue(ctx):
+    """Leans toward the team whose bullpen is more RESTED. An overworked
+    favorite's pen (3 straight games, extra-inning marathons) is a real upset
+    lever; a fresh dog pen holds late leads. Positive signal = home more
+    rested (favored)."""
+    w = config.FACTOR_WEIGHTS["bullpen_fatigue"]
+    sit = ctx.situational or {}
+    hb = sit.get("home_bullpen") or {}
+    ab = sit.get("away_bullpen") or {}
+    hf = hb.get("fatigue")
+    af = ab.get("fatigue")
+    if hf is None or af is None:
+        return FactorScore("bullpen_fatigue", "Bullpen fatigue (rested vs overworked pen)", 0.0,
+                            w, "Recent bullpen workload unavailable -- neutral.", "degraded")
+    # away more tired (higher fatigue) => lean home, and vice versa.
+    signal = _clip((af - hf) * 1.5)
+    reasoning = (f"Bullpen load (last 3d): home {hb.get('games','?')}g/"
+                 f"{hb.get('extra_innings',0)} extra-inn (fatigue {hf:.2f}) "
+                 f"vs away {ab.get('games','?')}g/{ab.get('extra_innings',0)} extra-inn (fatigue {af:.2f}) "
+                 f"-> fresher pen: {'home' if hf < af else 'away' if af < hf else 'even'}")
+    return FactorScore("bullpen_fatigue", "Bullpen fatigue (rested vs overworked pen)", signal,
+                        w, reasoning, "ok")
+
+
 def score_motivation(ctx):
     hr = ctx.home_record or {}
     ar = ctx.away_record or {}
@@ -202,7 +205,7 @@ def score_motivation(ctx):
     notes = []
     h_gb, a_gb = hr.get("games_back"), ar.get("games_back")
     if h_gb is not None and a_gb is not None:
-        motivation_gap = (a_gb - h_gb) / 10.0  # closer to first place = more motivated in-season
+        motivation_gap = (a_gb - h_gb) / 10.0
         signal += _clip(motivation_gap) * 0.6
         notes.append(f"games back: home {h_gb} vs away {a_gb}")
     h_streak, a_streak = hr.get("streak") or 0, ar.get("streak") or 0
@@ -222,7 +225,6 @@ def score_public_sharp_split(ctx):
                             "No public betting data available today.", "degraded")
     tickets_home = split.tickets_pct_home
     handle_home = split.handle_pct_home
-    # reverse-line-style indicator: handle skews harder than tickets -> sharp money
     sharp_gap = (handle_home - tickets_home) / 100.0
     signal = _clip(sharp_gap * 3.0)
     lean = "sharp money on home" if sharp_gap > 0 else "sharp money on away" if sharp_gap < 0 else "no split"
@@ -274,6 +276,7 @@ ALL_FACTOR_SCORERS = [
     score_matchup_pitching,
     score_advanced_analytics,
     score_underdog_value,
+    score_bullpen_fatigue,
     score_motivation,
     score_public_sharp_split,
     score_situational,
