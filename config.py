@@ -115,20 +115,20 @@ PARLAY_MIN_LEGS = 2
 # ---------------------------------------------------------------------------
 # Grading factor weights (model nudges the market, not replaces it)
 # ---------------------------------------------------------------------------
-# underdog_value is the research-backed dog edge: home underdogs of +120 or
-# longer have shown positive ROI in 14 of the past 20 seasons, books shade
-# favorite prices toward the public, and divisional dogs benefit from
-# familiarity. It leans the model TOWARD an undervalued underdog so the
-# system can win money on both sides, not just favorites.
+# bullpen_fatigue: leans toward the team whose bullpen is more rested (fewer
+# games + no extra-inning marathons in the last 3 days). An overworked
+# favorite's pen is a real, research-backed upset lever -- carved out of the
+# unused historical_form weight so the total is unchanged.
 FACTOR_WEIGHTS = {
     "matchup_pitching": 0.065,
     "public_sharp_split": 0.06,
     "advanced_analytics": 0.045,
-    "historical_form": 0.045,
     "underdog_value": 0.03,
+    "historical_form": 0.025,
     "talent_gap": 0.025,
     "moon_zodiac": 0.03,
     "numerology": 0.02,
+    "bullpen_fatigue": 0.02,
     "situational": 0.01,
     "motivation": 0.01,
 }
