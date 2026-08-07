@@ -43,7 +43,7 @@
   .strip .item { font-size: 13px; color: var(--muted); }
   .strip .item b { color: var(--fg); }
 
-  .cosmic { max-width: 520px; margin: 14px auto 0; background: var(--card); border: 1px solid var(--card-border); border-radius: 12px; overflow: hidden; text-align: left; }
+  .cosmic { max-width: 560px; margin: 14px auto 0; background: var(--card); border: 1px solid var(--card-border); border-radius: 12px; overflow: hidden; text-align: left; }
   .cosmic > summary { list-style: none; cursor: pointer; padding: 12px 16px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent); }
   .cosmic > summary::-webkit-details-marker { display: none; }
   .cosmic .cx-chev { width: 14px; height: 14px; transition: transform 0.2s; }
@@ -56,6 +56,7 @@
   .cosmic .cx-lean { display: inline-block; margin-top: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 2px 8px; border-radius: 6px; }
   .cosmic .lean-fav { color: var(--accent); background: var(--accent-dim); }
   .cosmic .lean-dog { color: var(--warn); background: var(--warn-dim); }
+  .cosmic .cx-pick { display: block; margin-top: 5px; font-size: 12px; color: var(--fg); }
 
   .warnbox { background: var(--warn-dim); border: 1px solid var(--warn); color: var(--fg);
              border-radius: 10px; padding: 14px 18px; margin-bottom: 24px; font-size: 14px; }
@@ -179,54 +180,64 @@
     </div>
 
     {% set phase_meaning = {
-      'New Moon': ['Fresh-start energy, a clean slate. Blank canvas favors the stronger, more disciplined side.', 'fav'],
-      'Waxing Crescent': ['Building momentum. Energy is rising toward the favorite as intention takes hold.', 'fav'],
-      'First Quarter': ['A tension/decision point. Push-and-pull energy makes it a coin-flip lean.', 'neutral'],
-      'Waxing Gibbous': ['Refinement before the peak. Slight letdown/overhype risk creeps toward the underdog.', 'dog'],
-      'Full Moon': ['Peak emotion and chaos. High-variance night -- fade the heavy public favorite, upsets spike.', 'dog'],
-      'Waning Gibbous': ['Release and letdown after the peak. Hot win-streak teams are prime fade spots here.', 'dog'],
-      'Last Quarter': ['Clearing out, re-evaluation. Energy is neutral and unsettled.', 'neutral'],
-      'Waning Crescent': ['Low-energy, fatigue, emotional wind-down. Rest/home-comfort edges matter; slight favorite lean.', 'fav']
+      'New Moon': ['Reset energy. Underdogs pop more, favorites slip (especially overvalued ones), and public money loses more often.', 'Look for value dogs or short lines.', 'dog'],
+      'Waxing Crescent': ['Momentum builds. Good teams trend upward.', 'Safer to take favorites if the other factors match.', 'fav'],
+      'First Quarter': ['Chaotic swings and big comebacks.', 'Live-betting edges; avoid heavy favorites.', 'dog'],
+      'Waxing Gibbous': ['Public confidence high. Fakes and traps show up; overvalued favorites become fade material.', 'Fade tired favorites and hyped teams.', 'dog'],
+      'Full Moon': ['Emotional energy high. Overs hit more, stars show out, home teams get a boost.', 'Talent wins -> lean favorites + overs.', 'fav'],
+      'Waning Gibbous': ['Regression period. Teams return to the mean.', 'Fade teams riding lucky streaks.', 'dog'],
+      'Last Quarter': ['Upset window. Strong defensive teams win.', 'Underdogs with defense.', 'dog'],
+      'Waning Crescent': ['Low energy. Fatigue hits hardest.', 'Travel/rest fades matter more.', 'fav']
     } %}
-    {% set element_meaning = {
-      'fire': ['Fire signs (Aries, Leo, Sagittarius) bring bold, aggressive energy -- favors the stronger team asserting itself.', 'fav'],
-      'earth': ['Earth signs (Taurus, Virgo, Capricorn) are grounded and steady -- favors the disciplined, better-run team.', 'fav'],
-      'air': ['Air signs (Gemini, Libra, Aquarius) are unpredictable and scattered -- nudges toward chaos and the underdog.', 'dog'],
-      'water': ['Water signs (Cancer, Scorpio, Pisces) bring emotional swings and volatility -- underdog/upset energy.', 'dog']
+    {% set sign_meaning = {
+      'Aries': ['Fast starts, high scoring, aggressive energy.', 'Overs / athletic teams.', 'neutral'],
+      'Taurus': ['Slow pace, grind-it-out tempo control.', 'Unders / teams that control tempo.', 'neutral'],
+      'Gemini': ['Chaos, swings, momentum shifts.', 'Avoid big favorites.', 'dog'],
+      'Cancer': ['Home advantage runs strong.', 'Home teams get a boost.', 'fav'],
+      'Leo': ['Stars shine brightest.', 'Superstar advantage.', 'fav'],
+      'Virgo': ['Discipline wins.', 'Defensive teams.', 'fav'],
+      'Libra': ['Balanced games, tight margins.', 'Spreads stay close.', 'neutral'],
+      'Scorpio': ['Purge energy.', 'Upsets and reversals.', 'dog'],
+      'Sagittarius': ['Fast pace and high scoring.', 'Overs / aggressive teams.', 'neutral'],
+      'Capricorn': ['Defense and fundamentals matter.', 'Grinders and favorites that execute.', 'fav'],
+      'Aquarius': ['Random results, weird upsets.', 'Expect the unexpected -- dog value.', 'dog'],
+      'Pisces': ['Emotional games, momentum swings.', 'Ride the hot hand; fade flat teams.', 'dog']
     } %}
     {% set number_meaning = {
-      1: 'Leadership &amp; new beginnings -- backs the front-runner.',
-      2: 'Partnership &amp; balance -- close, evenly-matched energy.',
-      3: 'Expression &amp; luck -- creative, favorable vibes.',
+      1: 'Leadership & new beginnings -- backs the front-runner.',
+      2: 'Partnership & balance -- close, evenly-matched energy.',
+      3: 'Expression & luck -- creative, favorable vibes.',
       4: 'Structure disrupted -- foundations shaky, lean underdog.',
-      5: 'Change &amp; chaos -- volatile, unpredictable day.',
-      6: 'Harmony &amp; responsibility -- order favors the stronger side.',
+      5: 'Change & chaos -- volatile, unpredictable day.',
+      6: 'Harmony & responsibility -- order favors the stronger side.',
       7: 'Introspection -- quiet, neutral energy.',
-      8: 'Karma, power &amp; reversal -- revenge spots and upsets carry weight.',
-      9: 'Completion &amp; fulfillment -- things fall into place for the favorite.',
+      8: 'Karma, power & reversal -- revenge spots and upsets carry weight.',
+      9: 'Completion & fulfillment -- things fall into place for the favorite.',
       11: 'Master number -- heightened intuition, strong favorite energy.',
       22: 'Master number -- the master builder under strain; upset energy.',
       33: 'Master number -- rare harmony and balance.'
     } %}
-    {% set el = celestial.element if celestial.element else '' %}
+    {% set pm = phase_meaning.get(celestial.phase, ['Moon-phase energy shading the slate today.', '', 'neutral']) %}
+    {% set sm = sign_meaning.get(celestial.sign, ['The sign the Moon is transiting colors the daily style of play.', '', 'neutral']) %}
     <details class="cosmic">
       <summary>Why today's moon &amp; numbers matter <svg class="cx-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg></summary>
       <div class="cx-body">
         <div class="cx-row">
           <div class="cx-h">🌙 {{ celestial.phase }}{% if celestial.illumination is defined %} &middot; {{ '%.0f' | format(celestial.illumination * 100) }}% lit{% endif %}</div>
-          <div class="cx-t">{{ phase_meaning.get(celestial.phase, ['Moon-phase energy shading the slate today.', 'neutral'])[0] }}</div>
-          {% set pl = phase_meaning.get(celestial.phase, ['', 'neutral'])[1] %}
-          {% if pl == 'fav' %}<span class="cx-lean lean-fav">Leans favorite</span>{% elif pl == 'dog' %}<span class="cx-lean lean-dog">Leans underdog</span>{% else %}<span class="cx-lean" style="color:var(--muted); background:rgba(255,255,255,0.06);">Neutral / coin-flip</span>{% endif %}
+          <div class="cx-t">{{ pm[0] }}</div>
+          {% if pm[1] %}<span class="cx-pick"><b style="color:var(--fg);">Pick lean:</b> {{ pm[1] }}</span>{% endif %}
+          {% if pm[2] == 'fav' %}<span class="cx-lean lean-fav">Leans favorite</span>{% elif pm[2] == 'dog' %}<span class="cx-lean lean-dog">Leans underdog</span>{% else %}<span class="cx-lean" style="color:var(--muted); background:rgba(255,255,255,0.06);">Neutral / coin-flip</span>{% endif %}
         </div>
         <div class="cx-row">
-          <div class="cx-h">♒ Moon in {{ celestial.sign }}{% if el %} &middot; {{ el|capitalize }} sign{% endif %}</div>
-          <div class="cx-t">{{ element_meaning.get(el, ['The sign the Moon is transiting colors the daily tone.', 'neutral'])[0] }}</div>
-          {% set sl = element_meaning.get(el, ['', 'neutral'])[1] %}
-          {% if sl == 'fav' %}<span class="cx-lean lean-fav">Leans favorite</span>{% elif sl == 'dog' %}<span class="cx-lean lean-dog">Leans underdog</span>{% else %}<span class="cx-lean" style="color:var(--muted); background:rgba(255,255,255,0.06);">Neutral</span>{% endif %}
+          <div class="cx-h">♒ Moon in {{ celestial.sign }} &middot; style of play</div>
+          <div class="cx-t">{{ sm[0] }}</div>
+          {% if sm[1] %}<span class="cx-pick"><b style="color:var(--fg);">Favors:</b> {{ sm[1] }}</span>{% endif %}
+          {% if sm[2] == 'fav' %}<span class="cx-lean lean-fav">Leans favorite</span>{% elif sm[2] == 'dog' %}<span class="cx-lean lean-dog">Leans underdog</span>{% else %}<span class="cx-lean" style="color:var(--muted); background:rgba(255,255,255,0.06);">Style, not a side</span>{% endif %}
         </div>
         <div class="cx-row">
           <div class="cx-h">🔢 Numerology {{ numerology.number }}</div>
           <div class="cx-t">{{ number_meaning.get(numerology.number, 'The date reduces to this number, setting the underlying tone.') }}</div>
+          <span class="cx-pick" style="color:var(--muted);">Numerology never decides a pick alone -- it confirms or denies the moon read.</span>
         </div>
         <div class="cx-row">
           <div class="cx-t" style="font-size:12px;">These are weighted <b style="color:var(--fg);">nudges</b>, not the driver -- they tip close calls but never override talent, pitching, and the money/sharp read.</div>
