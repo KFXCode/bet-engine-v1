@@ -1,16 +1,18 @@
 """
 data/hr_odds.py
 ================
-FanDuel "to hit a home run" (Over 0.5 HR / Yes) odds for the day's chosen HR
-props, via The Odds API player-props endpoint.
+"To hit a home run" (Over 0.5 HR / Yes) odds for the day's chosen HR props,
+via The Odds API player-props endpoint.
+
+Bookmaker strategy: FanDuel is PREFERRED (it's the book you bet), but if
+FanDuel hasn't posted the HR market for a game yet while other US books have,
+we fall back to the best available book's price so the card shows a real
+number instead of "n/a" -- the fallback price is tagged so you know to
+double-check it on FanDuel before betting.
 
 Credit-conscious: player props are an EVENT-level market (one request per
 game), so fetch_hr_odds() only calls it for games that actually hold a chosen
-HR pick (<= config.HR_PROP_MAX_PER_DAY) -- roughly 3 credits/day.
-
-This version logs each step (event match, market presence, outcome count) so
-that when odds come back "n/a" we can see exactly where it broke in the
-workflow log instead of guessing. Never raises.
+HR pick. Logs each step so an "n/a" is traceable in the workflow log. Never raises.
 """
 
 import logging
@@ -94,12 +96,13 @@ def _event_id_map():
 
 
 def _fetch_event_hr_odds(event_id):
+    """Fetch every US book's HR market for the event, then pick a price per
+    player: FanDuel first, else the first other book that has it."""
     url = f"{config.ODDS_API_BASE_URL}/sports/baseball_mlb/events/{event_id}/odds"
     params = {
         "apiKey": config.ODDS_API_KEY,
         "regions": "us",
         "markets": config.ODDS_API_HR_MARKET,
-        "bookmakers": config.ODDS_API_BOOKMAKER,
         "oddsFormat": "american",
     }
     try:
@@ -108,7 +111,7 @@ def _fetch_event_hr_odds(event_id):
         payload = resp.json()
     except Exception as exc:
         logger.warning("HR odds: event %s fetch failed: %s -- (a 422 here usually means the "
-                       "batter_home_runs market or FanDuel isn't offered for this event yet).", event_id, exc)
+                       "batter_home_runs market isn't offered for this event yet).", event_id, exc)
         return {}
 
     bookmakers = payload.get("bookmakers", [])
@@ -117,10 +120,11 @@ def _fetch_event_hr_odds(event_id):
                     "or your plan/region doesn't include this market).", event_id, config.ODDS_API_HR_MARKET)
         return {}
 
-    out = {}
+    preferred = config.ODDS_API_BOOKMAKER
+    fd_prices = {}       # FanDuel prices
+    fallback_prices = {} # first other book's price per player
     for bm in bookmakers:
-        if bm.get("key") != config.ODDS_API_BOOKMAKER:
-            continue
+        is_fd = bm.get("key") == preferred
         for market in bm.get("markets", []):
             if market.get("key") != config.ODDS_API_HR_MARKET:
                 continue
@@ -129,6 +133,17 @@ def _fetch_event_hr_odds(event_id):
                 if side not in ("over", "yes"):
                     continue
                 player = _norm_name(outcome.get("description") or outcome.get("participant") or "")
-                if player and outcome.get("price") is not None:
-                    out[player] = int(outcome["price"])
+                price = outcome.get("price")
+                if not player or price is None:
+                    continue
+                if is_fd:
+                    fd_prices[player] = int(price)
+                elif player not in fallback_prices:
+                    fallback_prices[player] = int(price)
+
+    out = dict(fallback_prices)
+    out.update(fd_prices)  # FanDuel overrides fallback wherever it exists
+    if not fd_prices and fallback_prices:
+        logger.info("HR odds: event %s -- FanDuel had no HR market, used other US book(s) for %d player(s).",
+                    event_id, len(fallback_prices))
     return out
