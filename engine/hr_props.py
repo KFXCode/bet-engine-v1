@@ -12,6 +12,11 @@ evaluate_hr_prop_candidates() returns the FULL scored pool (sorted best-first,
 NOT truncated). run_daily then attaches live FanDuel HR odds and calls
 finalize_hr_props(), which applies the +EV edge filter and takes the top N.
 
+Ranking rule (important): +EV picks always lead, sorted by edge. When NOT
+enough picks clear the +EV bar, the remaining slots are filled by SCORE
+(highest first) -- whether or not a price posted -- so an elite 98-score pick
+never gets outranked by a weaker no-odds pick. This keeps the "Top Prop" honest.
+
 Composite score is 0-100. HR props are MLB-only.
 
 DIAGNOSTICS: every batter considered is logged with the exact reason it was
@@ -130,15 +135,14 @@ def finalize_hr_props(pool, max_per_day=None):
     """Apply the +EV edge filter after live FanDuel HR odds are attached, then
     take the top N. Each candidate should now carry 'odds_american' (or None).
 
-    Logic:
-      - odds present: edge = model_prob - implied_prob. Mark +EV if edge >= HR_MIN_EV_EDGE.
-      - odds missing: can't compute EV -> keep as score-only fallback.
-    +EV picks are always preferred and shown first (sorted by edge). If not
-    enough clear the bar, fill the remaining slots with the best score-only
-    candidates so the slate is never empty (per your rule)."""
+    Ranking:
+      - +EV picks (edge >= HR_MIN_EV_EDGE) always lead, sorted by edge desc.
+      - Remaining slots fill by SCORE desc (no-odds and no-edge picks mixed
+        together), so an elite score never sits below a weaker no-odds pick.
+    Slate is never empty (per your rule)."""
     max_per_day = max_per_day or config.HR_PROP_MAX_PER_DAY
 
-    plus_ev, no_odds, neg_ev = [], [], []
+    plus_ev, fallback = [], []
     for c in pool:
         odds = c.get("odds_american")
         if odds is None:
@@ -146,7 +150,7 @@ def finalize_hr_props(pool, max_per_day=None):
             c["reasoning"].append(
                 "[+EV] HR odds unavailable from the book right now -- shown on model score alone; "
                 "confirm the price is fair before betting.")
-            no_odds.append(c)
+            fallback.append(c)
             continue
         implied = american_to_implied(odds)
         edge = c["model_prob"] - implied
@@ -162,20 +166,14 @@ def finalize_hr_props(pool, max_per_day=None):
             c["reasoning"].append(
                 f"[No edge {edge*100:+.1f}%] Model {c['model_prob']*100:.1f}% vs implied {implied*100:.1f}% "
                 f"at {odds:+d} -- not enough value to clear the {config.HR_MIN_EV_EDGE*100:.0f}% bar.")
-            neg_ev.append(c)
+            fallback.append(c)
 
     plus_ev.sort(key=lambda c: c["ev_edge"], reverse=True)
-    final = list(plus_ev[:max_per_day])
-    if len(final) < max_per_day:
-        # Fill remaining slots with best score-only (no-odds first, then best-score neg-EV).
-        filler = no_odds + sorted(neg_ev, key=lambda c: c["score"], reverse=True)
-        for c in filler:
-            if len(final) >= max_per_day:
-                break
-            final.append(c)
+    fallback.sort(key=lambda c: c["score"], reverse=True)   # highest score leads when no +EV
+    final = (plus_ev + fallback)[:max_per_day]
 
-    logger.info("HR-DIAG: EV filter -- %d +EV, %d no-odds, %d no-edge. Final %d picks.",
-                len(plus_ev), len(no_odds), len(neg_ev), len(final))
+    logger.info("HR-DIAG: EV filter -- %d +EV, %d fallback(score-ranked). Final %d picks.",
+                len(plus_ev), len(fallback), len(final))
     logger.info("HR-DIAG: FINAL PICKS: %s",
                 ", ".join(f"{c['player_name']} score {c['score']:.0f}"
                           + (f" +EV {c['ev_edge']*100:+.1f}%" if c.get('ev_edge') is not None else " (no odds)")
