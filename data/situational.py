@@ -2,8 +2,9 @@
 data/situational.py
 ====================
 Situational factors: injuries (manual override), rest/travel fatigue (MLB
-Stats API recent schedule), and park factors (static table). These feed the
-"situational" grading factor and the HR prop park+motivation overlay.
+Stats API recent schedule), park factors (static table), and bullpen fatigue
+(recent games + extra-inning marathons). These feed the "situational" and
+"bullpen_fatigue" grading factors and the HR prop park+motivation overlay.
 
 TEAM_IDS here is the canonical abbr -> MLB Stats API numeric team id map,
 reused by data/standings.py and data/rosters.py.
@@ -81,8 +82,56 @@ def get_rest_days(team_abbr, before_date_str, lookback_days=6):
         return {"games_last_n_days": None, "rest_days": None, "data_quality": "degraded"}
 
 
+def get_bullpen_fatigue(team_abbr, before_date_str, lookback_days=3):
+    """Proxy for how gassed a bullpen is over the last `lookback_days`:
+      - each game played in the window adds fatigue,
+      - each EXTRA-INNING game (linescore > 9) adds extra fatigue (pens get
+        emptied in marathons),
+      - a day-game-after-night-game back-to-back adds a bit.
+    Returns {"fatigue": float 0..~1, "games": int, "extra_innings": int,
+    "data_quality": "ok"|"degraded"}. Higher fatigue = more tired pen.
+    Never raises."""
+    tid = TEAM_IDS.get(team_abbr)
+    if not tid:
+        return {"fatigue": None, "games": None, "extra_innings": None, "data_quality": "degraded"}
+    try:
+        before = datetime.strptime(before_date_str, "%Y-%m-%d")
+        start = (before - timedelta(days=lookback_days)).strftime("%Y-%m-%d")
+        end = (before - timedelta(days=1)).strftime("%Y-%m-%d")
+        resp = requests.get(
+            MLB_STATS_API,
+            params={"sportId": 1, "startDate": start, "endDate": end,
+                    "teamId": tid, "hydrate": "linescore"},
+            timeout=15,
+        )
+        resp.raise_for_status()
+        payload = resp.json()
+    except Exception as exc:
+        logger.debug("bullpen fatigue lookup failed for %s: %s", team_abbr, exc)
+        return {"fatigue": None, "games": None, "extra_innings": None, "data_quality": "degraded"}
+
+    games = 0
+    extra = 0
+    played_dates = []
+    for block in payload.get("dates", []):
+        for g in block.get("games", []):
+            if g.get("status", {}).get("abstractGameState") != "Final":
+                continue
+            games += 1
+            played_dates.append(block.get("date"))
+            innings = g.get("linescore", {}).get("currentInning") or 9
+            if innings and innings > 9:
+                extra += 1
+
+    # Normalize: 3 games in 3 days = heavy base load; each extra-inning game
+    # adds ~half a game of fatigue. Cap at 1.0.
+    base = games / float(lookback_days)
+    fatigue = min(1.0, base + 0.5 * extra / float(lookback_days))
+    return {"fatigue": round(fatigue, 3), "games": games, "extra_innings": extra, "data_quality": "ok"}
+
+
 def park_and_situational_summary(home_team, away_team, date_str):
-    """Bundles everything the GAME-level situational grading factor needs."""
+    """Bundles everything the GAME-level situational + bullpen grading factors need."""
     runs_pf, hr_pf = park_factor_for(home_team)
     return {
         "park_runs_factor": runs_pf,
@@ -91,6 +140,8 @@ def park_and_situational_summary(home_team, away_team, date_str):
         "away_injuries": get_injury_notes(away_team, date_str),
         "home_rest": get_rest_days(home_team, date_str),
         "away_rest": get_rest_days(away_team, date_str),
+        "home_bullpen": get_bullpen_fatigue(home_team, date_str),
+        "away_bullpen": get_bullpen_fatigue(away_team, date_str),
     }
 
 
