@@ -1,18 +1,15 @@
 """
 backtest/backtest_multi.py
 ===========================
-Directional (+ optional ROI) backtest for the non-MLB sports: NFL, NCAAF,
-NCAAB, NHL, NBA. One generic engine driven by --sport, so all five share the
-same tested logic instead of five copies.
+Directional (+ optional ROI) backtest for NFL, NCAAF, NCAAB, NHL, NBA.
 
-Scores + team records come from ESPN's free public scoreboard (one request
-per day per league). The model lean uses the same shape as the MLB backtest:
-team win% gap + home field + moon/zodiac/numerology nudges. With --use-odds
-it pulls historical closing MONEYLINE odds from The Odds API for that sport
-and settles at flat 1 unit for real UNITS/ROI, plus an underdog-only cut.
+Look-ahead-safe: team win% is built from actual game finals in chronological
+order (record BEFORE each game), NOT ESPN's displayed record or any
+end-of-season figure. Scores come from ESPN's free scoreboard; with
+--use-odds it prices picks from The Odds API historical closing lines for
+UNITS/ROI plus an underdog-only cut.
 
 Run via the "Multi-Sport Backtest" button in Actions, or locally:
-    python -m backtest.backtest_multi --sport NFL --start 2024-09-05 --end 2025-01-05 --min-lean 0.06
     python -m backtest.backtest_multi --sport NBA --start 2024-10-22 --end 2025-04-13 --min-lean 0.06 --use-odds
 """
 
@@ -30,7 +27,6 @@ from data.numerology import reduce_date
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger("backtest")
 
-# sport -> (ESPN path, Odds API sport key)
 SPORTS = {
     "NFL": ("football/nfl", "americanfootball_nfl"),
     "NCAAF": ("football/college-football", "americanfootball_ncaaf"),
@@ -72,31 +68,16 @@ def _american_profit(odds):
     return odds / 100.0 if odds > 0 else 100.0 / (-odds)
 
 
-def _win_pct_from_summary(summary):
-    """ESPN record summary like '12-4' or '12-4-1' -> win pct."""
-    if not summary:
-        return None
-    parts = summary.split("-")
-    try:
-        nums = [int(p) for p in parts]
-    except ValueError:
-        return None
-    if len(nums) < 2:
-        return None
-    w = nums[0]
-    l = nums[1]
-    t = nums[2] if len(nums) > 2 else 0
-    denom = w + l + t
-    if denom <= 0:
-        return None
-    return (w + 0.5 * t) / denom
+def _win_pct(rec):
+    w, l = rec
+    return (w / (w + l)) if (w + l) > 0 else None
 
 
 def _model_lean(home_pct, away_pct, d):
-    score = 0.0  # positive => home
+    score = 0.0
     if home_pct is not None and away_pct is not None:
         score += (home_pct - away_pct) * 0.6
-    score += 0.04  # home field
+    score += 0.04
     phase, _ = moon_phase_for(d)
     element = SIGN_ELEMENT.get(moon_sign_for(d), "")
     fav_is_home = (home_pct >= away_pct) if (home_pct is not None and away_pct is not None) else True
@@ -108,8 +89,8 @@ def _model_lean(home_pct, away_pct, d):
 
 
 def _espn_games_for_date(path, d):
-    """List of dicts: home/away name, home/away win pct, winner side. Only
-    completed games."""
+    """Completed games: home/away name + winner. No record fields (we compute
+    records ourselves, look-ahead-safe)."""
     try:
         resp = requests.get(ESPN_SCOREBOARD.format(path=path),
                             params={"dates": d.strftime("%Y%m%d"), "limit": 400}, timeout=25)
@@ -127,7 +108,7 @@ def _espn_games_for_date(path, d):
         competitors = comp.get("competitors", [])
         if len(competitors) != 2:
             continue
-        info = {"home": None, "away": None}
+        rec = {"home": None, "away": None}
         ok = True
         for c in competitors:
             ha = c.get("homeAway")
@@ -139,28 +120,20 @@ def _espn_games_for_date(path, d):
             except (TypeError, ValueError):
                 ok = False
                 break
-            records = c.get("records") or []
-            summary = records[0].get("summary") if records else None
-            info[ha] = {
-                "name": _norm_team((c.get("team") or {}).get("displayName")),
-                "score": sc,
-                "pct": _win_pct_from_summary(summary),
-            }
-        if not ok or not info["home"] or not info["away"]:
+            rec[ha] = {"name": _norm_team((c.get("team") or {}).get("displayName")), "score": sc}
+        if not ok or not rec["home"] or not rec["away"]:
             continue
-        if info["home"]["score"] == info["away"]["score"]:
+        if rec["home"]["score"] == rec["away"]["score"]:
             continue
-        info["winner"] = "home" if info["home"]["score"] > info["away"]["score"] else "away"
-        games.append(info)
+        rec["winner"] = "home" if rec["home"]["score"] > rec["away"]["score"] else "away"
+        games.append(rec)
     return games
 
 
 def _historical_ml_for_date(sport_key, d, api_key):
     ts = f"{d.strftime('%Y-%m-%d')}T23:00:00Z"
-    params = {
-        "apiKey": api_key, "regions": "us", "markets": "h2h",
-        "bookmakers": "fanduel", "oddsFormat": "american", "date": ts,
-    }
+    params = {"apiKey": api_key, "regions": "us", "markets": "h2h",
+              "bookmakers": "fanduel", "oddsFormat": "american", "date": ts}
     try:
         resp = requests.get(HIST_ODDS_API.format(key=sport_key), params=params, timeout=25)
         resp.raise_for_status()
@@ -197,6 +170,7 @@ def run_backtest(sport, start, end, min_lean, use_odds=False):
         logger.warning("--use-odds set but ODDS_API_KEY empty -- directional only.")
         use_odds = False
 
+    running = defaultdict(lambda: [0, 0])  # team name -> [wins, losses] BEFORE current day
     buckets = defaultdict(lambda: {"n": 0, "wins": 0, "staked": 0.0, "won": 0.0})
     total = {"n": 0, "wins": 0, "staked": 0.0, "won": 0.0}
     dog = {"n": 0, "wins": 0, "staked": 0.0, "won": 0.0}
@@ -208,40 +182,48 @@ def run_backtest(sport, start, end, min_lean, use_odds=False):
         if not games:
             continue
         odds_map = _historical_ml_for_date(sport_key, d, api_key) if use_odds else {}
-        for g in games:
-            side, strength = _model_lean(g["home"]["pct"], g["away"]["pct"], d)
-            if strength < min_lean:
-                continue
-            won = (g["winner"] == side)
-            graded += 1
-            total["n"] += 1
-            total["wins"] += int(won)
-            if strength >= 0.15:
-                b = "STRONG (>=0.15)"
-            elif strength >= 0.09:
-                b = "MED (0.09-0.15)"
-            else:
-                b = "LEAN (< 0.09)"
-            buckets[b]["n"] += 1
-            buckets[b]["wins"] += int(won)
 
-            if use_odds:
-                price = odds_map.get((g["home"]["name"], g["away"]["name"]))
-                if not price:
-                    continue
-                my_ml = price.get(side)
-                if my_ml is None:
-                    continue
-                priced += 1
-                profit = _american_profit(my_ml) if won else -1.0
-                for bag in (total, buckets[b]):
-                    bag["staked"] += 1.0
-                    bag["won"] += profit
-                if my_ml > 0:
-                    dog["n"] += 1
-                    dog["wins"] += int(won)
-                    dog["staked"] += 1.0
-                    dog["won"] += profit
+        for g in games:
+            home_name = g["home"]["name"]
+            away_name = g["away"]["name"]
+            home_pct = _win_pct(running[home_name])
+            away_pct = _win_pct(running[away_name])
+            side, strength = _model_lean(home_pct, away_pct, d)
+            if strength >= min_lean:
+                won = (g["winner"] == side)
+                graded += 1
+                total["n"] += 1
+                total["wins"] += int(won)
+                if strength >= 0.15:
+                    b = "STRONG (>=0.15)"
+                elif strength >= 0.09:
+                    b = "MED (0.09-0.15)"
+                else:
+                    b = "LEAN (< 0.09)"
+                buckets[b]["n"] += 1
+                buckets[b]["wins"] += int(won)
+                if use_odds:
+                    price = odds_map.get((home_name, away_name))
+                    my_ml = price.get(side) if price else None
+                    if my_ml is not None:
+                        priced += 1
+                        profit = _american_profit(my_ml) if won else -1.0
+                        for bag in (total, buckets[b]):
+                            bag["staked"] += 1.0
+                            bag["won"] += profit
+                        if my_ml > 0:
+                            dog["n"] += 1
+                            dog["wins"] += int(won)
+                            dog["staked"] += 1.0
+                            dog["won"] += profit
+
+        for g in games:
+            if g["winner"] == "home":
+                running[g["home"]["name"]][0] += 1
+                running[g["away"]["name"]][1] += 1
+            else:
+                running[g["away"]["name"]][0] += 1
+                running[g["home"]["name"]][1] += 1
 
     _report(sport, start, end, min_lean, total, buckets, dog, graded, use_odds, priced)
 
@@ -257,8 +239,8 @@ def _report(sport, start, end, min_lean, total, buckets, dog, graded, use_odds, 
     logger.info("\n============ %s BACKTEST (%s) ============",
                 sport, "ROI + DIRECTIONAL" if use_odds else "DIRECTIONAL")
     logger.info("Range: %s -> %s   |   min lean: %.2f", start, end, min_lean)
-    logger.info("Games graded: %d%s", graded,
-                f"   |   priced: {priced}" if use_odds else "")
+    logger.info("Games graded: %d%s", graded, f"   |   priced: {priced}" if use_odds else "")
+    logger.info("Records are AS-OF each game date (look-ahead-safe).")
     logger.info("------------------------------------------------------------------")
     if total["n"]:
         logger.info("OVERALL: %d picks, %.1f%% win rate%s", total["n"],
