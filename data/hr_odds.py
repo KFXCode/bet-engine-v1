@@ -4,15 +4,18 @@ data/hr_odds.py
 "To hit a home run" (Over 0.5 HR) odds for the day's chosen HR props, via The
 Odds API player-props endpoint.
 
-Two hard-won details (confirmed against live API data):
-  - The correct line is point == 0.5 ("to hit a HR"). The same market also
-    returns 1.5 (2+ HRs) and 2.5 (3+ HRs) lines -- we must NOT grab those.
-  - FanDuel frequently hasn't posted HR props even when Caesars/BetRivers
-    have. So FanDuel is PREFERRED, but we fall back to the best available US
-    book's 0.5 price so the card shows a real number instead of "n/a".
+Three hard-won details (all confirmed against live API data):
+  - The correct line is point == 0.5 ("to hit a HR"). The market also returns
+    1.5 (2+ HRs) / 2.5 (3+ HRs) lines -- we must NOT grab those.
+  - The Odds API frequently returns the SAME game as TWO events: one with
+    bookmakers, one empty. Mapping matchup->single-id let the empty twin win,
+    so odds came back n/a for everyone. We now keep ALL event ids per matchup
+    and try each until one returns real prices.
+  - FanDuel often hasn't posted HR props even when Caesars/BetRivers have, so
+    FanDuel is preferred but we fall back to the best available US book.
 
-Credit-conscious: one request per game that holds a chosen HR pick. Logs each
-step so an "n/a" is traceable in the workflow log. Never raises.
+Credit-conscious-ish: a matchup with a chosen HR pick may cost up to 2 event
+calls (the duplicate), still only a handful of credits/day. Never raises.
 """
 
 import logging
@@ -49,22 +52,26 @@ def fetch_hr_odds(hr_props, games):
     if not needed_game_ids:
         return {}
 
-    event_map = _event_id_map()
-    logger.info("HR odds: /events returned %d event(s).", len(event_map))
+    event_map = _event_id_map()   # (home, away) -> [event_id, ...]
+    logger.info("HR odds: /events returned %d matchup(s).", len(event_map))
     if not event_map:
         return {}
 
     out = {}
     for game_id in needed_game_ids:
         game = game_by_id[game_id]
-        event_id = event_map.get((game.home_team, game.away_team))
-        if not event_id:
-            logger.warning("HR odds: no Odds API event matched %s @ %s (keys like %s) -- check team-abbr mismatch.",
+        event_ids = event_map.get((game.home_team, game.away_team), [])
+        if not event_ids:
+            logger.warning("HR odds: no Odds API event matched %s @ %s (keys like %s) -- team-abbr mismatch.",
                            game.away_team, game.home_team, list(event_map.keys())[:3])
             continue
-        odds_by_player = _fetch_event_hr_odds(event_id)
-        logger.info("HR odds: event %s (%s@%s) returned %d player price(s).",
-                    event_id, game.away_team, game.home_team, len(odds_by_player))
+        odds_by_player = {}
+        for eid in event_ids:
+            odds_by_player = _fetch_event_hr_odds(eid)
+            if odds_by_player:
+                break  # first event id that actually has prices wins
+        logger.info("HR odds: %s@%s -> %d player price(s) (tried %d event id(s)).",
+                    game.away_team, game.home_team, len(odds_by_player), len(event_ids))
         players_here = [p for p in hr_props if p.get("game_id") == game_id]
         for pick in players_here:
             key = _norm_name(pick["player_name"])
@@ -78,6 +85,8 @@ def fetch_hr_odds(hr_props, games):
 
 
 def _event_id_map():
+    """(home_abbr, away_abbr) -> LIST of event ids (the API can return the same
+    matchup as multiple events, one of which may be empty)."""
     url = f"{config.ODDS_API_BASE_URL}/sports/baseball_mlb/events"
     try:
         resp = requests.get(url, params={"apiKey": config.ODDS_API_KEY}, timeout=15)
@@ -90,7 +99,7 @@ def _event_id_map():
     for ev in events:
         home = normalize_team(ev.get("home_team", ""))
         away = normalize_team(ev.get("away_team", ""))
-        out[(home, away)] = ev.get("id")
+        out.setdefault((home, away), []).append(ev.get("id"))
     return out
 
 
@@ -119,14 +128,11 @@ def _fetch_event_hr_odds(event_id):
         resp.raise_for_status()
         payload = resp.json()
     except Exception as exc:
-        logger.warning("HR odds: event %s fetch failed: %s -- (a 422 usually means the "
-                       "batter_home_runs market isn't offered for this event yet).", event_id, exc)
+        logger.warning("HR odds: event %s fetch failed: %s.", event_id, exc)
         return {}
 
     bookmakers = payload.get("bookmakers", [])
     if not bookmakers:
-        logger.info("HR odds: event %s returned NO bookmakers for market '%s' (not posted yet).",
-                    event_id, config.ODDS_API_HR_MARKET)
         return {}
 
     preferred = config.ODDS_API_BOOKMAKER
@@ -150,8 +156,5 @@ def _fetch_event_hr_odds(event_id):
                     fallback_prices[player] = int(price)
 
     out = dict(fallback_prices)
-    out.update(fd_prices)  # FanDuel wins wherever it exists
-    if not fd_prices and fallback_prices:
-        logger.info("HR odds: event %s -- FanDuel had no HR 0.5 line, used other US book(s) for %d player(s).",
-                    event_id, len(fallback_prices))
+    out.update(fd_prices)
     return out
