@@ -52,8 +52,6 @@ def _diff(old, new):
 
 
 def _phrase(kind_label, added, removed):
-    """Friendly sentence describing a change, e.g.
-    'Moneyline: now includes TEX; TB is no longer a pick.'"""
     bits = []
     if added:
         bits.append(f"now includes {', '.join(added)}")
@@ -64,9 +62,6 @@ def _phrase(kind_label, added, removed):
 
 
 def _record_changes(date_str, existing, plays, hr_props):
-    """Diff the outgoing picks (existing) against the incoming set and append
-    a friendly note if anything actually changed. First run of the day (no
-    existing picks) records nothing -- it's the baseline, not a change."""
     if not existing:
         return
     old_ml, old_hr = _ml_labels(existing), _hr_labels(existing)
@@ -111,7 +106,13 @@ def log_recommendations(db, date_str, plays, hr_props, top_parlay=None,
         if locked:
             return
         _record_changes(date_str, existing, plays, hr_props)
-        db.delete_pending_recommendations_for_date(date_str)
+        # Pre-lock replace: wipe ALL of today's rows (not just pending). If an
+        # in-progress game got a row graded earlier in the day, a pending-only
+        # delete would leave it behind and the re-insert would DUPLICATE the
+        # slate -- exactly what padded the HR ledger to 2-73. Pre-lock means
+        # no legit result exists yet, so a full wipe of today is safe.
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM recommendations WHERE date=?", (date_str,))
 
     for play in plays:
         db.insert_recommendation(
