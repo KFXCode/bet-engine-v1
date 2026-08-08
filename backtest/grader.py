@@ -5,14 +5,16 @@ Post-game review: fetch final scores for any game with pending moneyline
 recommendations, mark each recommendation won/lost, and roll the result into
 bankroll_log. run_daily.py calls this automatically at the start of each run.
 
-HR props are auto-graded here too, from the final boxscore.
+HR props are auto-graded here too, from the final boxscore -- but ONLY once
+the game is Final. Grading an in-progress game marked every not-yet-homered
+player "lost", which (combined with pre-lock re-runs) padded the HR ledger
+with false losses. We now gate HR settlement on a Final game state, same as
+moneyline.
 
-CLV (Closing Line Value): when a moneyline pick is graded, we compare the
-PRICE we recommended it at to the CLOSING line (the last odds snapshot
-recorded for that game). Positive CLV = the market moved toward our side
-after we picked it, i.e. we got a better number than the close -- the single
-most reliable signal that a pick was genuinely +EV, independent of whether
-it happened to win or lose. Stored per pick and summarized on the report.
+CLV (Closing Line Value): when a moneyline pick is graded, compare the PRICE
+we recommended to the CLOSING line (last odds snapshot). Positive CLV = the
+market moved toward our side after we picked it -- the most reliable signal a
+pick was genuinely +EV, win or lose. Stored per pick, summarized on the report.
 """
 
 import logging
@@ -48,8 +50,6 @@ def _american_prob(ml):
 
 
 def _compute_clv(db, rec):
-    """CLV in probability points = closing implied prob (our side) minus the
-    implied prob at our pick price. Positive => we beat the close."""
     pick_odds = rec.get("odds_american")
     if pick_odds is None:
         return None
@@ -72,10 +72,21 @@ def grade_pending(db):
 
     graded_count = 0
     hr_graded = 0
-    hr_settlement_cache = {}
+    final_cache = {}          # game_id -> (home,away) | None   (None => not Final yet)
+    hr_settlement_cache = {}  # game_id -> set(names) | None
     by_date = {}
+
+    def _final(game_id):
+        if game_id not in final_cache:
+            final_cache[game_id] = _get_final_score(game_id)
+        return final_cache[game_id]
+
     for rec in pending:
         if rec["kind"] == "hr_prop" and rec["game_id"]:
+            # Gate on Final: never grade an HR prop while the game is live, or
+            # a player who simply hasn't homered YET gets marked a loss.
+            if _final(rec["game_id"]) is None:
+                continue
             if rec["game_id"] not in hr_settlement_cache:
                 hr_settlement_cache[rec["game_id"]] = get_hr_settled_players(rec["game_id"])
             homered = hr_settlement_cache[rec["game_id"]]
@@ -90,11 +101,10 @@ def grade_pending(db):
 
         if rec["kind"] != "moneyline" or not rec["game_id"]:
             continue
-        result = _get_final_score(rec["game_id"])
+        result = _final(rec["game_id"])
         if result is None:
             continue
 
-        # CLV: record it whether the pick won or lost (that's the point).
         clv = _compute_clv(db, rec)
         if clv is not None:
             db.set_recommendation_clv(rec["id"], clv)
