@@ -1,4 +1,3 @@
-
 """
 data/stats_provider.py
 =======================
@@ -11,6 +10,13 @@ scraping) is used ONLY for bonus Statcast fields (barrel%, hard-hit%, xwOBA,
 exit velo); it is frequently blocked from cloud IPs, so nothing critical
 depends on it -- when it fails those fields are simply None and the factor
 still works off the statsapi data.
+
+NAME MATCHING (fixed Aug 2026): every name lookup now requires the FIRST name
+to agree, not just the last name. Without this, a last-name "contains" match
+made "Bryan De La Cruz" pull "Elly De La Cruz"'s elite Statcast line (and the
+wrong player_id -> wrong HR count), inflating a junk pick to a 95. When a
+surname is shared and the first name can't be matched, we return None so the
+batter simply drops from the pool -- a missing pick beats a wrong-player pick.
 """
 
 import logging
@@ -146,9 +152,6 @@ class PyBaseballStatsProvider(StatsProvider):
 
         profile = PitcherProfile(name=pitcher_name, data_quality="not_found")
 
-        # Resolve a player_id from the name if we weren't given one, so the
-        # reliable statsapi season line (ERA/HR9/K%) loads for confirmed
-        # starters too (they often arrive with player_id=None).
         if not player_id:
             player_id = _resolve_pitcher_id(pitcher_name)
 
@@ -190,10 +193,15 @@ class PyBaseballStatsProvider(StatsProvider):
             season = _season()
             self._pitching_table = pyb.pitching_stats(season, season, qual=0)
         table = self._pitching_table
-        matches = table[table["Name"].str.lower() == pitcher_name.lower()]
+        names = table["Name"].astype(str)
+        matches = table[names.str.lower() == pitcher_name.lower()]
         if matches.empty:
-            last = pitcher_name.split()[-1].lower()
-            matches = table[table["Name"].str.lower().str.contains(last, na=False)]
+            # Last-name fallback that ALSO requires the first name to agree,
+            # so "Bryan X" never matches "Elly X".
+            first, last = _split_name(pitcher_name)
+            last_hit = names.str.lower().str.contains(last.lower(), na=False)
+            first_hit = names.str.lower().str.startswith(first.lower()) if first else False
+            matches = table[last_hit & first_hit]
         if matches.empty:
             return None
         return matches.iloc[0].to_dict()
@@ -222,12 +230,10 @@ class PyBaseballStatsProvider(StatsProvider):
         if cached:
             return TeamOffenseProfile(**cached)
 
-        # Primary: MLB Stats API team OPS -- reliable, no scraping.
         ops = _mlb_stats_api_team_ops(team_abbr)
         if ops is not None:
             profile = TeamOffenseProfile(team=team_abbr, ops=ops, data_quality="ok")
         else:
-            # Bonus fallback: pybaseball wOBA (often unavailable in CI).
             try:
                 import pybaseball as pyb
                 season = _season()
@@ -247,7 +253,7 @@ class PyBaseballStatsProvider(StatsProvider):
         return profile
 
     def get_batter_profile(self, batter_name, team_abbr=None):
-        cache_key = f"batter:{batter_name}:{_season()}:v2"
+        cache_key = f"batter:{batter_name}:{_season()}:v3"
         cached = self.cache.get(cache_key)
         if cached:
             return BatterProfile(**cached)
@@ -311,7 +317,6 @@ def _season():
 
 
 def _mlb_stats_api_team_ops(team_abbr):
-    """Team season OPS from statsapi -- reliable, needs only the team abbr."""
     tid = TEAM_IDS.get(team_abbr)
     if not tid:
         return None
@@ -329,7 +334,9 @@ def _mlb_stats_api_team_ops(team_abbr):
 
 
 def _resolve_pitcher_id(pitcher_name):
-    """Look up a pitcher's statsapi player id by name (active players)."""
+    """Look up a pitcher's statsapi player id by name (active players).
+    The last-name fallback requires the first name to agree too, so it never
+    resolves to a different player who shares a surname."""
     try:
         url = f"{MLB_STATS_API}/sports/1/players"
         resp = requests.get(url, params={"season": _season()}, timeout=15)
@@ -339,9 +346,11 @@ def _resolve_pitcher_id(pitcher_name):
         for p in people:
             if p.get("fullName", "").strip().lower() == target:
                 return p.get("id")
-        last = target.split()[-1] if target else ""
+        first, last = _split_name(pitcher_name)
+        first, last = first.lower(), last.lower()
         for p in people:
-            if last and last in p.get("fullName", "").strip().lower():
+            full = p.get("fullName", "").strip().lower()
+            if last and last in full and first and full.startswith(first):
                 return p.get("id")
     except Exception as exc:
         logger.debug("pitcher id resolve failed for %s: %s", pitcher_name, exc)
@@ -388,18 +397,33 @@ def _mlb_stats_api_pitcher_season(player_id):
 
 
 def _match_savant_name(table, full_name):
+    """Match a 'last, first' Savant leaderboard row to a full name. Exact match
+    first; the last-name fallback additionally requires the first name to agree
+    (by first initial), so shared surnames (Bryan vs Elly De La Cruz) never
+    cross-match. Returns None when it can't disambiguate."""
     if "last_name, first_name" not in table.columns:
         return None
     first, last = _split_name(full_name)
     target = f"{last}, {first}".strip().lower()
     col = table["last_name, first_name"].astype(str).str.lower()
+
     exact = table[col == target]
     if not exact.empty:
         return exact.iloc[0].to_dict()
-    contains = table[col.str.contains(last.lower(), na=False)]
-    if not contains.empty:
-        return contains.iloc[0].to_dict()
-    return None
+
+    last_hit = col.str.contains(last.lower(), na=False)
+    candidates = table[last_hit]
+    if candidates.empty:
+        return None
+    if first:
+        cand_col = candidates["last_name, first_name"].astype(str).str.lower()
+        # entries are "last, first" -> the part after the comma is the first name
+        first_names = cand_col.str.split(",").str[-1].str.strip()
+        first_ok = candidates[first_names.str.startswith(first.lower())]
+        if not first_ok.empty:
+            return first_ok.iloc[0].to_dict()
+        return None  # shared surname but no first-name agreement -> no data
+    return candidates.iloc[0].to_dict()
 
 
 def _plausible_barrel(v):
