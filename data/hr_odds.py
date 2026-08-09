@@ -2,20 +2,19 @@
 data/hr_odds.py
 ================
 "To hit a home run" (Over 0.5 HR) odds for the day's chosen HR props, via The
-Odds API player-props endpoint.
+Odds API player-props endpoint -- FANDUEL ONLY (you bet FanDuel).
 
-Three hard-won details (all confirmed against live API data):
-  - The correct line is point == 0.5 ("to hit a HR"). The market also returns
-    1.5 (2+ HRs) / 2.5 (3+ HRs) lines -- we must NOT grab those.
-  - The Odds API frequently returns the SAME game as TWO events: one with
-    bookmakers, one empty. Mapping matchup->single-id let the empty twin win,
-    so odds came back n/a for everyone. We now keep ALL event ids per matchup
-    and try each until one returns real prices.
-  - FanDuel often hasn't posted HR props even when Caesars/BetRivers have, so
-    FanDuel is preferred but we fall back to the best available US book.
+Details (confirmed against live API data):
+  - The correct line is point == 0.5 ("to hit a HR"). We must NOT grab the
+    1.5 (2+ HRs) / 2.5 (3+ HRs) lines.
+  - The Odds API can return the SAME game as TWO events (one empty). We keep
+    ALL event ids per matchup and try each until one returns real prices.
+  - FanDuel ONLY: if FanDuel hasn't posted a player's HR prop, we return no
+    price for him (odds n/a) rather than a different book's number. A player
+    FanDuel doesn't offer usually isn't a confirmed starter anyway, so n/a is
+    the honest signal -- don't bet a price your book isn't showing.
 
-Credit-conscious-ish: a matchup with a chosen HR pick may cost up to 2 event
-calls (the duplicate), still only a handful of credits/day. Never raises.
+Never raises.
 """
 
 import logging
@@ -40,7 +39,7 @@ def _norm_name(name):
 
 
 def fetch_hr_odds(hr_props, games):
-    """Returns {(game_id, normalized_player_name): american_odds}."""
+    """Returns {(game_id, normalized_player_name): american_odds} -- FanDuel only."""
     if not (config.HR_ODDS_ENABLED and config.ODDS_MODE == "api" and config.ODDS_API_KEY and hr_props):
         logger.info("HR odds: skipped (enabled=%s mode=%s key=%s props=%d)",
                     config.HR_ODDS_ENABLED, config.ODDS_MODE, bool(config.ODDS_API_KEY), len(hr_props or []))
@@ -52,7 +51,7 @@ def fetch_hr_odds(hr_props, games):
     if not needed_game_ids:
         return {}
 
-    event_map = _event_id_map()   # (home, away) -> [event_id, ...]
+    event_map = _event_id_map()
     logger.info("HR odds: /events returned %d matchup(s).", len(event_map))
     if not event_map:
         return {}
@@ -69,8 +68,8 @@ def fetch_hr_odds(hr_props, games):
         for eid in event_ids:
             odds_by_player = _fetch_event_hr_odds(eid)
             if odds_by_player:
-                break  # first event id that actually has prices wins
-        logger.info("HR odds: %s@%s -> %d player price(s) (tried %d event id(s)).",
+                break
+        logger.info("HR odds: %s@%s -> %d FanDuel player price(s) (tried %d event id(s)).",
                     game.away_team, game.home_team, len(odds_by_player), len(event_ids))
         players_here = [p for p in hr_props if p.get("game_id") == game_id]
         for pick in players_here:
@@ -78,15 +77,13 @@ def fetch_hr_odds(hr_props, games):
             if key in odds_by_player:
                 out[(game_id, key)] = odds_by_player[key]
             else:
-                logger.info("HR odds: '%s' (norm '%s') not among priced players: %s",
+                logger.info("HR odds: '%s' (norm '%s') not offered on FanDuel: %s",
                             pick["player_name"], key, list(odds_by_player.keys())[:8])
-    logger.info("HR odds: matched prices for %d/%d pick(s).", len(out), len(hr_props))
+    logger.info("HR odds: matched FanDuel prices for %d/%d pick(s).", len(out), len(hr_props))
     return out
 
 
 def _event_id_map():
-    """(home_abbr, away_abbr) -> LIST of event ids (the API can return the same
-    matchup as multiple events, one of which may be empty)."""
     url = f"{config.ODDS_API_BASE_URL}/sports/baseball_mlb/events"
     try:
         resp = requests.get(url, params={"apiKey": config.ODDS_API_KEY}, timeout=15)
@@ -104,8 +101,6 @@ def _event_id_map():
 
 
 def _is_hr_yes_line(outcome):
-    """True only for the 'to hit a HR' line: name Over/Yes AND point 0.5
-    (or no point at all, for books that list it as a pure Yes/No)."""
     side = str(outcome.get("name", "")).lower()
     if side not in ("over", "yes"):
         return False
@@ -114,14 +109,14 @@ def _is_hr_yes_line(outcome):
 
 
 def _fetch_event_hr_odds(event_id):
-    """Fetch every US book's HR market, take only the 0.5 line, and pick a
-    price per player: FanDuel first, else the first other book that has it."""
+    """Fetch FanDuel's HR market only, take only the 0.5 'to hit a HR' line."""
     url = f"{config.ODDS_API_BASE_URL}/sports/baseball_mlb/events/{event_id}/odds"
     params = {
         "apiKey": config.ODDS_API_KEY,
         "regions": "us",
         "markets": config.ODDS_API_HR_MARKET,
         "oddsFormat": "american",
+        "bookmakers": config.ODDS_API_BOOKMAKER,
     }
     try:
         resp = requests.get(url, params=params, timeout=15)
@@ -131,15 +126,10 @@ def _fetch_event_hr_odds(event_id):
         logger.warning("HR odds: event %s fetch failed: %s.", event_id, exc)
         return {}
 
-    bookmakers = payload.get("bookmakers", [])
-    if not bookmakers:
-        return {}
-
-    preferred = config.ODDS_API_BOOKMAKER
     fd_prices = {}
-    fallback_prices = {}
-    for bm in bookmakers:
-        is_fd = bm.get("key") == preferred
+    for bm in payload.get("bookmakers", []):
+        if bm.get("key") != config.ODDS_API_BOOKMAKER:
+            continue
         for market in bm.get("markets", []):
             if market.get("key") != config.ODDS_API_HR_MARKET:
                 continue
@@ -148,13 +138,6 @@ def _fetch_event_hr_odds(event_id):
                     continue
                 player = _norm_name(outcome.get("description") or outcome.get("participant") or "")
                 price = outcome.get("price")
-                if not player or price is None:
-                    continue
-                if is_fd:
+                if player and price is not None:
                     fd_prices[player] = int(price)
-                elif player not in fallback_prices:
-                    fallback_prices[player] = int(price)
-
-    out = dict(fallback_prices)
-    out.update(fd_prices)
-    return out
+    return fd_prices
