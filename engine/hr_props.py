@@ -6,33 +6,28 @@ HR Prop Workflow (runs automatically every day alongside moneyline):
   2. Pitcher Vulnerability     -- opposing SP's barrel%/hard-hit%/HR-9 allowed
   3. Park + Motivation Overlay -- HR park factor + motivation context
   4. Public Lean Filter        -- fade extremely public props unless elite
-  5. +EV Edge Filter           -- our probability vs FanDuel implied
+  5. +EV Edge tag              -- our probability vs FanDuel implied (a TAG)
   6. Cooldown + Diversification-- fade chronic recent-missers, one pick/game
 
-evaluate_hr_prop_candidates() returns the FULL scored pool (sorted best-first,
-NOT truncated). run_daily then attaches live FanDuel HR odds and calls
-finalize_hr_props(), which applies the +EV edge filter, the cold-streak
-cooldown, one-pick-per-game diversification, and the final cut.
+evaluate_hr_prop_candidates() returns the FULL scored pool (sorted best-first).
+run_daily attaches live FanDuel HR odds and calls finalize_hr_props().
 
-SCORING PHILOSOPHY (rebalanced Aug 2026): homers are driven by the SPOT, not
-the name. Per-game signals (recent barrel form, pitcher vulnerability, park)
-carry the most weight; season power is a supporting factor; the season-HR floor
-keeps legit power in and junk out.
+RANKING (changed Aug 2026): the board is ranked by SCORE -- the likelihood the
+bat homers today -- NOT by live-odds value. Two reasons: (a) you want the bats
+most likely to HIT on top, so a 100 always outranks a 99; (b) score only moves
+with daily stats, while +EV moves every time live odds wiggle -- ranking by
+score keeps the board STABLE across same-day re-runs instead of reshuffling.
+The +EV number is still computed and shown as a value TAG, just not the ranker.
 
-COOLDOWN (added Aug 2026): the model is deterministic, so without memory the
-same slugger surfaces every day. Any batter who was picked 2+ times in the last
-7 days and did NOT homer is treated as "cold" and faded to the bottom of the
-board so fresh value bats (the Day-1 3/3 profile) lead instead. A cold name only
-returns to the top when there aren't enough fresh picks to fill the slate.
+SCORING PHILOSOPHY: homers are driven by the SPOT, not the name. Per-game
+signals (recent barrel form, pitcher vulnerability, park) carry the most weight;
+season power supports; the season-HR floor keeps legit power in and junk out.
 
-DIVERSIFICATION: at most one HR pick per game, so the board spreads across the
-slate (Day 1 was three different teams) instead of stacking one game.
+COOLDOWN: any batter picked 2+ times in the last 7 days who didn't homer is
+faded to the bottom so fresh value bats lead. DIVERSIFICATION: at most one pick
+per game. MLB-only. Slate is never empty.
 
-Ranking: +EV picks lead by edge; then fresh (non-cold) picks by score; cold
-picks last. MLB-only. Slate is never empty.
-
-DIAGNOSTICS: every batter considered is logged with the exact keep/drop reason.
-Read it in the GitHub Actions run log under "HR-DIAG".
+DIAGNOSTICS: every batter considered is logged (GitHub Actions log, "HR-DIAG").
 """
 
 import logging
@@ -46,8 +41,6 @@ logger = logging.getLogger("hr_props")
 
 
 def _norm_hr(name):
-    """Normalize a batter name for matching against the recent-miss set
-    (strip accents, punctuation, Jr/Sr suffixes, case)."""
     if not name:
         return ""
     n = _ud.normalize("NFKD", name).encode("ascii", "ignore").decode("ascii").lower()
@@ -69,8 +62,7 @@ def american_to_implied(ml):
 
 def evaluate_hr_prop_candidates(games, rosters, stats_provider, public_prop_splits,
                                  situational_by_team, lineup_source=None):
-    """Returns the FULL scored candidate pool (sorted, not truncated).
-    finalize_hr_props() does the +EV filter, cooldown, and final cut."""
+    """Returns the FULL scored candidate pool (sorted by score, not truncated)."""
     lineup_source = lineup_source or {}
     candidates = []
     considered = 0
@@ -157,24 +149,23 @@ def evaluate_hr_prop_candidates(games, rosters, stats_provider, public_prop_spli
 
 
 def finalize_hr_props(pool, max_per_day=None, recent_miss_players=None):
-    """Apply +EV filter, cold-streak cooldown, and one-pick-per-game
-    diversification, then take the top N.
+    """Rank by SCORE (most likely to homer first), fade chronic recent-missers,
+    one pick per game, take top N. +EV is computed and shown as a TAG only.
 
-    recent_miss_players: set of NORMALIZED names (via _norm_hr) that were picked
-      2+ times in the last 7 days and didn't homer -- faded to the bottom.
+    recent_miss_players: set of NORMALIZED names (via _norm_hr) picked 2+ times
+      in the last 7 days without homering -- faded to the bottom.
     Slate is never empty (per your rule)."""
     max_per_day = max_per_day or config.HR_PROP_MAX_PER_DAY
     cold = recent_miss_players or set()
 
-    plus_ev, fallback = [], []
+    # Compute the +EV value tag for every candidate (does NOT set the order).
     for c in pool:
         odds = c.get("odds_american")
         if odds is None:
             c["ev_edge"] = None
             c["reasoning"].append(
-                "[+EV] HR odds unavailable from the book right now -- shown on model score alone; "
-                "confirm the price is fair before betting.")
-            fallback.append(c)
+                "[Value] HR odds unavailable from the book right now -- ranked on model score; "
+                "confirm the price before betting.")
             continue
         implied = american_to_implied(odds)
         edge = c["model_prob"] - implied
@@ -183,28 +174,22 @@ def finalize_hr_props(pool, max_per_day=None, recent_miss_players=None):
         if edge >= config.HR_MIN_EV_EDGE:
             c["reasoning"].append(
                 f"[+EV +{edge*100:.1f}%] Our model gives {c['player_name']} a {c['model_prob']*100:.1f}% HR chance "
-                f"vs the book's implied {implied*100:.1f}% at {odds:+d} -- real betting value, clears the "
-                f"{config.HR_MIN_EV_EDGE*100:.0f}% edge bar.")
-            plus_ev.append(c)
+                f"vs the book's implied {implied*100:.1f}% at {odds:+d} -- real betting value on top of a strong spot.")
         else:
             c["reasoning"].append(
-                f"[No edge {edge*100:+.1f}%] Model {c['model_prob']*100:.1f}% vs implied {implied*100:.1f}% "
-                f"at {odds:+d} -- not enough value to clear the {config.HR_MIN_EV_EDGE*100:.0f}% bar.")
-            fallback.append(c)
+                f"[Fair price {edge*100:+.1f}%] Model {c['model_prob']*100:.1f}% vs implied {implied*100:.1f}% "
+                f"at {odds:+d} -- the book's price is efficient; this is a SPOT play, not a price-value play.")
 
-    plus_ev.sort(key=lambda c: c["ev_edge"], reverse=True)
-    fallback.sort(key=lambda c: c["score"], reverse=True)
-    ordered = plus_ev + fallback  # best board order before cooldown/diversification
+    # Rank by SCORE (stable across same-day re-runs; a 100 always beats a 99).
+    ordered = sorted(pool, key=lambda c: c["score"], reverse=True)
 
-    # Split cold (recent chronic missers) from fresh, preserving order.
     fresh = [c for c in ordered if _norm_hr(c["player_name"]) not in cold]
     cold_list = [c for c in ordered if _norm_hr(c["player_name"]) in cold]
     for c in cold_list:
         c["reasoning"].append(
-            "[Cooldown] Faded -- this bat was picked 2+ times in the last week and didn't homer. "
+            "[Cooldown] Faded -- picked 2+ times in the last week without homering. "
             "Only shown if the fresh board can't fill the slate.")
 
-    # Select with one-pick-per-game diversification: fresh first, then cold.
     final, used_games, deferred_same_game = [], set(), []
     for c in fresh:
         if c["game_id"] in used_games:
@@ -214,7 +199,6 @@ def finalize_hr_props(pool, max_per_day=None, recent_miss_players=None):
         used_games.add(c["game_id"])
         if len(final) >= max_per_day:
             break
-    # Fill remaining: relax the one-per-game rule on fresh, then use cold.
     if len(final) < max_per_day:
         for c in deferred_same_game + cold_list:
             if c in final:
@@ -223,8 +207,8 @@ def finalize_hr_props(pool, max_per_day=None, recent_miss_players=None):
             if len(final) >= max_per_day:
                 break
 
-    logger.info("HR-DIAG: EV %d+/%d fallback | cold-faded %d | one-per-game diversification -> final %d.",
-                len(plus_ev), len(fallback), len(cold_list), len(final))
+    logger.info("HR-DIAG: ranked by score | cold-faded %d | one-per-game -> final %d.",
+                len(cold_list), len(final))
     logger.info("HR-DIAG: FINAL PICKS: %s",
                 ", ".join(f"{c['player_name']} ({c['team']}) score {c['score']:.0f}"
                           + (f" +EV {c['ev_edge']*100:+.1f}%" if c.get('ev_edge') is not None else " (no odds)")
