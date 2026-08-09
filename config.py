@@ -104,7 +104,11 @@ HR_PROP_MIN_SCORE = 0
 HR_PROP_MAX_PER_DAY = 3
 HR_PROP_ROSTER_LIMIT = 9
 HR_PROP_STRONG_SCORE = 70
-HR_PROP_MIN_SEASON_HR = 12
+# Lowered 12 -> 10: the 12 floor was benching hot mid-power value bats (the
+# exact Day-1 winner profile, e.g. a rookie catcher with 10-11 HR in a great
+# spot). 10 still requires legitimate power -- no more "7-HR guy" picks -- but
+# lets the spot-driven value bats back into the pool.
+HR_PROP_MIN_SEASON_HR = 10
 HR_PROP_TOP_N_POOL = 20
 
 HR_EV_FILTER_ENABLED = True
