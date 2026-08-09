@@ -50,12 +50,6 @@ FLAT_STAKE_UNITS = 1.0
 # Strategy engine thresholds
 # ---------------------------------------------------------------------------
 MIN_EDGE = 0.02
-# Per-sport minimum edge. MLB carries many data factors (pitching, OPS, HR/9,
-# park) so it clears 2% readily. Sports with fewer live factors (records +
-# public + astro only) produce smaller edges, so they get a slightly lower
-# floor -- otherwise they'd almost never trigger a pick, which is why WNBA kept
-# coming up empty. Still a real edge bar, just calibrated to each sport's
-# available signal. As the scores-based records accumulate, these edges grow.
 MIN_EDGE_BY_SPORT = {
     "MLB": 0.02,
     "WNBA": 0.015,
@@ -104,18 +98,25 @@ HR_PROP_MIN_SCORE = 0
 HR_PROP_MAX_PER_DAY = 3
 HR_PROP_ROSTER_LIMIT = 9
 HR_PROP_STRONG_SCORE = 70
-# Lowered 12 -> 10: the 12 floor was benching hot mid-power value bats (the
-# exact Day-1 winner profile, e.g. a rookie catcher with 10-11 HR in a great
-# spot). 10 still requires legitimate power -- no more "7-HR guy" picks -- but
-# lets the spot-driven value bats back into the pool.
 HR_PROP_MIN_SEASON_HR = 10
 HR_PROP_TOP_N_POOL = 20
 
 HR_EV_FILTER_ENABLED = True
 HR_MIN_EV_EDGE = 0.05
-HR_PROB_BASE = 0.045
-HR_PROB_PER_POINT = 0.0035
-HR_PROB_MAX = 0.32
+# Score -> estimated true HR probability for the game. Recalibrated Aug 2026 to
+# realistic single-game HR rates so the +EV check is meaningful instead of
+# printing "no edge" on every elite spot. With base 0.06 + 0.005/point:
+#   score 55 -> ~8.5%   (weak spot -- correctly stays below any plus price)
+#   score 70 -> ~16%
+#   score 90 -> ~26%    (elite spot -- can beat a soft plus price = real value)
+#   score 100 -> capped 0.35
+# Deliberately NOT inflated: mediocre scores still read "no edge" against the
+# book, so the +EV flag only fires on genuinely strong spots at generous prices
+# (your "catch when the book slips up" goal). Still a heuristic prior -- it gets
+# refined as graded HR results accumulate.
+HR_PROB_BASE = 0.06
+HR_PROB_PER_POINT = 0.005
+HR_PROB_MAX = 0.35
 HR_PROB_MIN = 0.02
 
 HR_CATEGORY_POINTS = {
