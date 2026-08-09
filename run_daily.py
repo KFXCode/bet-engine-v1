@@ -5,7 +5,7 @@ run_daily.py -- the one command you run each day.
 
 import argparse
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 
 import auto_gate
@@ -68,8 +68,6 @@ SEED_OVERRIDE_DATES = {"2026-07-29", "2026-07-30"}
 SPORT_ORDER = ["MLB", "WNBA", "NFL", "NCAAF", "NCAAB", "NHL", "NBA"]
 
 RECORD_SPORTS = {"MLB", "WNBA", "NFL", "NCAAF", "NCAAB", "NHL", "NBA"}
-# Non-MLB sports whose records we build from The Odds API scores feed
-# (runner-proof), with ESPN only as a local-dev fallback.
 SCORES_RECORD_SPORTS = {"WNBA", "NFL", "NCAAF", "NCAAB", "NHL", "NBA"}
 
 _ESPN_SCHEDULE_PROVIDERS = {
@@ -80,12 +78,17 @@ _ESPN_SCHEDULE_PROVIDERS = {
     "NBA": get_todays_nba_games,
 }
 
+# How many days back to look for repeat HR missers, and how many misses in that
+# window makes a batter "cold" (faded to the bottom of the HR board).
+HR_COOLDOWN_LOOKBACK_DAYS = 7
+HR_COOLDOWN_MIN_MISSES = 2
+
 
 def _fetch_schedule(sport, date_str):
     if sport == "MLB":
         return get_todays_games(date_str)
     if sport == "WNBA":
-        return get_todays_wnba_games(date_str)  # has its own Odds API fallback
+        return get_todays_wnba_games(date_str)
     provider = _ESPN_SCHEDULE_PROVIDERS.get(sport)
     if provider:
         games = provider(date_str)
@@ -96,18 +99,37 @@ def _fetch_schedule(sport, date_str):
     return []
 
 
+def _recent_hr_missers(db, run_date):
+    """Set of NORMALIZED batter names picked >= HR_COOLDOWN_MIN_MISSES times in
+    the last HR_COOLDOWN_LOOKBACK_DAYS and graded 'lost' each counted time -- i.e.
+    chronic recent missers (the Ben-Rice-keeps-losing problem). Passed to
+    finalize_hr_props so they get faded until they actually produce."""
+    cutoff = (run_date - timedelta(days=HR_COOLDOWN_LOOKBACK_DAYS)).strftime("%Y-%m-%d")
+    miss_counts = {}
+    try:
+        for r in db.get_graded_history(after=cutoff):
+            if r["kind"] != "hr_prop" or r["status"] != "lost":
+                continue
+            key = _norm_player(r["side_or_player"])
+            if key:
+                miss_counts[key] = miss_counts.get(key, 0) + 1
+    except Exception as exc:
+        logger.warning("Could not compute HR cooldown set: %s", exc)
+        return set()
+    cold = {name for name, n in miss_counts.items() if n >= HR_COOLDOWN_MIN_MISSES}
+    if cold:
+        logger.info("HR-DIAG: cooldown set (%d cold bats, %d+ misses in %dd): %s",
+                    len(cold), HR_COOLDOWN_MIN_MISSES, HR_COOLDOWN_LOOKBACK_DAYS, ", ".join(sorted(cold)))
+    return cold
+
+
 def _load_team_records(games, run_date, data_warnings):
-    """One team-record lookup across every sport with games today. MLB uses
-    the MLB Stats API. Every other sport uses the runner-proof Odds API scores
-    feed (data.standings_scores), which accumulates into full-season records
-    over time; ESPN is only a local-dev fallback when scores are empty."""
     records = get_all_team_records()  # MLB
     for sport in SCORES_RECORD_SPORTS:
         if not any(g.sport == sport for g in games):
             continue
         sp = get_scores_records(sport, season=run_date.year)
         if not sp:
-            # Fallback to ESPN (works locally; usually blocked on the runner).
             sp = (get_all_wnba_records(season=run_date.year) if sport == "WNBA"
                   else get_all_records_for_sport(sport, season=run_date.year))
         if sp:
@@ -303,7 +325,8 @@ def main(argv=None):
         for prop in hr_pool:
             key = (prop.get("game_id"), _norm_player(prop["player_name"]))
             prop["odds_american"] = hr_odds.get(key)
-        hr_props = finalize_hr_props(hr_pool)
+        recent_missers = _recent_hr_missers(db, run_date)
+        hr_props = finalize_hr_props(hr_pool, recent_miss_players=recent_missers)
 
     raw_celestial, _, _ = celestial_signal_for(run_date)
     raw_numerology, _, _ = numerology_signal_for(run_date)
