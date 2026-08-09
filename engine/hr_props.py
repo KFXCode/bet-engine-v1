@@ -12,15 +12,22 @@ evaluate_hr_prop_candidates() returns the FULL scored pool (sorted best-first,
 NOT truncated). run_daily then attaches live FanDuel HR odds and calls
 finalize_hr_props(), which applies the +EV edge filter and takes the top N.
 
-Ranking rule (important): +EV picks always lead, sorted by edge. When NOT
-enough picks clear the +EV bar, the remaining slots are filled by SCORE
-(highest first) -- whether or not a price posted -- so an elite 98-score pick
-never gets outranked by a weaker no-odds pick. This keeps the "Top Prop" honest.
+SCORING PHILOSOPHY (rebalanced Aug 2026 after HR hit-rate dried up):
+Home runs are driven by the SPOT, not the name. The old scoring over-weighted
+raw season HR total (a volume/name stat), which biased every slate toward the
+same chalk sluggers -- usually facing tough arms and priced short -- and it
+benched the mid-power value bats in perfect matchups that actually won early
+(Encarnacion-Strand +450, Baldwin +422, Olson +310). Now the per-game spot
+signals -- recent barrel form, pitcher vulnerability, park -- carry the most
+weight, season power is a supporting factor (not the driver), and the season-HR
+floor is lower so a hot 10-11 HR bat in an elite spot qualifies again. We still
+require legitimate power via the floor, so no more "7-HR guy" picks.
 
-Composite score is 0-100. HR props are MLB-only.
+Ranking rule: +EV picks always lead, sorted by edge. When not enough clear the
++EV bar, remaining slots fill by SCORE. Composite score is 0-100. MLB-only.
 
-DIAGNOSTICS: every batter considered is logged with the exact reason it was
-kept or dropped. Read it in the GitHub Actions run log under "HR-DIAG".
+DIAGNOSTICS: every batter considered is logged with the exact keep/drop reason.
+Read it in the GitHub Actions run log under "HR-DIAG".
 """
 
 import logging
@@ -190,57 +197,67 @@ def _score_candidate(batter_name, batter, pitcher, hr_park_factor, motivation_no
 
     score = 50.0
     reasoning = []
-    reasoning.append(f"Starting score: 50 (baseline). Every factor below adds or subtracts points.")
+    reasoning.append("Starting score: 50 (baseline). The SPOT (recent form, matchup, park) drives this more than the name.")
 
+    # --- SEASON POWER: a supporting factor now, not the driver. Softened so a
+    # cold big-name slugger no longer auto-outranks a hot value bat in a great spot.
     if batter.hr_count is not None:
         if batter.hr_count >= 30:
-            score += 25
-            reasoning.append(f"[Season Power +25] {batter_name} has {batter.hr_count} HR this season -- ELITE "
-                             f"(30+, one of the league's premier power bats). This is the biggest single factor.")
+            score += 15
+            reasoning.append(f"[Season Power +15] {batter_name} has {batter.hr_count} HR -- elite volume (30+). "
+                             f"A plus, but the matchup/park below matter more for TODAY.")
         elif batter.hr_count >= 22:
-            score += 18
-            reasoning.append(f"[Season Power +18] {batter_name} has {batter.hr_count} HR this season -- a genuine "
-                             f"middle-of-the-order slugger (22+).")
+            score += 11
+            reasoning.append(f"[Season Power +11] {batter_name} has {batter.hr_count} HR -- a real middle-order slugger (22+).")
         elif batter.hr_count >= 15:
-            score += 10
-            reasoning.append(f"[Season Power +10] {batter_name} has {batter.hr_count} HR this season -- solid, "
-                             f"legit power (15+).")
+            score += 7
+            reasoning.append(f"[Season Power +7] {batter_name} has {batter.hr_count} HR -- solid, legit power (15+).")
         else:
-            reasoning.append(f"[Season Power +0] {batter_name} has {batter.hr_count} HR this season -- cleared the "
-                             f"{config.HR_PROP_MIN_SEASON_HR}-HR eligibility floor but not a big-power bat.")
+            score += 3
+            reasoning.append(f"[Season Power +3] {batter_name} has {batter.hr_count} HR -- modest volume, but cleared the "
+                             f"{config.HR_PROP_MIN_SEASON_HR}-HR floor; the value is in the spot, not the name.")
     else:
-        reasoning.append("[Season Power n/a] Season HR total unavailable today -- scored on contact quality alone.")
+        reasoning.append("[Season Power n/a] Season HR total unavailable -- scored on contact quality alone.")
 
+    # --- RECENT BARREL FORM: the single biggest predictive value signal.
     if batter.barrel_pct >= 12:
-        score += 12
-        reasoning.append(f"[Barrel Signal +12] {batter_name} has an ELITE barrel rate of {batter.barrel_pct:.1f}% "
-                         f"(12%+ is top-tier power contact -- how often he squares a ball up for max damage).")
-    elif batter.barrel_pct < 6:
-        score -= 10
-        reasoning.append(f"[Barrel Signal -10] {batter_name}'s barrel rate is only {batter.barrel_pct:.1f}% "
-                         f"(under 6% -- weak power contact, drags this down).")
-    else:
-        reasoning.append(f"[Barrel Signal +0] {batter_name}'s barrel rate is {batter.barrel_pct:.1f}% (average range, neutral).")
-    if batter.recent_barrel_trend and batter.recent_barrel_trend > 2:
+        score += 16
+        reasoning.append(f"[Barrel Signal +16] {batter_name} has an ELITE barrel rate of {batter.barrel_pct:.1f}% "
+                         f"(12%+ -- how often he squares a ball up for max damage; the top HR predictor).")
+    elif batter.barrel_pct >= 9:
         score += 8
-        reasoning.append(f"[Hot Streak +8] Trending UP: barrel% is +{batter.recent_barrel_trend:.1f} points over the "
-                         f"last 15 days -- he's heating up right now.")
+        reasoning.append(f"[Barrel Signal +8] {batter_name} barrels {batter.barrel_pct:.1f}% -- above average power contact.")
+    elif batter.barrel_pct < 6:
+        score -= 12
+        reasoning.append(f"[Barrel Signal -12] {batter_name}'s barrel rate is only {batter.barrel_pct:.1f}% "
+                         f"(under 6% -- weak power contact, real drag).")
+    else:
+        reasoning.append(f"[Barrel Signal +0] {batter_name}'s barrel rate is {batter.barrel_pct:.1f}% (average, neutral).")
+    if batter.recent_barrel_trend and batter.recent_barrel_trend > 2:
+        score += 12
+        reasoning.append(f"[Hot Streak +12] Trending UP: barrel% is +{batter.recent_barrel_trend:.1f} points over the "
+                         f"last 15 days -- he's heating up right now, prime value-bat signal.")
 
+    # --- PITCHER VULNERABILITY: the other half of the spot.
     if pitcher and pitcher.barrel_pct_allowed is not None:
         if pitcher.barrel_pct_allowed >= 9:
-            score += 12
-            reasoning.append(f"[Pitcher Vulnerability +12] Opposing SP {pitcher.name} allows a HIGH barrel rate of "
+            score += 16
+            reasoning.append(f"[Pitcher Vulnerability +16] Opposing SP {pitcher.name} allows a HIGH barrel rate of "
                              f"{pitcher.barrel_pct_allowed:.1f}% (9%+ -- gives up hard, square contact often).")
+        elif pitcher.barrel_pct_allowed >= 7:
+            score += 8
+            reasoning.append(f"[Pitcher Vulnerability +8] {pitcher.name} allows {pitcher.barrel_pct_allowed:.1f}% "
+                             f"barrels -- a bit hittable.")
         elif pitcher.barrel_pct_allowed < 5:
-            score -= 10
-            reasoning.append(f"[Pitcher Vulnerability -10] {pitcher.name} only allows {pitcher.barrel_pct_allowed:.1f}% "
+            score -= 12
+            reasoning.append(f"[Pitcher Vulnerability -12] {pitcher.name} only allows {pitcher.barrel_pct_allowed:.1f}% "
                              f"barrels (under 5% -- tough to square up, works against this pick).")
         else:
             reasoning.append(f"[Pitcher Vulnerability +0] {pitcher.name} allows {pitcher.barrel_pct_allowed:.1f}% barrels (average).")
     if pitcher and pitcher.hr_per_9 is not None:
         if pitcher.hr_per_9 >= 1.4:
-            score += 8
-            reasoning.append(f"[HR Rate Allowed +8] {pitcher.name} is running a {pitcher.hr_per_9:.2f} HR/9 "
+            score += 10
+            reasoning.append(f"[HR Rate Allowed +10] {pitcher.name} is running a {pitcher.hr_per_9:.2f} HR/9 "
                              f"(1.4+ -- he serves up homers at a high clip).")
         elif pitcher.hr_per_9 < 0.9:
             score -= 8
@@ -249,9 +266,10 @@ def _score_candidate(batter_name, batter, pitcher, hr_park_factor, motivation_no
         else:
             reasoning.append(f"[HR Rate Allowed +0] {pitcher.name} allows {pitcher.hr_per_9:.2f} HR/9 (average).")
 
+    # --- PARK.
     if hr_park_factor >= 108:
-        score += 10
-        reasoning.append(f"[Park Factor +10] This park's HR factor is {hr_park_factor} (108+ -- a hitter's park that "
+        score += 12
+        reasoning.append(f"[Park Factor +12] This park's HR factor is {hr_park_factor} (108+ -- a hitter's park that "
                          f"inflates home runs).")
     elif hr_park_factor <= 92:
         score -= 10
