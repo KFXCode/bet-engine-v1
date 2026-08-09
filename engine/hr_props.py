@@ -6,36 +6,54 @@ HR Prop Workflow (runs automatically every day alongside moneyline):
   2. Pitcher Vulnerability     -- opposing SP's barrel%/hard-hit%/HR-9 allowed
   3. Park + Motivation Overlay -- HR park factor + motivation context
   4. Public Lean Filter        -- fade extremely public props unless elite
-  5. +EV Edge Filter           -- our probability vs FanDuel implied (final cut)
+  5. +EV Edge Filter           -- our probability vs FanDuel implied
+  6. Cooldown + Diversification-- fade chronic recent-missers, one pick/game
 
 evaluate_hr_prop_candidates() returns the FULL scored pool (sorted best-first,
 NOT truncated). run_daily then attaches live FanDuel HR odds and calls
-finalize_hr_props(), which applies the +EV edge filter and takes the top N.
+finalize_hr_props(), which applies the +EV edge filter, the cold-streak
+cooldown, one-pick-per-game diversification, and the final cut.
 
-SCORING PHILOSOPHY (rebalanced Aug 2026 after HR hit-rate dried up):
-Home runs are driven by the SPOT, not the name. The old scoring over-weighted
-raw season HR total (a volume/name stat), which biased every slate toward the
-same chalk sluggers -- usually facing tough arms and priced short -- and it
-benched the mid-power value bats in perfect matchups that actually won early
-(Encarnacion-Strand +450, Baldwin +422, Olson +310). Now the per-game spot
-signals -- recent barrel form, pitcher vulnerability, park -- carry the most
-weight, season power is a supporting factor (not the driver), and the season-HR
-floor is lower so a hot 10-11 HR bat in an elite spot qualifies again. We still
-require legitimate power via the floor, so no more "7-HR guy" picks.
+SCORING PHILOSOPHY (rebalanced Aug 2026): homers are driven by the SPOT, not
+the name. Per-game signals (recent barrel form, pitcher vulnerability, park)
+carry the most weight; season power is a supporting factor; the season-HR floor
+keeps legit power in and junk out.
 
-Ranking rule: +EV picks always lead, sorted by edge. When not enough clear the
-+EV bar, remaining slots fill by SCORE. Composite score is 0-100. MLB-only.
+COOLDOWN (added Aug 2026): the model is deterministic, so without memory the
+same slugger surfaces every day. Any batter who was picked 2+ times in the last
+7 days and did NOT homer is treated as "cold" and faded to the bottom of the
+board so fresh value bats (the Day-1 3/3 profile) lead instead. A cold name only
+returns to the top when there aren't enough fresh picks to fill the slate.
+
+DIVERSIFICATION: at most one HR pick per game, so the board spreads across the
+slate (Day 1 was three different teams) instead of stacking one game.
+
+Ranking: +EV picks lead by edge; then fresh (non-cold) picks by score; cold
+picks last. MLB-only. Slate is never empty.
 
 DIAGNOSTICS: every batter considered is logged with the exact keep/drop reason.
 Read it in the GitHub Actions run log under "HR-DIAG".
 """
 
 import logging
+import re as _re
+import unicodedata as _ud
 
 import config
 from data.park_factors import park_factor_for
 
 logger = logging.getLogger("hr_props")
+
+
+def _norm_hr(name):
+    """Normalize a batter name for matching against the recent-miss set
+    (strip accents, punctuation, Jr/Sr suffixes, case)."""
+    if not name:
+        return ""
+    n = _ud.normalize("NFKD", name).encode("ascii", "ignore").decode("ascii").lower()
+    n = _re.sub(r"[.\,']", "", n)
+    n = _re.sub(r"\b(jr|sr|ii|iii|iv)\b", "", n)
+    return _re.sub(r"\s+", " ", n).strip()
 
 
 def score_to_probability(score):
@@ -52,7 +70,7 @@ def american_to_implied(ml):
 def evaluate_hr_prop_candidates(games, rosters, stats_provider, public_prop_splits,
                                  situational_by_team, lineup_source=None):
     """Returns the FULL scored candidate pool (sorted, not truncated).
-    finalize_hr_props() does the +EV filter and final cut after odds attach."""
+    finalize_hr_props() does the +EV filter, cooldown, and final cut."""
     lineup_source = lineup_source or {}
     candidates = []
     considered = 0
@@ -138,16 +156,15 @@ def evaluate_hr_prop_candidates(games, rosters, stats_provider, public_prop_spli
     return candidates
 
 
-def finalize_hr_props(pool, max_per_day=None):
-    """Apply the +EV edge filter after live FanDuel HR odds are attached, then
-    take the top N. Each candidate should now carry 'odds_american' (or None).
+def finalize_hr_props(pool, max_per_day=None, recent_miss_players=None):
+    """Apply +EV filter, cold-streak cooldown, and one-pick-per-game
+    diversification, then take the top N.
 
-    Ranking:
-      - +EV picks (edge >= HR_MIN_EV_EDGE) always lead, sorted by edge desc.
-      - Remaining slots fill by SCORE desc (no-odds and no-edge picks mixed
-        together), so an elite score never sits below a weaker no-odds pick.
+    recent_miss_players: set of NORMALIZED names (via _norm_hr) that were picked
+      2+ times in the last 7 days and didn't homer -- faded to the bottom.
     Slate is never empty (per your rule)."""
     max_per_day = max_per_day or config.HR_PROP_MAX_PER_DAY
+    cold = recent_miss_players or set()
 
     plus_ev, fallback = [], []
     for c in pool:
@@ -176,13 +193,40 @@ def finalize_hr_props(pool, max_per_day=None):
             fallback.append(c)
 
     plus_ev.sort(key=lambda c: c["ev_edge"], reverse=True)
-    fallback.sort(key=lambda c: c["score"], reverse=True)   # highest score leads when no +EV
-    final = (plus_ev + fallback)[:max_per_day]
+    fallback.sort(key=lambda c: c["score"], reverse=True)
+    ordered = plus_ev + fallback  # best board order before cooldown/diversification
 
-    logger.info("HR-DIAG: EV filter -- %d +EV, %d fallback(score-ranked). Final %d picks.",
-                len(plus_ev), len(fallback), len(final))
+    # Split cold (recent chronic missers) from fresh, preserving order.
+    fresh = [c for c in ordered if _norm_hr(c["player_name"]) not in cold]
+    cold_list = [c for c in ordered if _norm_hr(c["player_name"]) in cold]
+    for c in cold_list:
+        c["reasoning"].append(
+            "[Cooldown] Faded -- this bat was picked 2+ times in the last week and didn't homer. "
+            "Only shown if the fresh board can't fill the slate.")
+
+    # Select with one-pick-per-game diversification: fresh first, then cold.
+    final, used_games, deferred_same_game = [], set(), []
+    for c in fresh:
+        if c["game_id"] in used_games:
+            deferred_same_game.append(c)
+            continue
+        final.append(c)
+        used_games.add(c["game_id"])
+        if len(final) >= max_per_day:
+            break
+    # Fill remaining: relax the one-per-game rule on fresh, then use cold.
+    if len(final) < max_per_day:
+        for c in deferred_same_game + cold_list:
+            if c in final:
+                continue
+            final.append(c)
+            if len(final) >= max_per_day:
+                break
+
+    logger.info("HR-DIAG: EV %d+/%d fallback | cold-faded %d | one-per-game diversification -> final %d.",
+                len(plus_ev), len(fallback), len(cold_list), len(final))
     logger.info("HR-DIAG: FINAL PICKS: %s",
-                ", ".join(f"{c['player_name']} score {c['score']:.0f}"
+                ", ".join(f"{c['player_name']} ({c['team']}) score {c['score']:.0f}"
                           + (f" +EV {c['ev_edge']*100:+.1f}%" if c.get('ev_edge') is not None else " (no odds)")
                           for c in final) or "(none)")
     return final
@@ -199,8 +243,6 @@ def _score_candidate(batter_name, batter, pitcher, hr_park_factor, motivation_no
     reasoning = []
     reasoning.append("Starting score: 50 (baseline). The SPOT (recent form, matchup, park) drives this more than the name.")
 
-    # --- SEASON POWER: a supporting factor now, not the driver. Softened so a
-    # cold big-name slugger no longer auto-outranks a hot value bat in a great spot.
     if batter.hr_count is not None:
         if batter.hr_count >= 30:
             score += 15
@@ -219,7 +261,6 @@ def _score_candidate(batter_name, batter, pitcher, hr_park_factor, motivation_no
     else:
         reasoning.append("[Season Power n/a] Season HR total unavailable -- scored on contact quality alone.")
 
-    # --- RECENT BARREL FORM: the single biggest predictive value signal.
     if batter.barrel_pct >= 12:
         score += 16
         reasoning.append(f"[Barrel Signal +16] {batter_name} has an ELITE barrel rate of {batter.barrel_pct:.1f}% "
@@ -238,7 +279,6 @@ def _score_candidate(batter_name, batter, pitcher, hr_park_factor, motivation_no
         reasoning.append(f"[Hot Streak +12] Trending UP: barrel% is +{batter.recent_barrel_trend:.1f} points over the "
                          f"last 15 days -- he's heating up right now, prime value-bat signal.")
 
-    # --- PITCHER VULNERABILITY: the other half of the spot.
     if pitcher and pitcher.barrel_pct_allowed is not None:
         if pitcher.barrel_pct_allowed >= 9:
             score += 16
@@ -266,7 +306,6 @@ def _score_candidate(batter_name, batter, pitcher, hr_park_factor, motivation_no
         else:
             reasoning.append(f"[HR Rate Allowed +0] {pitcher.name} allows {pitcher.hr_per_9:.2f} HR/9 (average).")
 
-    # --- PARK.
     if hr_park_factor >= 108:
         score += 12
         reasoning.append(f"[Park Factor +12] This park's HR factor is {hr_park_factor} (108+ -- a hitter's park that "
