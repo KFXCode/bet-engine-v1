@@ -95,15 +95,16 @@ FADE_MAX_PER_DAY = 5
 # ---------------------------------------------------------------------------
 HR_PROPS_ENABLED = True
 HR_PROP_MIN_SCORE = 0
-# ONE board, ranked by score (most likely to homer). Plus-money bats compete
-# in the same list -- no separate "longshot" tier. 5 best picks a day.
-HR_PROP_MAX_PER_DAY = 5
+# ONE board, ranked by score. Exactly 3 picks a day, and once the day's 3 are
+# set they are LOCKED (run_daily reuses them on every later run that day), so
+# the 3 you see are the 3 that get graded in history -- no mid-day changes.
+HR_PROP_MAX_PER_DAY = 3
 HR_PROP_ROSTER_LIMIT = 9
 HR_PROP_STRONG_SCORE = 70
 HR_PROP_MIN_SEASON_HR = 4
 HR_PROP_TOP_N_POOL = 200
 
-# Longshot tier removed -- set to 0 so the board is a single ranked list.
+# Longshot tier removed -- single ranked list.
 HR_VALUE_LONGSHOT_SLOTS = 0
 HR_LONGSHOT_MIN_ODDS = 450
 
