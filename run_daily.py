@@ -78,10 +78,14 @@ _ESPN_SCHEDULE_PROVIDERS = {
     "NBA": get_todays_nba_games,
 }
 
-# How many days back to look for repeat HR missers, and how many misses in that
-# window makes a batter "cold" (faded to the bottom of the HR board).
-HR_COOLDOWN_LOOKBACK_DAYS = 7
-HR_COOLDOWN_MIN_MISSES = 2
+# HR anti-repeat (rotation) window. A batter is faded if he was PICKED (any
+# status -- not just graded losses, which the old rule required and which kept
+# letting Ben Rice / Muncy / Elly resurface because their rows sat 'pending')
+# 2+ times in the last 7 days without homering, OR appeared on either of the
+# last 2 days without homering. This forces fresh names onto the board daily.
+HR_ROTATION_LOOKBACK_DAYS = 7
+HR_ROTATION_MAX_APPEARANCES = 2
+HR_RECENT_DAYS_HARD_BENCH = 2
 
 
 def _fetch_schedule(sport, date_str):
@@ -100,26 +104,44 @@ def _fetch_schedule(sport, date_str):
 
 
 def _recent_hr_missers(db, run_date):
-    """Set of NORMALIZED batter names picked >= HR_COOLDOWN_MIN_MISSES times in
-    the last HR_COOLDOWN_LOOKBACK_DAYS and graded 'lost' each counted time -- i.e.
-    chronic recent missers (the Ben-Rice-keeps-losing problem). Passed to
-    finalize_hr_props so they get faded until they actually produce."""
-    cutoff = (run_date - timedelta(days=HR_COOLDOWN_LOOKBACK_DAYS)).strftime("%Y-%m-%d")
-    miss_counts = {}
-    try:
-        for r in db.get_graded_history(after=cutoff):
-            if r["kind"] != "hr_prop" or r["status"] != "lost":
-                continue
+    """NORMALIZED names to fade off today's HR board for ROTATION. Counts every
+    time a player was PICKED in the last HR_ROTATION_LOOKBACK_DAYS regardless of
+    graded status (robust to grading gaps), and whether he homered (status
+    'won') in that window. A player is faded if:
+      - he homered 0 times in the window AND was picked >= HR_ROTATION_MAX_APPEARANCES times, OR
+      - he homered 0 times AND appeared on either of the last HR_RECENT_DAYS_HARD_BENCH days.
+    A player who actually homered in the window is NOT faded (he earned it)."""
+    appearances = {}
+    wins = {}
+    recent_days = set()
+    for i in range(1, HR_ROTATION_LOOKBACK_DAYS + 1):
+        d = (run_date - timedelta(days=i)).strftime("%Y-%m-%d")
+        try:
+            rows = db.get_recommendations_for_date(d, kind="hr_prop")
+        except Exception as exc:
+            logger.warning("HR rotation: could not read %s: %s", d, exc)
+            continue
+        seen_today = set()
+        for r in rows:
             key = _norm_player(r["side_or_player"])
-            if key:
-                miss_counts[key] = miss_counts.get(key, 0) + 1
-    except Exception as exc:
-        logger.warning("Could not compute HR cooldown set: %s", exc)
-        return set()
-    cold = {name for name, n in miss_counts.items() if n >= HR_COOLDOWN_MIN_MISSES}
+            if not key or key in seen_today:
+                continue  # dedupe within a day so old duplicate rows don't overcount
+            seen_today.add(key)
+            appearances[key] = appearances.get(key, 0) + 1
+            if r["status"] == "won":
+                wins[key] = wins.get(key, 0) + 1
+            if i <= HR_RECENT_DAYS_HARD_BENCH:
+                recent_days.add(key)
+
+    cold = set()
+    for key, n in appearances.items():
+        if wins.get(key, 0) > 0:
+            continue  # homered recently -> keep eligible
+        if n >= HR_ROTATION_MAX_APPEARANCES or key in recent_days:
+            cold.add(key)
     if cold:
-        logger.info("HR-DIAG: cooldown set (%d cold bats, %d+ misses in %dd): %s",
-                    len(cold), HR_COOLDOWN_MIN_MISSES, HR_COOLDOWN_LOOKBACK_DAYS, ", ".join(sorted(cold)))
+        logger.info("HR-DIAG: rotation fade (%d bats over %dd, no HR): %s",
+                    len(cold), HR_ROTATION_LOOKBACK_DAYS, ", ".join(sorted(cold)))
     return cold
 
 
