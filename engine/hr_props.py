@@ -1,31 +1,25 @@
 """
 engine/hr_props.py
 ===================
-HR Prop Workflow (runs automatically every day alongside moneyline):
-  1. Barrel Signal (BONUS)     -- batter's barrel%/recent trend WHEN AVAILABLE
-  2. Pitcher Vulnerability     -- opposing SP's barrel%/hard-hit%/HR-9 allowed
-  3. Park + Motivation Overlay -- HR park factor + motivation context
-  4. Public Lean Filter        -- fade extremely public props unless elite
-  5. +EV Edge tag              -- our probability vs FanDuel implied
-  6. Cooldown + Diversification-- fade chronic recent-missers, one pick/game
-  7. Value-Longshot board      -- best +450-or-longer bats by EV edge
+HR Prop Workflow -- runs daily alongside moneyline.
 
-CRITICAL FIX (Aug 14): we NO LONGER drop a batter just because Statcast barrel
-data didn't load. Barrel data is scraped from Baseball Savant and frequently
-fails from GitHub's servers -- the old code dropped every one of those bats,
-which silently threw out most of the longshot pool (the +500-850 hitters that
-keep homering). Now barrel is a BONUS when present; a bat is scored on whatever
-reliable data exists (season HR total, opposing pitcher HR/9, park). A batter is
-only dropped if there's truly nothing to score on, or he's under the season-HR
-floor (config.HR_PROP_MIN_SEASON_HR, now 4).
+ONE ranked board of 3 picks (locked per day in run_daily). Scoring is
+SPOT-driven, and as of Aug 14 the biggest single input is RECENT FORM pulled
+from the MLB Stats API game logs (data/recent_form.py) -- the source that
+loads reliably from GitHub Actions, unlike the Baseball Savant barrel scrape
+which is usually blocked there. This is what lets the model see a genuinely
+hot bat instead of falling back to season-HR totals + park only.
 
-RANKING: core slots ranked by SCORE (stable across re-runs). PLUS up to
-config.HR_VALUE_LONGSHOT_SLOTS "Value Longshot" slots -- the best bats priced
->= config.HR_LONGSHOT_MIN_ODDS by EV edge -- surfaced every day. That's the
-automated @MLBHR value board, built from FanDuel's own odds.
+Layers:
+  1. Recent form (HEAVY)      -- last-15-day HR rate / ISO / HR count (reliable)
+  2. Barrel signal (BONUS)    -- Statcast barrel% WHEN it loads (often blocked)
+  3. Pitcher vulnerability    -- opposing SP barrel%/HR-9 allowed
+  4. Park overlay             -- HR park factor
+  5. Season power (support)   -- season HR total, a supporting factor not the driver
+  6. +EV tag, rotation fade, one pick/game -- handled in finalize_hr_props / run_daily
 
-COOLDOWN: any batter picked 2+ times in the last 7 days who didn't homer is
-faded. DIVERSIFICATION: at most one pick per game. MLB-only. Slate never empty.
+Missing barrel data never drops a bat. A bat is dropped only if it can't be
+identified at all, or is under the season-HR floor with no recent-form signal.
 
 DIAGNOSTICS: every batter considered is logged (GitHub Actions log, "HR-DIAG").
 """
@@ -36,6 +30,7 @@ import unicodedata as _ud
 
 import config
 from data.park_factors import park_factor_for
+from data.recent_form import get_recent_form
 
 logger = logging.getLogger("hr_props")
 
@@ -82,16 +77,17 @@ def evaluate_hr_prop_candidates(games, rosters, stats_provider, public_prop_spli
             for batter_name in rosters.get(batting_team, []):
                 considered += 1
                 batter_profile = stats_provider.get_batter_profile(batter_name, batting_team)
+                form = _safe_recent_form(batter_profile)
                 score, reasoning, quality = _score_candidate(
-                    batter_name, batter_profile, pitcher_profile, hr_park_factor, motivation
+                    batter_name, batter_profile, pitcher_profile, hr_park_factor, motivation, form
                 )
                 if score is None:
                     if quality == "below_hr_floor":
                         dropped["below_hr_floor"].append(
-                            f"{batter_name} ({batting_team}): {batter_profile.hr_count} HR < floor {config.HR_PROP_MIN_SEASON_HR}")
+                            f"{batter_name} ({batting_team}): {batter_profile.hr_count} HR < floor {config.HR_PROP_MIN_SEASON_HR}, no recent form")
                     else:
                         dropped["no_data"].append(
-                            f"{batter_name} ({batting_team}): no season HR and no barrel data")
+                            f"{batter_name} ({batting_team}): nothing to score on")
                     continue
 
                 public_lean = public_prop_splits.get((batting_team, batter_name)) if public_prop_splits else None
@@ -114,7 +110,7 @@ def evaluate_hr_prop_candidates(games, rosters, stats_provider, public_prop_spli
                 if not pitcher_confirmed:
                     reasoning.append(
                         f"NOTE: opposing starter ({opp_pitcher.name}) is MLB's listed probable but NOT yet "
-                        f"confirmed for this game -- double-check before betting, and re-run closer to first pitch.")
+                        f"confirmed -- double-check before betting, and re-run closer to first pitch.")
 
                 candidates.append({
                     "player_name": batter_name,
@@ -128,7 +124,6 @@ def evaluate_hr_prop_candidates(games, rosters, stats_provider, public_prop_spli
                 })
 
     candidates.sort(key=lambda c: c["score"], reverse=True)
-
     logger.info("HR-DIAG: %d batters considered across %d games; %d scored into the pool.",
                 considered, len(games), len(candidates))
     for label, key in (("MISSING ALL DATA", "no_data"),
@@ -141,13 +136,21 @@ def evaluate_hr_prop_candidates(games, rosters, stats_provider, public_prop_spli
     return candidates
 
 
+def _safe_recent_form(batter_profile):
+    """Look up recent form by the batter's resolved player_id. Returns the form
+    dict or None. Never raises -- a form miss is a no-op, not a drop."""
+    pid = getattr(batter_profile, "player_id", None)
+    try:
+        return get_recent_form(pid) if pid else None
+    except Exception as exc:
+        logger.debug("recent-form lookup failed for %s: %s", getattr(batter_profile, "name", "?"), exc)
+        return None
+
+
 def finalize_hr_props(pool, max_per_day=None, recent_miss_players=None):
-    """Core slots ranked by SCORE + Value-Longshot slots ranked by EV edge.
-    recent_miss_players: normalized names faded for chronic recent misses.
-    Slate is never empty."""
+    """ONE board ranked by SCORE, faded for chronic recent misses, one pick per
+    game, capped at max_per_day. +EV shown as a TAG only. Slate never empty."""
     max_per_day = max_per_day or config.HR_PROP_MAX_PER_DAY
-    longshot_slots = getattr(config, "HR_VALUE_LONGSHOT_SLOTS", 0)
-    longshot_min = getattr(config, "HR_LONGSHOT_MIN_ODDS", 450)
     cold = recent_miss_players or set()
 
     for c in pool:
@@ -155,8 +158,7 @@ def finalize_hr_props(pool, max_per_day=None, recent_miss_players=None):
         if odds is None:
             c["ev_edge"] = None
             c["reasoning"].append(
-                "[Value] HR odds unavailable from FanDuel right now -- ranked on model score; "
-                "confirm the price before betting.")
+                "[Value] HR odds unavailable right now -- ranked on model score; confirm the price before betting.")
             continue
         implied = american_to_implied(odds)
         edge = c["model_prob"] - implied
@@ -164,22 +166,18 @@ def finalize_hr_props(pool, max_per_day=None, recent_miss_players=None):
         c["implied_prob"] = implied
         if edge >= config.HR_MIN_EV_EDGE:
             c["reasoning"].append(
-                f"[+EV +{edge*100:.1f}%] Model gives {c['player_name']} {c['model_prob']*100:.1f}% "
-                f"vs FanDuel implied {implied*100:.1f}% at {odds:+d} -- real betting value.")
+                f"[+EV +{edge*100:.1f}%] Model {c['model_prob']*100:.1f}% vs book implied {implied*100:.1f}% at {odds:+d} -- real value.")
         else:
             c["reasoning"].append(
-                f"[Fair price {edge*100:+.1f}%] Model {c['model_prob']*100:.1f}% vs implied {implied*100:.1f}% "
-                f"at {odds:+d} -- efficient price; a SPOT play, not a value play.")
+                f"[Fair price {edge*100:+.1f}%] Model {c['model_prob']*100:.1f}% vs implied {implied*100:.1f}% at {odds:+d} -- a SPOT play.")
 
     ordered = sorted(pool, key=lambda c: c["score"], reverse=True)
     fresh = [c for c in ordered if _norm_hr(c["player_name"]) not in cold]
     cold_list = [c for c in ordered if _norm_hr(c["player_name"]) in cold]
     for c in cold_list:
         c["reasoning"].append(
-            "[Cooldown] Faded -- picked 2+ times in the last week without homering. "
-            "Only shown if the fresh board can't fill the slate.")
+            "[Cooldown] Faded -- picked recently without homering. Only shown if the fresh board can't fill the slate.")
 
-    # --- CORE slots: highest score, one per game ---
     final, used_games, deferred = [], set(), []
     for c in fresh:
         if c["game_id"] in used_games:
@@ -199,124 +197,84 @@ def finalize_hr_props(pool, max_per_day=None, recent_miss_players=None):
             if len(final) >= max_per_day:
                 break
 
-    # --- VALUE-LONGSHOT slots: best +450-or-longer bats by EV edge ---
-    chosen_names = {_norm_hr(c["player_name"]) for c in final}
-    longshots = [
-        c for c in fresh
-        if c.get("odds_american") is not None
-        and c["odds_american"] >= longshot_min
-        and _norm_hr(c["player_name"]) not in chosen_names
-        and c.get("ev_edge") is not None
-    ]
-    longshots.sort(key=lambda c: (c["ev_edge"], c["score"]), reverse=True)
-    added = 0
-    for c in longshots:
-        if c["game_id"] in used_games:
-            continue
-        c["pick_type"] = "longshot"
-        c["reasoning"].insert(
-            0, f"[VALUE LONGSHOT] {c['player_name']} at {c['odds_american']:+d} -- a plus-money "
-               f"bat our model rates as underpriced. Higher risk, big payout; this is the "
-               f"mispriced-book play, not a safe pick.")
-        final.append(c)
-        used_games.add(c["game_id"])
-        added += 1
-        if added >= longshot_slots:
-            break
-
-    logger.info("HR-DIAG: core %d | longshots %d | cold-faded %d -> final %d.",
-                len(final) - added, added, len(cold_list), len(final))
+    logger.info("HR-DIAG: one board | cold-faded %d | final %d (cap %d).",
+                len(cold_list), len(final), max_per_day)
     logger.info("HR-DIAG: FINAL: %s",
-                ", ".join(f"{c['player_name']}({c['team']}) {c.get('pick_type','core')} sc{c['score']:.0f}"
+                ", ".join(f"{c['player_name']}({c['team']}) sc{c['score']:.0f}"
                           + (f" EV{c['ev_edge']*100:+.1f}%" if c.get('ev_edge') is not None else " noodds")
                           for c in final) or "(none)")
     return final
 
 
-def _score_candidate(batter_name, batter, pitcher, hr_park_factor, motivation_note):
-    # Drop only if the player truly can't be identified (not_found) OR there is
-    # NOTHING to score on. Missing barrel data alone no longer drops a bat.
-    if batter.data_quality == "not_found" and batter.hr_count is None:
+def _score_candidate(batter_name, batter, pitcher, hr_park_factor, motivation_note, form):
+    has_form = bool(form and form.get("pa", 0) >= 5)
+    if batter.data_quality == "not_found" and batter.hr_count is None and not has_form:
         return None, None, "not_found"
-    if batter.hr_count is None and batter.barrel_pct is None:
+    if batter.hr_count is None and batter.barrel_pct is None and not has_form:
         return None, None, "no_data"
-
-    if batter.hr_count is not None and batter.hr_count < config.HR_PROP_MIN_SEASON_HR:
+    # Season-HR floor: only drops a bat that ALSO has no live recent-form heat.
+    if (batter.hr_count is not None and batter.hr_count < config.HR_PROP_MIN_SEASON_HR
+            and not (has_form and form.get("hot_score", 0) >= 0.5)):
         return None, None, "below_hr_floor"
 
     score = 50.0
-    reasoning = ["Starting score: 50 (baseline). The SPOT (matchup, park, form) drives this more than the name."]
+    reasoning = ["Starting score: 50 (baseline). Recent form + the SPOT drive this more than the name."]
 
+    # 1. RECENT FORM -- the heavy, reliable signal.
+    if has_form:
+        hot = form["hot_score"]
+        bump = round(28 * hot, 1)  # up to +28 for a red-hot bat
+        score += bump
+        reasoning.append(
+            f"[Recent Form +{bump}] Last {form['games']} G: {form['hr']} HR, ISO {form['iso']:.3f}, "
+            f"{form['hr_rate']*100:.1f}% HR/PA -> hot_score {hot:.2f} (this is the biggest input and it loaded reliably).")
+        if hot < 0.15 and form["pa"] >= 25:
+            score -= 8
+            reasoning.append(f"[Cold -8] Ice-cold over the last {form['games']} games -- no recent power.")
+    else:
+        reasoning.append("[Recent Form n/a] No recent game-log data -- scored on season power, matchup, and park.")
+
+    # 2. Season power (SUPPORT, not the driver).
     if batter.hr_count is not None:
         if batter.hr_count >= 30:
-            score += 15
-            reasoning.append(f"[Season Power +15] {batter_name} has {batter.hr_count} HR -- elite volume (30+).")
+            score += 10; reasoning.append(f"[Season Power +10] {batter.hr_count} HR -- elite volume.")
         elif batter.hr_count >= 22:
-            score += 11
-            reasoning.append(f"[Season Power +11] {batter_name} has {batter.hr_count} HR -- middle-order slugger (22+).")
+            score += 7; reasoning.append(f"[Season Power +7] {batter.hr_count} HR -- middle-order slugger.")
         elif batter.hr_count >= 15:
-            score += 7
-            reasoning.append(f"[Season Power +7] {batter_name} has {batter.hr_count} HR -- solid legit power (15+).")
+            score += 5; reasoning.append(f"[Season Power +5] {batter.hr_count} HR -- legit power.")
         elif batter.hr_count >= 8:
-            score += 5
-            reasoning.append(f"[Season Power +5] {batter_name} has {batter.hr_count} HR -- real mid-power bat, prime value range.")
+            score += 3; reasoning.append(f"[Season Power +3] {batter.hr_count} HR -- mid-power, value range.")
         else:
-            score += 2
-            reasoning.append(f"[Season Power +2] {batter_name} has {batter.hr_count} HR -- modest, cleared the "
-                             f"{config.HR_PROP_MIN_SEASON_HR}-HR floor; the value is the spot, not the name.")
-    else:
-        reasoning.append("[Season Power n/a] Season HR total unavailable -- scored on matchup, park, and barrel.")
+            score += 1; reasoning.append(f"[Season Power +1] {batter.hr_count} HR -- the value is the spot/form, not the name.")
 
-    # Barrel is a BONUS layer now -- only applied when the data actually loaded.
+    # 3. Barrel signal (BONUS -- only when Savant actually loads).
     if batter.barrel_pct is not None:
         if batter.barrel_pct >= 12:
-            score += 16
-            reasoning.append(f"[Barrel Signal +16] ELITE barrel rate {batter.barrel_pct:.1f}% (12%+ -- top HR predictor).")
+            score += 12; reasoning.append(f"[Barrel +12] ELITE {batter.barrel_pct:.1f}% barrels.")
         elif batter.barrel_pct >= 9:
-            score += 8
-            reasoning.append(f"[Barrel Signal +8] Barrels {batter.barrel_pct:.1f}% -- above-average power contact.")
+            score += 6; reasoning.append(f"[Barrel +6] {batter.barrel_pct:.1f}% barrels -- above avg.")
         elif batter.barrel_pct < 6:
-            score -= 10
-            reasoning.append(f"[Barrel Signal -10] Only {batter.barrel_pct:.1f}% barrels (weak power contact).")
-        else:
-            reasoning.append(f"[Barrel Signal +0] Barrel rate {batter.barrel_pct:.1f}% (average).")
-        if batter.recent_barrel_trend and batter.recent_barrel_trend > 2:
-            score += 12
-            reasoning.append(f"[Hot Streak +12] Barrel% +{batter.recent_barrel_trend:.1f} pts over last 15 days -- heating up.")
-    else:
-        reasoning.append("[Barrel Signal n/a] Statcast barrel data didn't load today -- scored on the other signals "
-                         "(this no longer drops the pick).")
+            score -= 6; reasoning.append(f"[Barrel -6] Only {batter.barrel_pct:.1f}% barrels.")
 
+    # 4. Pitcher vulnerability.
     if pitcher and pitcher.barrel_pct_allowed is not None:
         if pitcher.barrel_pct_allowed >= 9:
-            score += 16
-            reasoning.append(f"[Pitcher Vulnerability +16] {pitcher.name} allows HIGH barrels {pitcher.barrel_pct_allowed:.1f}% (9%+).")
+            score += 12; reasoning.append(f"[Pitcher Vuln +12] {pitcher.name} allows {pitcher.barrel_pct_allowed:.1f}% barrels.")
         elif pitcher.barrel_pct_allowed >= 7:
-            score += 8
-            reasoning.append(f"[Pitcher Vulnerability +8] {pitcher.name} allows {pitcher.barrel_pct_allowed:.1f}% barrels -- hittable.")
+            score += 6; reasoning.append(f"[Pitcher Vuln +6] {pitcher.name} allows {pitcher.barrel_pct_allowed:.1f}% barrels.")
         elif pitcher.barrel_pct_allowed < 5:
-            score -= 10
-            reasoning.append(f"[Pitcher Vulnerability -10] {pitcher.name} allows only {pitcher.barrel_pct_allowed:.1f}% barrels (tough).")
-        else:
-            reasoning.append(f"[Pitcher Vulnerability +0] {pitcher.name} allows {pitcher.barrel_pct_allowed:.1f}% barrels (average).")
+            score -= 8; reasoning.append(f"[Pitcher Vuln -8] {pitcher.name} stingy ({pitcher.barrel_pct_allowed:.1f}%).")
     if pitcher and pitcher.hr_per_9 is not None:
         if pitcher.hr_per_9 >= 1.4:
-            score += 12
-            reasoning.append(f"[HR Rate Allowed +12] {pitcher.name} runs {pitcher.hr_per_9:.2f} HR/9 (1.4+ -- serves up homers).")
+            score += 12; reasoning.append(f"[HR Rate Allowed +12] {pitcher.name} {pitcher.hr_per_9:.2f} HR/9 -- serves them up.")
         elif pitcher.hr_per_9 < 0.9:
-            score -= 8
-            reasoning.append(f"[HR Rate Allowed -8] {pitcher.name} allows {pitcher.hr_per_9:.2f} HR/9 (under 0.9 -- stingy).")
-        else:
-            reasoning.append(f"[HR Rate Allowed +0] {pitcher.name} allows {pitcher.hr_per_9:.2f} HR/9 (average).")
+            score -= 8; reasoning.append(f"[HR Rate Allowed -8] {pitcher.name} {pitcher.hr_per_9:.2f} HR/9 -- stingy.")
 
+    # 5. Park.
     if hr_park_factor >= 108:
-        score += 12
-        reasoning.append(f"[Park Factor +12] Park HR factor {hr_park_factor} (108+ -- hitter's park).")
+        score += 10; reasoning.append(f"[Park +10] HR factor {hr_park_factor} -- hitter's park.")
     elif hr_park_factor <= 92:
-        score -= 10
-        reasoning.append(f"[Park Factor -10] Park HR factor {hr_park_factor} (92 or below -- pitcher's park).")
-    else:
-        reasoning.append(f"[Park Factor +0] Park HR factor {hr_park_factor} (neutral).")
+        score -= 8; reasoning.append(f"[Park -8] HR factor {hr_park_factor} -- pitcher's park.")
     if motivation_note:
         reasoning.append(f"[Overlay] {motivation_note}")
 
