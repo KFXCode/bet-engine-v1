@@ -78,14 +78,16 @@ _ESPN_SCHEDULE_PROVIDERS = {
     "NBA": get_todays_nba_games,
 }
 
-# HR anti-repeat (rotation) window. A batter is faded if he was PICKED (any
-# status -- not just graded losses, which the old rule required and which kept
-# letting Ben Rice / Muncy / Elly resurface because their rows sat 'pending')
-# 2+ times in the last 7 days without homering, OR appeared on either of the
-# last 2 days without homering. This forces fresh names onto the board daily.
+# HR anti-repeat (rotation). HARD rule, no win-exemption: a batter is faded from
+# today's board if he appeared on the HR board at all in the last
+# HR_HARD_BENCH_DAYS days, OR was picked HR_ROTATION_MAX_APPEARANCES+ times in
+# the last HR_ROTATION_LOOKBACK_DAYS. The OLD rule exempted anyone who homered
+# once in the window -- that's the exact bug that kept Ben Rice (HR on 8-08)
+# resurfacing every day after. A single homer no longer buys permanent
+# eligibility; everyone rotates.
 HR_ROTATION_LOOKBACK_DAYS = 7
 HR_ROTATION_MAX_APPEARANCES = 2
-HR_RECENT_DAYS_HARD_BENCH = 2
+HR_HARD_BENCH_DAYS = 3
 
 
 def _fetch_schedule(sport, date_str):
@@ -104,15 +106,14 @@ def _fetch_schedule(sport, date_str):
 
 
 def _recent_hr_missers(db, run_date):
-    """NORMALIZED names to fade off today's HR board for ROTATION. Counts every
-    time a player was PICKED in the last HR_ROTATION_LOOKBACK_DAYS regardless of
-    graded status (robust to grading gaps), and whether he homered (status
-    'won') in that window. A player is faded if:
-      - he homered 0 times in the window AND was picked >= HR_ROTATION_MAX_APPEARANCES times, OR
-      - he homered 0 times AND appeared on either of the last HR_RECENT_DAYS_HARD_BENCH days.
-    A player who actually homered in the window is NOT faded (he earned it)."""
+    """NORMALIZED names to fade off today's HR board for ROTATION. HARD rule --
+    NO win-exemption (that was the Ben-Rice-resurfacing bug). Counts every day a
+    player was PICKED in the last HR_ROTATION_LOOKBACK_DAYS (deduped per day, so
+    old duplicate rows don't overcount). A player is faded if:
+      - he appeared on any of the last HR_HARD_BENCH_DAYS days, OR
+      - he was picked HR_ROTATION_MAX_APPEARANCES+ times in the window.
+    Homering does NOT exempt him -- everyone rotates so fresh names surface."""
     appearances = {}
-    wins = {}
     recent_days = set()
     for i in range(1, HR_ROTATION_LOOKBACK_DAYS + 1):
         d = (run_date - timedelta(days=i)).strftime("%Y-%m-%d")
@@ -125,22 +126,16 @@ def _recent_hr_missers(db, run_date):
         for r in rows:
             key = _norm_player(r["side_or_player"])
             if not key or key in seen_today:
-                continue  # dedupe within a day so old duplicate rows don't overcount
+                continue
             seen_today.add(key)
             appearances[key] = appearances.get(key, 0) + 1
-            if r["status"] == "won":
-                wins[key] = wins.get(key, 0) + 1
-            if i <= HR_RECENT_DAYS_HARD_BENCH:
+            if i <= HR_HARD_BENCH_DAYS:
                 recent_days.add(key)
 
-    cold = set()
-    for key, n in appearances.items():
-        if wins.get(key, 0) > 0:
-            continue  # homered recently -> keep eligible
-        if n >= HR_ROTATION_MAX_APPEARANCES or key in recent_days:
-            cold.add(key)
+    cold = {key for key, n in appearances.items()
+            if n >= HR_ROTATION_MAX_APPEARANCES or key in recent_days}
     if cold:
-        logger.info("HR-DIAG: rotation fade (%d bats over %dd, no HR): %s",
+        logger.info("HR-DIAG: rotation fade (%d bats, hard no-repeat over %dd): %s",
                     len(cold), HR_ROTATION_LOOKBACK_DAYS, ", ".join(sorted(cold)))
     return cold
 
