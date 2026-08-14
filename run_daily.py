@@ -81,9 +81,7 @@ _ESPN_SCHEDULE_PROVIDERS = {
 # HR anti-repeat (rotation). HARD rule, no win-exemption: a batter is faded from
 # today's board if he appeared on the HR board at all in the last
 # HR_HARD_BENCH_DAYS days, OR was picked HR_ROTATION_MAX_APPEARANCES+ times in
-# the last HR_ROTATION_LOOKBACK_DAYS. The OLD rule exempted anyone who homered
-# once in the window -- that's the exact bug that kept Ben Rice (HR on 8-08)
-# resurfacing every day after. A single homer no longer buys permanent
+# the last HR_ROTATION_LOOKBACK_DAYS. A single homer no longer buys permanent
 # eligibility; everyone rotates.
 HR_ROTATION_LOOKBACK_DAYS = 7
 HR_ROTATION_MAX_APPEARANCES = 2
@@ -107,12 +105,11 @@ def _fetch_schedule(sport, date_str):
 
 def _recent_hr_missers(db, run_date):
     """NORMALIZED names to fade off today's HR board for ROTATION. HARD rule --
-    NO win-exemption (that was the Ben-Rice-resurfacing bug). Counts every day a
-    player was PICKED in the last HR_ROTATION_LOOKBACK_DAYS (deduped per day, so
-    old duplicate rows don't overcount). A player is faded if:
-      - he appeared on any of the last HR_HARD_BENCH_DAYS days, OR
-      - he was picked HR_ROTATION_MAX_APPEARANCES+ times in the window.
-    Homering does NOT exempt him -- everyone rotates so fresh names surface."""
+    NO win-exemption. Counts every day a player was PICKED in the last
+    HR_ROTATION_LOOKBACK_DAYS (deduped per day). A player is faded if he
+    appeared on any of the last HR_HARD_BENCH_DAYS days, OR was picked
+    HR_ROTATION_MAX_APPEARANCES+ times in the window. Homering does not exempt
+    him -- everyone rotates so fresh names surface."""
     appearances = {}
     recent_days = set()
     for i in range(1, HR_ROTATION_LOOKBACK_DAYS + 1):
@@ -341,7 +338,13 @@ def main(argv=None):
         hr_odds = fetch_hr_odds(hr_pool, games)
         for prop in hr_pool:
             key = (prop.get("game_id"), _norm_player(prop["player_name"]))
-            prop["odds_american"] = hr_odds.get(key)
+            price = hr_odds.get(key)
+            if price:
+                prop["odds_american"] = price["odds"]
+                prop["odds_book"] = price["book"]
+            else:
+                prop["odds_american"] = None
+                prop["odds_book"] = None
         recent_missers = _recent_hr_missers(db, run_date)
         hr_props = finalize_hr_props(hr_pool, recent_miss_players=recent_missers)
 
