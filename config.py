@@ -95,23 +95,17 @@ FADE_MAX_PER_DAY = 5
 # ---------------------------------------------------------------------------
 HR_PROPS_ENABLED = True
 HR_PROP_MIN_SCORE = 0
-HR_PROP_MAX_PER_DAY = 3          # score-ranked "most likely to hit" slots
+# ONE board, ranked by score (most likely to homer). Plus-money bats compete
+# in the same list -- no separate "longshot" tier. 5 best picks a day.
+HR_PROP_MAX_PER_DAY = 5
 HR_PROP_ROSTER_LIMIT = 9
 HR_PROP_STRONG_SCORE = 70
-# Floor lowered 10 -> 4 (Aug 14): the 10-HR floor was throwing out exactly the
-# mid-power / hot value bats (the +500-850 range on @MLBHR that keep homering).
-# 4 still filters pitchers and true slap hitters but opens the longshot pool.
 HR_PROP_MIN_SEASON_HR = 4
-# Cap removed (200 = effectively no cap): the top-20 restriction strangled the
-# board down to the same chalk sluggers. Score every eligible bat.
 HR_PROP_TOP_N_POOL = 200
 
-# Value-Longshot slots (Aug 14): the automated @MLBHR board. In addition to the
-# score-ranked picks above, surface the best plus-money bats by EV edge -- the
-# mispriced longshots the book slips up on. A bat priced >= +450 that grades as
-# a real edge is exactly the kind you keep seeing hit.
-HR_VALUE_LONGSHOT_SLOTS = 2
-HR_LONGSHOT_MIN_ODDS = 450       # American; +450 or longer counts as a longshot
+# Longshot tier removed -- set to 0 so the board is a single ranked list.
+HR_VALUE_LONGSHOT_SLOTS = 0
+HR_LONGSHOT_MIN_ODDS = 450
 
 HR_EV_FILTER_ENABLED = True
 HR_MIN_EV_EDGE = 0.05
