@@ -78,11 +78,6 @@ _ESPN_SCHEDULE_PROVIDERS = {
     "NBA": get_todays_nba_games,
 }
 
-# HR anti-repeat (rotation). HARD rule, no win-exemption: a batter is faded from
-# today's board if he appeared on the HR board at all in the last
-# HR_HARD_BENCH_DAYS days, OR was picked HR_ROTATION_MAX_APPEARANCES+ times in
-# the last HR_ROTATION_LOOKBACK_DAYS. A single homer no longer buys permanent
-# eligibility; everyone rotates.
 HR_ROTATION_LOOKBACK_DAYS = 7
 HR_ROTATION_MAX_APPEARANCES = 2
 HR_HARD_BENCH_DAYS = 3
@@ -104,12 +99,10 @@ def _fetch_schedule(sport, date_str):
 
 
 def _recent_hr_missers(db, run_date):
-    """NORMALIZED names to fade off today's HR board for ROTATION. HARD rule --
-    NO win-exemption. Counts every day a player was PICKED in the last
-    HR_ROTATION_LOOKBACK_DAYS (deduped per day). A player is faded if he
-    appeared on any of the last HR_HARD_BENCH_DAYS days, OR was picked
-    HR_ROTATION_MAX_APPEARANCES+ times in the window. Homering does not exempt
-    him -- everyone rotates so fresh names surface."""
+    """NORMALIZED names to fade for ROTATION (hard no-repeat, no win-exemption):
+    faded if appeared on any of the last HR_HARD_BENCH_DAYS days, or picked
+    HR_ROTATION_MAX_APPEARANCES+ times in the last HR_ROTATION_LOOKBACK_DAYS.
+    Only applies when SETTING a fresh board -- never overrides a locked day."""
     appearances = {}
     recent_days = set()
     for i in range(1, HR_ROTATION_LOOKBACK_DAYS + 1):
@@ -128,13 +121,43 @@ def _recent_hr_missers(db, run_date):
             appearances[key] = appearances.get(key, 0) + 1
             if i <= HR_HARD_BENCH_DAYS:
                 recent_days.add(key)
-
     cold = {key for key, n in appearances.items()
             if n >= HR_ROTATION_MAX_APPEARANCES or key in recent_days}
     if cold:
-        logger.info("HR-DIAG: rotation fade (%d bats, hard no-repeat over %dd): %s",
-                    len(cold), HR_ROTATION_LOOKBACK_DAYS, ", ".join(sorted(cold)))
+        logger.info("HR-DIAG: rotation fade (%d bats): %s", len(cold), ", ".join(sorted(cold)))
     return cold
+
+
+def _locked_hr_props(db, date_str, pool):
+    """If today's 3 HR picks are ALREADY logged, reuse those exact players (with
+    fresh odds/reasoning from the pool) so the board never changes through the
+    day -- the 3 you see are the 3 that get graded. Returns the locked list, or
+    None if nothing is logged yet (first run of the day)."""
+    try:
+        existing = db.get_recommendations_for_date(date_str, kind="hr_prop")
+    except Exception as exc:
+        logger.warning("HR lock: could not read today's HR rows: %s", exc)
+        return None
+    names = []
+    seen = set()
+    for r in existing:
+        k = _norm_player(r["side_or_player"])
+        if k and k not in seen:
+            seen.add(k)
+            names.append(k)
+    if not names:
+        return None
+    by_name = {}
+    for c in pool:
+        by_name.setdefault(_norm_player(c["player_name"]), c)
+    locked = [by_name[k] for k in names if k in by_name]
+    for c in locked:
+        c["pick_type"] = "core"
+    if locked:
+        logger.info("HR-DIAG: LOCKED to today's already-published picks: %s",
+                    ", ".join(c["player_name"] for c in locked))
+        return locked
+    return None
 
 
 def _load_team_records(games, run_date, data_warnings):
@@ -345,8 +368,12 @@ def main(argv=None):
             else:
                 prop["odds_american"] = None
                 prop["odds_book"] = None
-        recent_missers = _recent_hr_missers(db, run_date)
-        hr_props = finalize_hr_props(hr_pool, recent_miss_players=recent_missers)
+        locked = _locked_hr_props(db, date_str, hr_pool)
+        if locked is not None:
+            hr_props = locked[:config.HR_PROP_MAX_PER_DAY]
+        else:
+            recent_missers = _recent_hr_missers(db, run_date)
+            hr_props = finalize_hr_props(hr_pool, recent_miss_players=recent_missers)
 
     raw_celestial, _, _ = celestial_signal_for(run_date)
     raw_numerology, _, _ = numerology_signal_for(run_date)
@@ -388,9 +415,7 @@ def main(argv=None):
 
 
 def _build_history(db, today_str):
-    """Past graded slates, newest first -- STRICTLY days before today_str.
-    Dates through LEDGER_CUTOFF and any date in SEED_OVERRIDE_DATES come from
-    the verified seed below; the DB supplies every other date after the cutoff."""
+    """Past graded slates, newest first -- STRICTLY days before today_str."""
     seed = [
         {"date": "2026-07-30",
          "parlay": ["PIT ML (-112)", "TB ML (-178)", "ATL ML (-154)", "CWS ML (-116)"],
