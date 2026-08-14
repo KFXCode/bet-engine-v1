@@ -95,25 +95,28 @@ FADE_MAX_PER_DAY = 5
 # ---------------------------------------------------------------------------
 HR_PROPS_ENABLED = True
 HR_PROP_MIN_SCORE = 0
-HR_PROP_MAX_PER_DAY = 3
+HR_PROP_MAX_PER_DAY = 3          # score-ranked "most likely to hit" slots
 HR_PROP_ROSTER_LIMIT = 9
 HR_PROP_STRONG_SCORE = 70
-HR_PROP_MIN_SEASON_HR = 10
-HR_PROP_TOP_N_POOL = 20
+# Floor lowered 10 -> 4 (Aug 14): the 10-HR floor was throwing out exactly the
+# mid-power / hot value bats (the +500-850 range on @MLBHR that keep homering).
+# 4 still filters pitchers and true slap hitters but opens the longshot pool.
+HR_PROP_MIN_SEASON_HR = 4
+# Cap removed (200 = effectively no cap): the top-20 restriction strangled the
+# board down to the same chalk sluggers. Score every eligible bat.
+HR_PROP_TOP_N_POOL = 200
+
+# Value-Longshot slots (Aug 14): the automated @MLBHR board. In addition to the
+# score-ranked picks above, surface the best plus-money bats by EV edge -- the
+# mispriced longshots the book slips up on. A bat priced >= +450 that grades as
+# a real edge is exactly the kind you keep seeing hit.
+HR_VALUE_LONGSHOT_SLOTS = 2
+HR_LONGSHOT_MIN_ODDS = 450       # American; +450 or longer counts as a longshot
 
 HR_EV_FILTER_ENABLED = True
 HR_MIN_EV_EDGE = 0.05
-# Score -> estimated true HR probability for the game. Recalibrated Aug 2026 to
-# realistic single-game HR rates so the +EV check is meaningful instead of
-# printing "no edge" on every elite spot. With base 0.06 + 0.005/point:
-#   score 55 -> ~8.5%   (weak spot -- correctly stays below any plus price)
-#   score 70 -> ~16%
-#   score 90 -> ~26%    (elite spot -- can beat a soft plus price = real value)
-#   score 100 -> capped 0.35
-# Deliberately NOT inflated: mediocre scores still read "no edge" against the
-# book, so the +EV flag only fires on genuinely strong spots at generous prices
-# (your "catch when the book slips up" goal). Still a heuristic prior -- it gets
-# refined as graded HR results accumulate.
+# Score -> estimated true HR probability for the game.
+#   score 55 -> ~8.5%   score 70 -> ~16%   score 90 -> ~26%   score 100 capped 0.35
 HR_PROB_BASE = 0.06
 HR_PROB_PER_POINT = 0.005
 HR_PROB_MAX = 0.35
