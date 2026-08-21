@@ -13,15 +13,17 @@ Method (weighted-nudge-from-market):
   4. edge_pct = model probability of the recommended side minus the fair
      market probability of that side.
 
-This intentionally treats the market as the prior and factors as nudges,
-because you told us there's no historical calibration yet. Once
-backtest/grader.py has graded a few weeks of picks, revisit
-config.FACTOR_WEIGHTS with what actually correlated with wins.
+FADE-PHASE MOON (Aug 21, 2026): the moon phase is now passed into the grading
+context so score_moon_zodiac can DOUBLE its own weight on fade phases
+(Waxing Gibbous / Full Moon / Waning Gibbous) -- the "public confidence high,
+overvalued favorites become fade material" nights. On those days lunar energy
+carries the same weight as the public/sharp money factor instead of being a
+rounding error that heavy favorites sail straight through.
 """
 
 from datetime import date as date_cls
 
-from data.celestial import celestial_signal_for
+from data.celestial import celestial_signal_for, moon_phase_for
 from data.numerology import numerology_signal_for
 from engine.grading_factors import GradingContext, score_all_factors
 from engine.models import SideEvaluation
@@ -61,6 +63,11 @@ def build_grading_context(game, odds, home_pitcher_profile, away_pitcher_profile
     celestial_signal = raw_celestial if home_is_favorite else -raw_celestial
     numerology_signal = raw_numerology if home_is_favorite else -raw_numerology
 
+    try:
+        moon_phase, _illum = moon_phase_for(run_date)
+    except Exception:
+        moon_phase = None
+
     ctx = GradingContext(
         game=game, home_pitcher_profile=home_pitcher_profile, away_pitcher_profile=away_pitcher_profile,
         home_offense=home_offense, away_offense=away_offense, home_record=home_record, away_record=away_record,
@@ -68,6 +75,7 @@ def build_grading_context(game, odds, home_pitcher_profile, away_pitcher_profile
         celestial_signal=celestial_signal, celestial_reasoning=celestial_reasoning,
         numerology_signal=numerology_signal, numerology_reasoning=numerology_reasoning,
         home_ml=odds.home_ml, away_ml=odds.away_ml,
+        moon_phase=moon_phase, home_is_favorite=home_is_favorite,
     )
     return ctx, fair_home, fair_away
 
