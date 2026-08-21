@@ -43,7 +43,7 @@
   .strip .item { font-size: 13px; color: var(--muted); }
   .strip .item b { color: var(--fg); }
 
-  .cosmic { max-width: 560px; margin: 14px auto 0; background: var(--card); border: 1px solid var(--card-border); border-radius: 12px; overflow: hidden; text-align: left; }
+  .cosmic { max-width: 520px; margin: 14px auto 0; background: var(--card); border: 1px solid var(--card-border); border-radius: 12px; overflow: hidden; text-align: left; }
   .cosmic > summary { list-style: none; cursor: pointer; padding: 12px 16px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent); }
   .cosmic > summary::-webkit-details-marker { display: none; }
   .cosmic .cx-chev { width: 14px; height: 14px; transition: transform 0.2s; }
@@ -56,7 +56,6 @@
   .cosmic .cx-lean { display: inline-block; margin-top: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 2px 8px; border-radius: 6px; }
   .cosmic .lean-fav { color: var(--accent); background: var(--accent-dim); }
   .cosmic .lean-dog { color: var(--warn); background: var(--warn-dim); }
-  .cosmic .cx-pick { display: block; margin-top: 5px; font-size: 12px; color: var(--fg); }
 
   .warnbox { background: var(--warn-dim); border: 1px solid var(--warn); color: var(--fg);
              border-radius: 10px; padding: 14px 18px; margin-bottom: 24px; font-size: 14px; }
@@ -143,9 +142,14 @@
   .bankroll .lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
   .bankroll .col { text-align: center; }
 
+  .sportrec { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 4px; }
+  .sportrec .chip { background: var(--card); border: 1px solid var(--card-border); border-radius: 999px;
+                    padding: 6px 12px; font-size: 12px; color: var(--muted); }
+  .sportrec .chip b { color: var(--fg); font-family: "SF Mono", "Roboto Mono", monospace; }
+
   .hist-day { margin-top: 24px; }
   .hist-cols { display: flex; gap: 16px; flex-wrap: wrap; }
-  .hist-cols .col { flex: 1 1 300px; }
+  .hist-cols .col { flex: 1 1 240px; }
   .hist-cols .col h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0 0 8px; font-weight: 700; }
   .leg-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
   .leg-row .n { color: var(--accent); font-weight: 800; font-size: 13px; }
@@ -180,28 +184,20 @@
     </div>
 
     {% set phase_meaning = {
-      'New Moon': ['Reset energy. Underdogs pop more, favorites slip (especially overvalued ones), and public money loses more often.', 'Look for value dogs or short lines.', 'dog'],
-      'Waxing Crescent': ['Momentum builds. Good teams trend upward.', 'Safer to take favorites if the other factors match.', 'fav'],
-      'First Quarter': ['Chaotic swings and big comebacks.', 'Live-betting edges; avoid heavy favorites.', 'dog'],
-      'Waxing Gibbous': ['Public confidence high. Fakes and traps show up; overvalued favorites become fade material.', 'Fade tired favorites and hyped teams.', 'dog'],
-      'Full Moon': ['Emotional energy high. Overs hit more, stars show out, home teams get a boost.', 'Talent wins -> lean favorites + overs.', 'fav'],
-      'Waning Gibbous': ['Regression period. Teams return to the mean.', 'Fade teams riding lucky streaks.', 'dog'],
-      'Last Quarter': ['Upset window. Strong defensive teams win.', 'Underdogs with defense.', 'dog'],
-      'Waning Crescent': ['Low energy. Fatigue hits hardest.', 'Travel/rest fades matter more.', 'fav']
+      'New Moon': ['Fresh-start energy, a clean slate. Blank canvas favors the stronger, more disciplined side.', 'fav'],
+      'Waxing Crescent': ['Building momentum. Energy is rising toward the favorite as intention takes hold.', 'fav'],
+      'First Quarter': ['A tension/decision point. Push-and-pull energy makes it a coin-flip lean.', 'neutral'],
+      'Waxing Gibbous': ['Public confidence runs high -- fakes and traps show up, and overvalued favorites become fade material.', 'dog'],
+      'Full Moon': ['Peak emotion and chaos. High-variance night -- fade the heavy public favorite, upsets spike.', 'dog'],
+      'Waning Gibbous': ['Release and letdown after the peak. Hot win-streak teams are prime fade spots here.', 'dog'],
+      'Last Quarter': ['Clearing out, re-evaluation. Energy is neutral and unsettled.', 'neutral'],
+      'Waning Crescent': ['Low-energy, fatigue, emotional wind-down. Rest/home-comfort edges matter; slight favorite lean.', 'fav']
     } %}
-    {% set sign_meaning = {
-      'Aries': ['Fast starts, high scoring, aggressive energy.', 'Overs / athletic teams.', 'neutral'],
-      'Taurus': ['Slow pace, grind-it-out tempo control.', 'Unders / teams that control tempo.', 'neutral'],
-      'Gemini': ['Chaos, swings, momentum shifts.', 'Avoid big favorites.', 'dog'],
-      'Cancer': ['Home advantage runs strong.', 'Home teams get a boost.', 'fav'],
-      'Leo': ['Stars shine brightest.', 'Superstar advantage.', 'fav'],
-      'Virgo': ['Discipline wins.', 'Defensive teams.', 'fav'],
-      'Libra': ['Balanced games, tight margins.', 'Spreads stay close.', 'neutral'],
-      'Scorpio': ['Purge energy.', 'Upsets and reversals.', 'dog'],
-      'Sagittarius': ['Fast pace and high scoring.', 'Overs / aggressive teams.', 'neutral'],
-      'Capricorn': ['Defense and fundamentals matter.', 'Grinders and favorites that execute.', 'fav'],
-      'Aquarius': ['Random results, weird upsets.', 'Expect the unexpected -- dog value.', 'dog'],
-      'Pisces': ['Emotional games, momentum swings.', 'Ride the hot hand; fade flat teams.', 'dog']
+    {% set element_meaning = {
+      'fire': ['Fire signs (Aries, Leo, Sagittarius) bring bold, aggressive, fast-paced energy -- high scoring, favors the stronger team asserting itself.', 'fav'],
+      'earth': ['Earth signs (Taurus, Virgo, Capricorn) are grounded and steady -- lower scoring, favors the disciplined, better-run team.', 'fav'],
+      'air': ['Air signs (Gemini, Libra, Aquarius) are unpredictable and scattered -- nudges toward chaos and the underdog.', 'dog'],
+      'water': ['Water signs (Cancer, Scorpio, Pisces) bring emotional swings and volatility -- underdog/upset energy.', 'dog']
     } %}
     {% set number_meaning = {
       1: 'Leadership & new beginnings -- backs the front-runner.',
@@ -217,30 +213,30 @@
       22: 'Master number -- the master builder under strain; upset energy.',
       33: 'Master number -- rare harmony and balance.'
     } %}
-    {% set pm = phase_meaning.get(celestial.phase, ['Moon-phase energy shading the slate today.', '', 'neutral']) %}
-    {% set sm = sign_meaning.get(celestial.sign, ['The sign the Moon is transiting colors the daily style of play.', '', 'neutral']) %}
+    {% set el = celestial.element if celestial.element else '' %}
+    {% set fade_phases = ['Waxing Gibbous', 'Full Moon', 'Waning Gibbous'] %}
     <details class="cosmic">
       <summary>Why today's moon &amp; numbers matter <svg class="cx-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg></summary>
       <div class="cx-body">
         <div class="cx-row">
           <div class="cx-h">🌙 {{ celestial.phase }}{% if celestial.illumination is defined %} &middot; {{ '%.0f' | format(celestial.illumination * 100) }}% lit{% endif %}</div>
-          <div class="cx-t">{{ pm[0] }}</div>
-          {% if pm[1] %}<span class="cx-pick"><b style="color:var(--fg);">Pick lean:</b> {{ pm[1] }}</span>{% endif %}
-          {% if pm[2] == 'fav' %}<span class="cx-lean lean-fav">Leans favorite</span>{% elif pm[2] == 'dog' %}<span class="cx-lean lean-dog">Leans underdog</span>{% else %}<span class="cx-lean" style="color:var(--muted); background:rgba(255,255,255,0.06);">Neutral / coin-flip</span>{% endif %}
+          <div class="cx-t">{{ phase_meaning.get(celestial.phase, ['Moon-phase energy shading the slate today.', 'neutral'])[0] }}</div>
+          {% set pl = phase_meaning.get(celestial.phase, ['', 'neutral'])[1] %}
+          {% if pl == 'fav' %}<span class="cx-lean lean-fav">Leans favorite</span>{% elif pl == 'dog' %}<span class="cx-lean lean-dog">Leans underdog</span>{% else %}<span class="cx-lean" style="color:var(--muted); background:rgba(255,255,255,0.06);">Neutral / coin-flip</span>{% endif %}
+          {% if celestial.phase in fade_phases %}<div class="cx-t" style="margin-top:8px; color:var(--warn);"><b>Fade phase active:</b> lunar weight is DOUBLED today (0.06, same as the public/sharp factor), so hyped and tired favorites get pushed down and value sides get pushed up.</div>{% endif %}
         </div>
         <div class="cx-row">
-          <div class="cx-h">♒ Moon in {{ celestial.sign }} &middot; style of play</div>
-          <div class="cx-t">{{ sm[0] }}</div>
-          {% if sm[1] %}<span class="cx-pick"><b style="color:var(--fg);">Favors:</b> {{ sm[1] }}</span>{% endif %}
-          {% if sm[2] == 'fav' %}<span class="cx-lean lean-fav">Leans favorite</span>{% elif sm[2] == 'dog' %}<span class="cx-lean lean-dog">Leans underdog</span>{% else %}<span class="cx-lean" style="color:var(--muted); background:rgba(255,255,255,0.06);">Style, not a side</span>{% endif %}
+          <div class="cx-h">♒ Moon in {{ celestial.sign }}{% if el %} &middot; {{ el|capitalize }} sign{% endif %}</div>
+          <div class="cx-t">{{ element_meaning.get(el, ['The sign the Moon is transiting colors the daily tone.', 'neutral'])[0] }}</div>
+          {% set sl = element_meaning.get(el, ['', 'neutral'])[1] %}
+          {% if sl == 'fav' %}<span class="cx-lean lean-fav">Leans favorite</span>{% elif sl == 'dog' %}<span class="cx-lean lean-dog">Leans underdog</span>{% else %}<span class="cx-lean" style="color:var(--muted); background:rgba(255,255,255,0.06);">Neutral</span>{% endif %}
         </div>
         <div class="cx-row">
           <div class="cx-h">🔢 Numerology {{ numerology.number }}</div>
           <div class="cx-t">{{ number_meaning.get(numerology.number, 'The date reduces to this number, setting the underlying tone.') }}</div>
-          <span class="cx-pick" style="color:var(--muted);">Numerology never decides a pick alone -- it confirms or denies the moon read.</span>
         </div>
         <div class="cx-row">
-          <div class="cx-t" style="font-size:12px;">These are weighted <b style="color:var(--fg);">nudges</b>, not the driver -- they tip close calls but never override talent, pitching, and the money/sharp read.</div>
+          <div class="cx-t" style="font-size:12px;">These are weighted <b style="color:var(--fg);">nudges</b> -- they tip close calls, and on fade phases they carry real weight, but they never override talent, pitching, and the money/sharp read.</div>
         </div>
       </div>
     </details>
@@ -324,9 +320,6 @@
     {% if sport == 'MLB' %}
     <div class="section-title"><span>HR Props</span><span class="expand-all" onclick="toggleAll(this)">Expand all</span></div>
     {% if hr_props %}
-      {% if (hr_props | selectattr('odds_american', 'none') | list | length) == (hr_props | length) %}
-      <div class="dropped" style="border-color:var(--accent-dim); margin-bottom:14px;">💡 HR odds populate closer to game time — FanDuel usually posts HR props a few hours before first pitch. The picks below are locked in; re-run the report early-afternoon for live odds.</div>
-      {% endif %}
       {% for prop in hr_props %}
       {% set strong = prop.score >= 70 %}
       <details class="pick{% if loop.first %} top-prop{% endif %}">
@@ -386,7 +379,7 @@
         <div class="leg-row"><span class="n">Leg {{ loop.index }}</span><span class="lbl">{{ leg.label }}</span><span class="kind-tag">{{ leg.sport }}</span></div>
         {% endfor %}
       </div>
-      <div class="note" style="color:var(--muted); font-size:13px; margin-top:8px;">The two safest ML picks across all sports that combine to roughly double a 1-unit stake. Flat 1 unit.</div>
+      <div class="note" style="color:var(--muted); font-size:13px; margin-top:8px;">The two safest ML picks across all sports that combine to roughly double a 1-unit stake. Flat 1 unit. Tracked daily in History.</div>
     </div>
     {% endif %}
     <div class="section-title"><span>Top Parlay of the Day &middot; all sports combined</span></div>
@@ -414,7 +407,21 @@
       <div class="col"><div class="num" style="color:{% if bankroll.clv_avg is not none and bankroll.clv_avg > 0 %}var(--accent){% elif bankroll.clv_avg is not none and bankroll.clv_avg < 0 %}var(--warn){% else %}var(--fg){% endif %};">{% if bankroll.clv_avg is not none %}{{ '%+.1f' | format(bankroll.clv_avg) }}%{% else %}--{% endif %}</div><div class="lbl">Avg CLV (ML)</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">{% if bankroll.clv_n %}beat close {{ bankroll.clv_beat|int }}% &middot; n={{ bankroll.clv_n }}{% else %}building sample{% endif %}</div></div>
     </div>
     {% endif %}
+
     {% if history %}
+      {% set all_picks = [] %}
+      {% for day in history %}{% for p in day['picks'] %}{% if all_picks.append(p) %}{% endif %}{% endfor %}{% endfor %}
+      {% set sports_seen = all_picks | map(attribute='sport') | select('defined') | list | unique | list %}
+      {% if sports_seen | length > 1 %}
+      <div class="sportrec">
+        {% for s in sports_seen %}
+        {% set sw = all_picks | selectattr('sport','equalto',s) | selectattr('status','equalto','won') | list | length %}
+        {% set sl = all_picks | selectattr('sport','equalto',s) | selectattr('status','equalto','lost') | list | length %}
+        <div class="chip">{{ s }} <b>{{ sw }}-{{ sl }}</b></div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
       {% for day in history %}
       <div class="hist-day">
         <div class="section-title" style="margin:0 0 12px;">{{ day.date }}
@@ -432,6 +439,7 @@
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:{{ '#2fd07a' if item.status == 'won' else ('#e5484d' if item.status == 'lost' else 'var(--muted)') }};">{% if item.status == 'won' %}&#10003;{% elif item.status == 'lost' %}&#10007;{% else %}&ndash;{% endif %}</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">{{ item.label }}</span>
                 <span class="kind-tag">{{ 'HR' if item.kind == 'hr_prop' else 'ML' }}</span>
+                {% if item.sport and item.sport != 'MLB' %}<span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">{{ item.sport }}</span>{% endif %}
               </div>
               {% endfor %}
             </div>
@@ -445,6 +453,18 @@
                 {% endfor %}
               {% else %}
                 <span style="color:var(--muted);">No parlay this day.</span>
+              {% endif %}
+            </div>
+          </div>
+          <div class="col">
+            <h4>Double Your Money</h4>
+            <div class="dropped" style="margin-bottom:0; border-color:var(--accent);">
+              {% if day['double'] %}
+                {% for leg in day['double'] %}
+                <div class="leg-row" style="margin-bottom:{{ '10px' if not loop.last else '0' }};"><span class="n" style="font-size:12px;">Leg {{ loop.index }}</span><span class="lbl" style="font-size:14px;">{{ leg }}</span></div>
+                {% endfor %}
+              {% else %}
+                <span style="color:var(--muted);">No 2-leg ticket this day.</span>
               {% endif %}
             </div>
           </div>
