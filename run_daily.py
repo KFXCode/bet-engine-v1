@@ -99,10 +99,10 @@ def _fetch_schedule(sport, date_str):
 
 
 def _recent_hr_missers(db, run_date):
-    """NORMALIZED names to fade for ROTATION (hard no-repeat, no win-exemption):
-    faded if appeared on any of the last HR_HARD_BENCH_DAYS days, or picked
-    HR_ROTATION_MAX_APPEARANCES+ times in the last HR_ROTATION_LOOKBACK_DAYS.
-    Only applies when SETTING a fresh board -- never overrides a locked day."""
+    """NORMALIZED names to fade for ROTATION (hard no-repeat): faded if seen on
+    any of the last HR_HARD_BENCH_DAYS days, or picked
+    HR_ROTATION_MAX_APPEARANCES+ times in HR_ROTATION_LOOKBACK_DAYS. Only
+    applies when SETTING a fresh board -- never overrides a locked day."""
     appearances = {}
     recent_days = set()
     for i in range(1, HR_ROTATION_LOOKBACK_DAYS + 1):
@@ -129,10 +129,8 @@ def _recent_hr_missers(db, run_date):
 
 
 def _locked_hr_props(db, date_str, pool):
-    """If today's 3 HR picks are ALREADY logged, reuse those exact players (with
-    fresh odds/reasoning from the pool) so the board never changes through the
-    day -- the 3 you see are the 3 that get graded. Returns the locked list, or
-    None if nothing is logged yet (first run of the day)."""
+    """If today's HR picks are ALREADY logged, reuse those exact players (with
+    fresh odds/reasoning) so the board never changes through the day."""
     try:
         existing = db.get_recommendations_for_date(date_str, kind="hr_prop")
     except Exception as exc:
@@ -395,7 +393,8 @@ def main(argv=None):
     earliest_first_pitch = min(first_pitches) if first_pitches else None
 
     log_recommendations(db, date_str, plays, hr_props, top_parlay,
-                        sport_parlays=sport_parlays, first_pitch_utc=earliest_first_pitch)
+                        sport_parlays=sport_parlays, double_parlay=double_parlay,
+                        first_pitch_utc=earliest_first_pitch)
 
     history = _build_history(db, date_str)
     report = DailyReport(
@@ -415,64 +414,72 @@ def main(argv=None):
 
 
 def _build_history(db, today_str):
-    """Past graded slates, newest first -- STRICTLY days before today_str."""
+    """Past graded slates, newest first -- STRICTLY days before today_str.
+    Each day carries: picks (tagged with their SPORT so WNBA/NFL/etc results
+    are visible, not just MLB), that day's Best Parlay, and the 2-leg Double
+    Your Money ticket."""
     seed = [
         {"date": "2026-07-30",
          "parlay": ["PIT ML (-112)", "TB ML (-178)", "ATL ML (-154)", "CWS ML (-116)"],
+         "double": [],
          "picks": [
-            {"label": "TB ML (-178)", "status": "won", "kind": "moneyline"},
-            {"label": "ATL ML (-154)", "status": "won", "kind": "moneyline"},
-            {"label": "CWS ML (-116)", "status": "won", "kind": "moneyline"},
-            {"label": "PIT ML (-112)", "status": "lost", "kind": "moneyline"},
-            {"label": "MIA ML (+110)", "status": "lost", "kind": "moneyline"},
-            {"label": "Munetaka Murakami to hit a HR", "status": "lost", "kind": "hr_prop"},
-            {"label": "James Wood to hit a HR", "status": "lost", "kind": "hr_prop"},
-            {"label": "Drake Baldwin to hit a HR", "status": "lost", "kind": "hr_prop"},
+            {"label": "TB ML (-178)", "status": "won", "kind": "moneyline", "sport": "MLB"},
+            {"label": "ATL ML (-154)", "status": "won", "kind": "moneyline", "sport": "MLB"},
+            {"label": "CWS ML (-116)", "status": "won", "kind": "moneyline", "sport": "MLB"},
+            {"label": "PIT ML (-112)", "status": "lost", "kind": "moneyline", "sport": "MLB"},
+            {"label": "MIA ML (+110)", "status": "lost", "kind": "moneyline", "sport": "MLB"},
+            {"label": "Munetaka Murakami to hit a HR", "status": "lost", "kind": "hr_prop", "sport": "MLB"},
+            {"label": "James Wood to hit a HR", "status": "lost", "kind": "hr_prop", "sport": "MLB"},
+            {"label": "Drake Baldwin to hit a HR", "status": "lost", "kind": "hr_prop", "sport": "MLB"},
         ]},
         {"date": "2026-07-29",
          "parlay": ["TOR ML", "TB ML", "ATL (Gm 2) ML", "BOS ML"],
+         "double": [],
          "picks": [
-            {"label": "TOR ML", "status": "won", "kind": "moneyline"},
-            {"label": "TB ML", "status": "won", "kind": "moneyline"},
-            {"label": "ATL (Gm 2) ML", "status": "won", "kind": "moneyline"},
-            {"label": "BOS ML", "status": "won", "kind": "moneyline"},
-            {"label": "Max Muncy to hit a HR", "status": "lost", "kind": "hr_prop"},
-            {"label": "Kazuma Okamoto to hit a HR", "status": "lost", "kind": "hr_prop"},
-            {"label": "James Wood to hit a HR", "status": "lost", "kind": "hr_prop"},
+            {"label": "TOR ML", "status": "won", "kind": "moneyline", "sport": "MLB"},
+            {"label": "TB ML", "status": "won", "kind": "moneyline", "sport": "MLB"},
+            {"label": "ATL (Gm 2) ML", "status": "won", "kind": "moneyline", "sport": "MLB"},
+            {"label": "BOS ML", "status": "won", "kind": "moneyline", "sport": "MLB"},
+            {"label": "Max Muncy to hit a HR", "status": "lost", "kind": "hr_prop", "sport": "MLB"},
+            {"label": "Kazuma Okamoto to hit a HR", "status": "lost", "kind": "hr_prop", "sport": "MLB"},
+            {"label": "James Wood to hit a HR", "status": "lost", "kind": "hr_prop", "sport": "MLB"},
         ]},
         {"date": "2026-07-26",
          "parlay": ["BOS ML (-112)", "ARI ML (+102)", "MIL ML (-238)", "CWS ML (+109)"],
+         "double": [],
          "picks": [
-            {"label": "BOS ML (-112)", "status": "won", "kind": "moneyline"},
-            {"label": "MIL ML (-238)", "status": "won", "kind": "moneyline"},
-            {"label": "CWS ML (+109)", "status": "won", "kind": "moneyline"},
-            {"label": "MIN ML", "status": "won", "kind": "moneyline"},
-            {"label": "ARI ML (+102)", "status": "lost", "kind": "moneyline"},
-            {"label": "Pete Alonso to hit a HR (+280)", "status": "won", "kind": "hr_prop"},
-            {"label": "Dominic Canzone to hit a HR", "status": "won", "kind": "hr_prop"},
-            {"label": "Brandon Nimmo to hit a HR", "status": "lost", "kind": "hr_prop"},
+            {"label": "BOS ML (-112)", "status": "won", "kind": "moneyline", "sport": "MLB"},
+            {"label": "MIL ML (-238)", "status": "won", "kind": "moneyline", "sport": "MLB"},
+            {"label": "CWS ML (+109)", "status": "won", "kind": "moneyline", "sport": "MLB"},
+            {"label": "MIN ML", "status": "won", "kind": "moneyline", "sport": "MLB"},
+            {"label": "ARI ML (+102)", "status": "lost", "kind": "moneyline", "sport": "MLB"},
+            {"label": "Pete Alonso to hit a HR (+280)", "status": "won", "kind": "hr_prop", "sport": "MLB"},
+            {"label": "Dominic Canzone to hit a HR", "status": "won", "kind": "hr_prop", "sport": "MLB"},
+            {"label": "Brandon Nimmo to hit a HR", "status": "lost", "kind": "hr_prop", "sport": "MLB"},
         ]},
         {"date": "2026-07-25",
          "parlay": ["TB ML (-120)", "STL ML (-112)", "WSH ML (-134)", "ARI ML"],
+         "double": [],
          "picks": [
-            {"label": "ARI ML", "status": "won", "kind": "moneyline"},
-            {"label": "WSH ML (-134)", "status": "won", "kind": "moneyline"},
-            {"label": "STL ML (-112)", "status": "won", "kind": "moneyline"},
-            {"label": "TB ML (-120)", "status": "won", "kind": "moneyline"},
-            {"label": "MIA ML (-142)", "status": "lost", "kind": "moneyline"},
-            {"label": "Bryan De La Cruz to hit a HR", "status": "lost", "kind": "hr_prop"},
-            {"label": "Christian Encarnacion-Strand to hit a HR", "status": "lost", "kind": "hr_prop"},
-            {"label": "Dominic Canzone to hit a HR", "status": "lost", "kind": "hr_prop"},
+            {"label": "ARI ML", "status": "won", "kind": "moneyline", "sport": "MLB"},
+            {"label": "WSH ML (-134)", "status": "won", "kind": "moneyline", "sport": "MLB"},
+            {"label": "STL ML (-112)", "status": "won", "kind": "moneyline", "sport": "MLB"},
+            {"label": "TB ML (-120)", "status": "won", "kind": "moneyline", "sport": "MLB"},
+            {"label": "MIA ML (-142)", "status": "lost", "kind": "moneyline", "sport": "MLB"},
+            {"label": "Bryan De La Cruz to hit a HR", "status": "lost", "kind": "hr_prop", "sport": "MLB"},
+            {"label": "Christian Encarnacion-Strand to hit a HR", "status": "lost", "kind": "hr_prop", "sport": "MLB"},
+            {"label": "Dominic Canzone to hit a HR", "status": "lost", "kind": "hr_prop", "sport": "MLB"},
         ]},
         {"date": "2026-07-24",
          "parlay": [],
+         "double": [],
          "picks": [
-            {"label": "ARI ML (-124)", "status": "won", "kind": "moneyline"},
-            {"label": "MIL ML (-122)", "status": "lost", "kind": "moneyline"},
-            {"label": "MIN ML (-144)", "status": "lost", "kind": "moneyline"},
-            {"label": "Christian Encarnacion-Strand to hit a HR (+450)", "status": "won", "kind": "hr_prop"},
-            {"label": "Drake Baldwin to hit a HR (+422)", "status": "won", "kind": "hr_prop"},
-            {"label": "Matt Olson to hit a HR (+310)", "status": "won", "kind": "hr_prop"},
+            {"label": "ARI ML (-124)", "status": "won", "kind": "moneyline", "sport": "MLB"},
+            {"label": "MIL ML (-122)", "status": "lost", "kind": "moneyline", "sport": "MLB"},
+            {"label": "MIN ML (-144)", "status": "lost", "kind": "moneyline", "sport": "MLB"},
+            {"label": "Christian Encarnacion-Strand to hit a HR (+450)", "status": "won", "kind": "hr_prop", "sport": "MLB"},
+            {"label": "Drake Baldwin to hit a HR (+422)", "status": "won", "kind": "hr_prop", "sport": "MLB"},
+            {"label": "Matt Olson to hit a HR (+310)", "status": "won", "kind": "hr_prop", "sport": "MLB"},
         ]},
     ]
     by_date = {}
@@ -486,6 +493,7 @@ def _build_history(db, today_str):
         if d not in by_date:
             by_date[d] = []
             order.append(d)
+        sport = r.get("sport") or "MLB"
         if r["kind"] == "moneyline":
             odds = r["odds_american"]
             label = f"{r['team']} ML ({odds:+d})" if odds is not None else f"{r['team']} ML"
@@ -494,12 +502,17 @@ def _build_history(db, today_str):
             label = f"{r['side_or_player']} to hit a HR ({odds:+d})" if odds is not None else f"{r['side_or_player']} to hit a HR"
         else:
             continue
-        by_date[d].append({"label": label, "status": r["status"], "kind": r["kind"]})
+        by_date[d].append({"label": label, "status": r["status"], "kind": r["kind"], "sport": sport})
     db_days = []
     for d in order:
         parlay_rows = db.get_recommendations_for_date(d, kind="parlay_leg")
-        db_days.append({"date": d, "picks": by_date[d],
-                        "parlay": [r["side_or_player"] for r in parlay_rows]})
+        double_rows = db.get_recommendations_for_date(d, kind="double_parlay_leg")
+        db_days.append({
+            "date": d,
+            "picks": by_date[d],
+            "parlay": [r["side_or_player"] for r in parlay_rows],
+            "double": [r["side_or_player"] for r in double_rows],
+        })
     all_days = db_days + seed
     all_days.sort(key=lambda x: x["date"], reverse=True)
     return [d for d in all_days if d["date"] < today_str]
@@ -521,7 +534,8 @@ def _build_results_recap(db, date_str):
             label = f"{r['side_or_player']} to hit a HR ({odds:+d})" if odds is not None else f"{r['side_or_player']} to hit a HR"
         else:
             continue
-        items.append({"label": label, "status": r["status"], "kind": r["kind"]})
+        items.append({"label": label, "status": r["status"], "kind": r["kind"],
+                      "sport": r.get("sport") or "MLB"})
     return {"date": recap_date, "picks": items}
 
 
