@@ -5,16 +5,19 @@ Post-game review: fetch final scores for any game with pending moneyline
 recommendations, mark each recommendation won/lost, and roll the result into
 bankroll_log. run_daily.py calls this automatically at the start of each run.
 
-HR props are auto-graded here too, from the final boxscore -- but ONLY once
-the game is Final. Grading an in-progress game marked every not-yet-homered
-player "lost", which (combined with pre-lock re-runs) padded the HR ledger
-with false losses. We now gate HR settlement on a Final game state, same as
-moneyline.
+ALL SPORTS (Aug 21, 2026): this used to settle every pick through
+statsapi.mlb.com. A WNBA/NFL/NBA/NHL/NCAA game_id means nothing to that
+endpoint, so those picks silently stayed "pending" FOREVER and never showed up
+in the History tab -- which is why WNBA results were missing. Non-MLB picks now
+settle through data/final_scores.py (ESPN scoreboard), matched on the stored
+game's date + team abbreviations since our non-MLB ids are hashes.
 
-CLV (Closing Line Value): when a moneyline pick is graded, compare the PRICE
-we recommended to the CLOSING line (last odds snapshot). Positive CLV = the
-market moved toward our side after we picked it -- the most reliable signal a
-pick was genuinely +EV, win or lose. Stored per pick, summarized on the report.
+HR props are auto-graded from the final boxscore -- but ONLY once the game is
+Final, so an in-progress game can't mark every not-yet-homered player "lost".
+
+CLV (Closing Line Value): when a moneyline pick is graded, compare the PRICE we
+recommended to the CLOSING line. Positive CLV = the market moved toward our
+side after we picked it -- the most reliable signal a pick was genuinely +EV.
 """
 
 import logging
@@ -26,6 +29,7 @@ import requests
 
 import config
 from data.lineups import get_hr_settled_players
+from data.final_scores import get_final_score_espn
 
 logger = logging.getLogger(__name__)
 
@@ -76,16 +80,31 @@ def grade_pending(db):
     hr_settlement_cache = {}  # game_id -> set(names) | None
     by_date = {}
 
-    def _final(game_id):
-        if game_id not in final_cache:
-            final_cache[game_id] = _get_final_score(game_id)
-        return final_cache[game_id]
+    def _final(game_id, sport):
+        """MLB settles through statsapi; every other sport settles through the
+        ESPN scoreboard using the stored date + team abbreviations."""
+        if game_id in final_cache:
+            return final_cache[game_id]
+        if sport and sport != "MLB":
+            row = db.get_game(game_id)
+            result = None
+            if row:
+                result = get_final_score_espn(sport, row.get("date"),
+                                              row.get("home_team"), row.get("away_team"))
+            else:
+                logger.debug("No stored game row for %s (%s) -- cannot settle.", game_id, sport)
+        else:
+            result = _get_final_score_mlb(game_id)
+        final_cache[game_id] = result
+        return result
 
     for rec in pending:
+        sport = rec.get("sport") or "MLB"
+
         if rec["kind"] == "hr_prop" and rec["game_id"]:
             # Gate on Final: never grade an HR prop while the game is live, or
             # a player who simply hasn't homered YET gets marked a loss.
-            if _final(rec["game_id"]) is None:
+            if _final(rec["game_id"], sport) is None:
                 continue
             if rec["game_id"] not in hr_settlement_cache:
                 hr_settlement_cache[rec["game_id"]] = get_hr_settled_players(rec["game_id"])
@@ -101,7 +120,7 @@ def grade_pending(db):
 
         if rec["kind"] != "moneyline" or not rec["game_id"]:
             continue
-        result = _final(rec["game_id"])
+        result = _final(rec["game_id"], sport)
         if result is None:
             continue
 
@@ -118,6 +137,8 @@ def grade_pending(db):
         db.set_recommendation_status(rec["id"], status)
         db.record_result(rec["game_id"], home_score, away_score, datetime.now(timezone.utc).isoformat())
         graded_count += 1
+        logger.info("%s ML graded %s: %s %s -> %s",
+                    sport, rec["date"], rec.get("team"), rec["side_or_player"], status)
 
         day = by_date.setdefault(rec["date"], {"staked": 0.0, "won": 0.0, "d_staked": 0.0,
                                                  "d_won": 0.0, "wins": 0, "graded": 0})
@@ -143,10 +164,11 @@ def grade_pending(db):
             bets_graded=totals["graded"], wins=totals["wins"],
         )
 
+    logger.info("Grading pass complete: %d moneyline, %d HR props settled.", graded_count, hr_graded)
     return {"graded": graded_count, "hr_graded": hr_graded}
 
 
-def _get_final_score(game_id):
+def _get_final_score_mlb(game_id):
     try:
         resp = requests.get(f"https://statsapi.mlb.com/api/v1.1/game/{game_id}/feed/live", timeout=15)
         resp.raise_for_status()
@@ -161,7 +183,7 @@ def _get_final_score(game_id):
             return None
         return home, away
     except Exception as exc:
-        logger.debug("final score fetch failed for game %s: %s", game_id, exc)
+        logger.debug("final score fetch failed for MLB game %s: %s", game_id, exc)
         return None
 
 
