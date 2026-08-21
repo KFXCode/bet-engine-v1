@@ -1,15 +1,23 @@
 """
 output/history_log.py
 =======================
-Writes today's recommendations (picks + per-sport Best Parlay legs + the
-cross-sport TOP parlay legs) into the recommendations table, tagged by sport,
+Writes today's recommendations into the recommendations table, tagged by sport,
 and computes the rolling bankroll/P&L summary. Grading happens the NEXT run,
 in backtest/grader.py -- today's picks start "pending".
 
-Pre-lock change tracking: each time a pre-game re-run REPLACES the day's
-picks, we diff the new set against the previous set and append a plain-English
-note to data_store/pick_changes_<date>.json. run_daily reads these back so the
-report can show what changed during the day before the slate locked.
+WHAT GETS LOGGED (so History can show all of it):
+  moneyline / hr_prop  -- the day's picks, each tagged with its sport
+  parlay_leg           -- each sport's own Best Parlay legs (tagged that sport)
+  top_parlay_leg       -- the cross-sport TOP parlay legs (sport='TOP')
+  double_parlay_leg    -- the 2-leg "Double Your Money" ticket (sport='DOUBLE')
+                          ADDED Aug 21, 2026: this was being built and shown on
+                          the page but never written to the DB, so it never
+                          appeared in the History tab. Now it is recorded daily
+                          like every other ticket.
+
+Pre-lock change tracking: each time a pre-game re-run REPLACES the day's picks,
+we diff the new set against the previous set and append a plain-English note to
+data_store/pick_changes_<date>.json.
 """
 
 import json
@@ -86,8 +94,20 @@ def _record_changes(date_str, existing, plays, hr_props):
     _save_pick_changes(date_str, changes)
 
 
+def _log_parlay_legs(db, date_str, parlay, kind, sport, now_iso):
+    """Write one row per leg of a parlay ticket so it lands in History."""
+    for leg in (parlay or {}).get("legs", []):
+        db.insert_recommendation(
+            date=date_str, game_id=None, kind=kind,
+            side_or_player=leg.get("label", ""), team=None, sport=sport,
+            odds_american=None, edge_pct=None, model_prob=None, market_prob=None,
+            stake_units=0.0, stake_dollars=0.0, reasoning=[], factor_scores=[],
+            created_at=now_iso,
+        )
+
+
 def log_recommendations(db, date_str, plays, hr_props, top_parlay=None,
-                        sport_parlays=None, first_pitch_utc=None):
+                        sport_parlays=None, double_parlay=None, first_pitch_utc=None):
     now = datetime.now(timezone.utc)
     now_iso = now.isoformat()
     sport_parlays = sport_parlays or {}
@@ -106,11 +126,10 @@ def log_recommendations(db, date_str, plays, hr_props, top_parlay=None,
         if locked:
             return
         _record_changes(date_str, existing, plays, hr_props)
-        # Pre-lock replace: wipe ALL of today's rows (not just pending). If an
-        # in-progress game got a row graded earlier in the day, a pending-only
-        # delete would leave it behind and the re-insert would DUPLICATE the
-        # slate -- exactly what padded the HR ledger to 2-73. Pre-lock means
-        # no legit result exists yet, so a full wipe of today is safe.
+        # Pre-lock replace: wipe ALL of today's rows (not just pending). A
+        # pending-only delete would leave an already-graded row behind and the
+        # re-insert would DUPLICATE the slate. Pre-lock means no legit result
+        # exists yet, so a full wipe of today is safe.
         with db.cursor() as cur:
             cur.execute("DELETE FROM recommendations WHERE date=?", (date_str,))
 
@@ -138,24 +157,10 @@ def log_recommendations(db, date_str, plays, hr_props, top_parlay=None,
         )
 
     for sport, par in sport_parlays.items():
-        for leg in (par or {}).get("legs", []):
-            db.insert_recommendation(
-                date=date_str, game_id=None, kind="parlay_leg",
-                side_or_player=leg["label"], team=None, sport=sport, odds_american=None,
-                edge_pct=None, model_prob=None, market_prob=None,
-                stake_units=0.0, stake_dollars=0.0, reasoning=[], factor_scores=[],
-                created_at=now_iso,
-            )
+        _log_parlay_legs(db, date_str, par, "parlay_leg", sport, now_iso)
 
-    if top_parlay and top_parlay.get("legs"):
-        for leg in top_parlay["legs"]:
-            db.insert_recommendation(
-                date=date_str, game_id=None, kind="top_parlay_leg",
-                side_or_player=leg["label"], team=None, sport="TOP", odds_american=None,
-                edge_pct=None, model_prob=None, market_prob=None,
-                stake_units=0.0, stake_dollars=0.0, reasoning=[], factor_scores=[],
-                created_at=now_iso,
-            )
+    _log_parlay_legs(db, date_str, top_parlay, "top_parlay_leg", "TOP", now_iso)
+    _log_parlay_legs(db, date_str, double_parlay, "double_parlay_leg", "DOUBLE", now_iso)
 
 
 def bankroll_summary(db, history_days=None):
