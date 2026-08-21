@@ -4,24 +4,27 @@ engine/hr_props.py
 HR Prop Workflow -- runs daily alongside moneyline.
 
 ONE ranked board of 3 picks (locked per day in run_daily). Scoring is
-SPOT-driven, and as of Aug 14 the biggest single input is RECENT FORM pulled
-from the MLB Stats API game logs (data/recent_form.py) -- the source that
-loads reliably from GitHub Actions, unlike the Baseball Savant barrel scrape
-which is usually blocked there. This is what lets the model see a genuinely
-hot bat instead of falling back to season-HR totals + park only.
+SPOT-driven, and the biggest single input is RECENT FORM pulled from the MLB
+Stats API game logs (data/recent_form.py) -- the source that loads reliably
+from GitHub Actions, unlike the Baseball Savant barrel scrape.
 
-Layers:
-  1. Recent form (HEAVY)      -- last-15-day HR rate / ISO / HR count (reliable)
-  2. Barrel signal (BONUS)    -- Statcast barrel% WHEN it loads (often blocked)
-  3. Pitcher vulnerability    -- opposing SP barrel%/HR-9 allowed
-  4. Park overlay             -- HR park factor
-  5. Season power (support)   -- season HR total, a supporting factor not the driver
-  6. +EV tag, rotation fade, one pick/game -- handled in finalize_hr_props / run_daily
+SCORE RECALIBRATION (Aug 21, 2026): when recent form was added, the component
+bonuses summed to ~134, so every decent bat clipped to 100.0 and the score
+stopped separating anything -- rank #1 and rank #3 both read "100.0 STRONG".
+The scale is now built so the maximum realistic total lands at 100 and only a
+bat that is elite in EVERY layer approaches it:
 
-Missing barrel data never drops a bat. A bat is dropped only if it can't be
-identified at all, or is under the season-HR floor with no recent-form signal.
+    base 35
+    + recent form   up to +22   (the heaviest input)
+    + season power  up to +8
+    + barrel bonus  up to +10   (when Savant loads)
+    + pitcher vuln  up to +10
+    + HR/9 allowed  up to +8
+    + park          up to +7
+    = 100 absolute ceiling
 
-DIAGNOSTICS: every batter considered is logged (GitHub Actions log, "HR-DIAG").
+A typical decent spot now lands in the 55-70s, a genuinely strong one in the
+75-90s, so the board actually ranks.
 """
 
 import logging
@@ -86,8 +89,7 @@ def evaluate_hr_prop_candidates(games, rosters, stats_provider, public_prop_spli
                         dropped["below_hr_floor"].append(
                             f"{batter_name} ({batting_team}): {batter_profile.hr_count} HR < floor {config.HR_PROP_MIN_SEASON_HR}, no recent form")
                     else:
-                        dropped["no_data"].append(
-                            f"{batter_name} ({batting_team}): nothing to score on")
+                        dropped["no_data"].append(f"{batter_name} ({batting_team}): nothing to score on")
                     continue
 
                 public_lean = public_prop_splits.get((batting_team, batter_name)) if public_prop_splits else None
@@ -133,12 +135,15 @@ def evaluate_hr_prop_candidates(games, rosters, stats_provider, public_prop_spli
             logger.info("HR-DIAG: dropped %d (%s):", len(dropped[key]), label)
             for d in dropped[key]:
                 logger.info("HR-DIAG:    - %s", d)
+    if candidates:
+        logger.info("HR-DIAG: score spread -- top %.1f / median %.1f / low %.1f",
+                    candidates[0]["score"], candidates[len(candidates) // 2]["score"],
+                    candidates[-1]["score"])
     return candidates
 
 
 def _safe_recent_form(batter_profile):
-    """Look up recent form by the batter's resolved player_id. Returns the form
-    dict or None. Never raises -- a form miss is a no-op, not a drop."""
+    """Recent form by resolved player_id. None on any miss -- never a drop."""
     pid = getattr(batter_profile, "player_id", None)
     try:
         return get_recent_form(pid) if pid else None
@@ -149,7 +154,7 @@ def _safe_recent_form(batter_profile):
 
 def finalize_hr_props(pool, max_per_day=None, recent_miss_players=None):
     """ONE board ranked by SCORE, faded for chronic recent misses, one pick per
-    game, capped at max_per_day. +EV shown as a TAG only. Slate never empty."""
+    game, capped at max_per_day. +EV shown as a TAG only. Never empty."""
     max_per_day = max_per_day or config.HR_PROP_MAX_PER_DAY
     cold = recent_miss_players or set()
 
@@ -212,74 +217,78 @@ def _score_candidate(batter_name, batter, pitcher, hr_park_factor, motivation_no
         return None, None, "not_found"
     if batter.hr_count is None and batter.barrel_pct is None and not has_form:
         return None, None, "no_data"
-    # Season-HR floor: only drops a bat that ALSO has no live recent-form heat.
     if (batter.hr_count is not None and batter.hr_count < config.HR_PROP_MIN_SEASON_HR
             and not (has_form and form.get("hot_score", 0) >= 0.5)):
         return None, None, "below_hr_floor"
 
-    score = 50.0
-    reasoning = ["Starting score: 50 (baseline). Recent form + the SPOT drive this more than the name."]
+    score = 35.0
+    reasoning = ["Base 35. Scale is built so 100 is the absolute ceiling -- a 55-70 is a decent "
+                 "spot, 75-90 is genuinely strong. Recent form is the heaviest input."]
 
-    # 1. RECENT FORM -- the heavy, reliable signal.
+    # 1. RECENT FORM (up to +22) -- reliable, the driver.
     if has_form:
         hot = form["hot_score"]
-        bump = round(28 * hot, 1)  # up to +28 for a red-hot bat
+        bump = round(22 * hot, 1)
         score += bump
         reasoning.append(
-            f"[Recent Form +{bump}] Last {form['games']} G: {form['hr']} HR, ISO {form['iso']:.3f}, "
-            f"{form['hr_rate']*100:.1f}% HR/PA -> hot_score {hot:.2f} (this is the biggest input and it loaded reliably).")
+            f"[Recent Form +{bump}/22] Last {form['games']} G: {form['hr']} HR, ISO {form['iso']:.3f}, "
+            f"{form['hr_rate']*100:.1f}% HR/PA -> hot_score {hot:.2f}.")
         if hot < 0.15 and form["pa"] >= 25:
             score -= 8
             reasoning.append(f"[Cold -8] Ice-cold over the last {form['games']} games -- no recent power.")
     else:
         reasoning.append("[Recent Form n/a] No recent game-log data -- scored on season power, matchup, and park.")
 
-    # 2. Season power (SUPPORT, not the driver).
+    # 2. Season power (up to +8) -- support, not the driver.
     if batter.hr_count is not None:
         if batter.hr_count >= 30:
-            score += 10; reasoning.append(f"[Season Power +10] {batter.hr_count} HR -- elite volume.")
+            score += 8; reasoning.append(f"[Season Power +8/8] {batter.hr_count} HR -- elite volume.")
         elif batter.hr_count >= 22:
-            score += 7; reasoning.append(f"[Season Power +7] {batter.hr_count} HR -- middle-order slugger.")
+            score += 6; reasoning.append(f"[Season Power +6/8] {batter.hr_count} HR -- middle-order slugger.")
         elif batter.hr_count >= 15:
-            score += 5; reasoning.append(f"[Season Power +5] {batter.hr_count} HR -- legit power.")
+            score += 4; reasoning.append(f"[Season Power +4/8] {batter.hr_count} HR -- legit power.")
         elif batter.hr_count >= 8:
-            score += 3; reasoning.append(f"[Season Power +3] {batter.hr_count} HR -- mid-power, value range.")
+            score += 2; reasoning.append(f"[Season Power +2/8] {batter.hr_count} HR -- mid-power, value range.")
         else:
-            score += 1; reasoning.append(f"[Season Power +1] {batter.hr_count} HR -- the value is the spot/form, not the name.")
+            score += 1; reasoning.append(f"[Season Power +1/8] {batter.hr_count} HR -- the value is the spot, not the name.")
 
-    # 3. Barrel signal (BONUS -- only when Savant actually loads).
+    # 3. Barrel bonus (up to +10) -- only when Savant loads.
     if batter.barrel_pct is not None:
         if batter.barrel_pct >= 12:
-            score += 12; reasoning.append(f"[Barrel +12] ELITE {batter.barrel_pct:.1f}% barrels.")
+            score += 10; reasoning.append(f"[Barrel +10/10] ELITE {batter.barrel_pct:.1f}% barrels.")
         elif batter.barrel_pct >= 9:
-            score += 6; reasoning.append(f"[Barrel +6] {batter.barrel_pct:.1f}% barrels -- above avg.")
+            score += 5; reasoning.append(f"[Barrel +5/10] {batter.barrel_pct:.1f}% barrels -- above avg.")
         elif batter.barrel_pct < 6:
             score -= 6; reasoning.append(f"[Barrel -6] Only {batter.barrel_pct:.1f}% barrels.")
 
-    # 4. Pitcher vulnerability.
+    # 4. Pitcher vulnerability (up to +10) and HR/9 allowed (up to +8).
     if pitcher and pitcher.barrel_pct_allowed is not None:
         if pitcher.barrel_pct_allowed >= 9:
-            score += 12; reasoning.append(f"[Pitcher Vuln +12] {pitcher.name} allows {pitcher.barrel_pct_allowed:.1f}% barrels.")
+            score += 10; reasoning.append(f"[Pitcher Vuln +10/10] {pitcher.name} allows {pitcher.barrel_pct_allowed:.1f}% barrels.")
         elif pitcher.barrel_pct_allowed >= 7:
-            score += 6; reasoning.append(f"[Pitcher Vuln +6] {pitcher.name} allows {pitcher.barrel_pct_allowed:.1f}% barrels.")
+            score += 5; reasoning.append(f"[Pitcher Vuln +5/10] {pitcher.name} allows {pitcher.barrel_pct_allowed:.1f}% barrels.")
         elif pitcher.barrel_pct_allowed < 5:
             score -= 8; reasoning.append(f"[Pitcher Vuln -8] {pitcher.name} stingy ({pitcher.barrel_pct_allowed:.1f}%).")
     if pitcher and pitcher.hr_per_9 is not None:
         if pitcher.hr_per_9 >= 1.4:
-            score += 12; reasoning.append(f"[HR Rate Allowed +12] {pitcher.name} {pitcher.hr_per_9:.2f} HR/9 -- serves them up.")
+            score += 8; reasoning.append(f"[HR Rate Allowed +8/8] {pitcher.name} {pitcher.hr_per_9:.2f} HR/9 -- serves them up.")
+        elif pitcher.hr_per_9 >= 1.15:
+            score += 4; reasoning.append(f"[HR Rate Allowed +4/8] {pitcher.name} {pitcher.hr_per_9:.2f} HR/9 -- homer-prone.")
         elif pitcher.hr_per_9 < 0.9:
             score -= 8; reasoning.append(f"[HR Rate Allowed -8] {pitcher.name} {pitcher.hr_per_9:.2f} HR/9 -- stingy.")
 
-    # 5. Park.
-    if hr_park_factor >= 108:
-        score += 10; reasoning.append(f"[Park +10] HR factor {hr_park_factor} -- hitter's park.")
+    # 5. Park (up to +7).
+    if hr_park_factor >= 112:
+        score += 7; reasoning.append(f"[Park +7/7] HR factor {hr_park_factor} -- strong hitter's park.")
+    elif hr_park_factor >= 105:
+        score += 4; reasoning.append(f"[Park +4/7] HR factor {hr_park_factor} -- hitter-leaning.")
     elif hr_park_factor <= 92:
         score -= 8; reasoning.append(f"[Park -8] HR factor {hr_park_factor} -- pitcher's park.")
     if motivation_note:
         reasoning.append(f"[Overlay] {motivation_note}")
 
     final = round(max(0, min(100, score)), 1)
-    reasoning.append(f"FINAL HR SCORE: {final}/100. Higher = stronger homer spot.")
+    reasoning.append(f"FINAL HR SCORE: {final}/100.")
     return final, reasoning, "ok"
 
 
