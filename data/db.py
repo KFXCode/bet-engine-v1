@@ -142,6 +142,15 @@ class Database:
                  game.game_time_utc),
             )
 
+    def get_game(self, game_id):
+        """Stored schedule row for a game (date + team abbreviations). The
+        grader needs this to settle NON-MLB picks: their game_ids are hashes,
+        not ESPN event ids, so results are matched on date + teams instead."""
+        with self.cursor() as cur:
+            cur.execute("SELECT * FROM games WHERE game_id=?", (game_id,))
+            row = cur.fetchone()
+            return dict(row) if row else None
+
     def record_odds_snapshot(self, game_id, odds, captured_at, is_opening=False):
         with self.cursor() as cur:
             cur.execute(
