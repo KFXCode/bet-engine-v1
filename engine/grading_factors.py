@@ -5,17 +5,26 @@ One function per grading factor. Each takes a GradingContext and returns an
 engine.models.FactorScore (signal -1..+1, + leans HOME).
 
 Reasoning strings name the actual TEAMS (home/away abbreviations) instead of
-the words "home"/"away", so a card is instantly readable -- you can see which
-team each number belongs to without decoding which side is home.
+the words "home"/"away", so a card is instantly readable.
 
 celestial_signal / numerology_signal arrive already converted to home/away
 convention by engine/scoring.py.
+
+FADE-PHASE MOON (Aug 21, 2026): on Waxing Gibbous / Full Moon / Waning Gibbous
+-- the "public confidence high, overvalued favorites become fade material"
+nights -- score_moon_zodiac DOUBLES its weight (0.03 -> 0.06), putting lunar
+energy on par with the public/sharp money factor. On every other phase it
+stays at its normal, deliberately-small nudge weight.
 """
 
 from dataclasses import dataclass
 
 import config
 from engine.models import FactorScore
+
+# Phases where the system's rule is "fade tired favorites & hyped teams".
+FADE_PHASES = {"Waxing Gibbous", "Full Moon", "Waning Gibbous"}
+FADE_PHASE_WEIGHT_MULTIPLIER = 2.0
 
 
 @dataclass
@@ -35,6 +44,8 @@ class GradingContext:
     numerology_reasoning: str
     home_ml: int = None
     away_ml: int = None
+    moon_phase: str = None
+    home_is_favorite: bool = None
 
 
 def _clip(x):
@@ -93,9 +104,8 @@ def score_matchup_pitching(ctx):
 
 def score_advanced_analytics(ctx):
     """Advanced pitching/hitting edge, anchored on RELIABLE MLB Stats API data
-    (team OPS, pitcher HR/9 allowed, pitcher K%) so it stops sitting neutral.
-    Barrel% / hard-hit% (Statcast via pybaseball) are used only as a bonus
-    when they happen to load. Averages every available sub-signal."""
+    (team OPS, pitcher HR/9 allowed, pitcher K%). Barrel% / hard-hit% are a
+    bonus when they load. Averages every available sub-signal."""
     h, a = _teams(ctx)
     hp, ap = ctx.home_pitcher_profile, ctx.away_pitcher_profile
     ho, ao = ctx.home_offense, ctx.away_offense
@@ -289,8 +299,20 @@ def _injury_score(injuries):
 
 
 def score_moon_zodiac(ctx):
+    """Lunar energy. On FADE PHASES (Waxing Gibbous / Full / Waning Gibbous) --
+    the nights where public confidence runs high and overvalued favorites
+    become fade material -- this factor's weight DOUBLES so the fade actually
+    has teeth against a heavy chalk favorite instead of being outvoted."""
+    weight = config.FACTOR_WEIGHTS["moon_zodiac"]
+    reasoning = ctx.celestial_reasoning
+    phase = ctx.moon_phase
+    if phase in FADE_PHASES:
+        weight = round(weight * FADE_PHASE_WEIGHT_MULTIPLIER, 4)
+        reasoning = (f"{reasoning}  [FADE PHASE: {phase} -- lunar weight doubled to {weight:.3f} "
+                     f"(same as the public/sharp factor). Public confidence runs high tonight, so "
+                     f"hyped/tired favorites get pushed down and the value side gets pushed up.]")
     return FactorScore("moon_zodiac", "Moon phase + zodiac energy", ctx.celestial_signal,
-                        config.FACTOR_WEIGHTS["moon_zodiac"], ctx.celestial_reasoning, "ok")
+                        weight, reasoning, "ok")
 
 
 def score_numerology(ctx):
