@@ -3,20 +3,24 @@ data/stats_provider.py
 =======================
 Advanced pitching/batting metrics.
 
-Reliability note: the team-offense signal and pitcher HR/9 & K% come from the
-MLB Stats API (statsapi) -- the same source the rest of the app uses, which
-loads reliably in GitHub Actions. pybaseball (FanGraphs / Baseball Savant
+Reliability note: the team-offense signal, pitcher HR/9 & K%, batter player_id
+and batter season HR all come from the MLB Stats API (statsapi) -- the source
+that loads reliably in GitHub Actions. pybaseball (FanGraphs / Baseball Savant
 scraping) is used ONLY for bonus Statcast fields (barrel%, hard-hit%, xwOBA,
 exit velo); it is frequently blocked from cloud IPs, so nothing critical
-depends on it -- when it fails those fields are simply None and the factor
-still works off the statsapi data.
+depends on it.
 
-NAME MATCHING (fixed Aug 2026): every name lookup now requires the FIRST name
-to agree, not just the last name. Without this, a last-name "contains" match
-made "Bryan De La Cruz" pull "Elly De La Cruz"'s elite Statcast line (and the
-wrong player_id -> wrong HR count), inflating a junk pick to a 95. When a
-surname is shared and the first name can't be matched, we return None so the
-batter simply drops from the pool -- a missing pick beats a wrong-player pick.
+STATSAPI-FIRST BATTERS (Aug 21, 2026): get_batter_profile used to be built
+entirely off the Savant leaderboard, so when Savant was blocked the batter came
+back with NO player_id and NO season HR -- which blinded the HR board and made
+it fall back to name recognition. Now the batter's id + season HR are resolved
+from statsapi first (always available), and Statcast fields layer on top when
+they load. player_id is stored on the profile so data/recent_form.py can pull
+last-15-day form, which is the HR model's heaviest input.
+
+NAME MATCHING: every name lookup requires the FIRST name to agree, not just the
+last name. Without this, a last-name "contains" match made "Bryan De La Cruz"
+pull "Elly De La Cruz"'s elite line, inflating a junk pick to a 95.
 """
 
 import logging
@@ -34,7 +38,6 @@ logger = logging.getLogger(__name__)
 CACHE_TTL_HOURS = 12
 MLB_STATS_API = "https://statsapi.mlb.com/api/v1"
 
-# abbr -> statsapi team id (kept local to avoid an import cycle)
 TEAM_IDS = {
     "ARI": 109, "ATL": 144, "BAL": 110, "BOS": 111, "CHC": 112, "CWS": 145,
     "CIN": 113, "CLE": 114, "COL": 115, "DET": 116, "HOU": 117, "KC": 118,
@@ -44,6 +47,9 @@ TEAM_IDS = {
 }
 
 patch_requests_for_scraping()
+
+# Module-level cache of the full active-player list (one fetch per run).
+_PLAYER_INDEX = None
 
 
 @dataclass
@@ -73,6 +79,7 @@ class TeamOffenseProfile:
 class BatterProfile:
     name: str
     team: str = None
+    player_id: int = None
     barrel_pct: float = None
     hard_hit_pct: float = None
     iso: float = None
@@ -153,7 +160,7 @@ class PyBaseballStatsProvider(StatsProvider):
         profile = PitcherProfile(name=pitcher_name, data_quality="not_found")
 
         if not player_id:
-            player_id = _resolve_pitcher_id(pitcher_name)
+            player_id = _resolve_player_id(pitcher_name)
 
         if player_id:
             mlb_stats = _mlb_stats_api_pitcher_season(player_id)
@@ -196,8 +203,6 @@ class PyBaseballStatsProvider(StatsProvider):
         names = table["Name"].astype(str)
         matches = table[names.str.lower() == pitcher_name.lower()]
         if matches.empty:
-            # Last-name fallback that ALSO requires the first name to agree,
-            # so "Bryan X" never matches "Elly X".
             first, last = _split_name(pitcher_name)
             last_hit = names.str.lower().str.contains(last.lower(), na=False)
             first_hit = names.str.lower().str.startswith(first.lower()) if first else False
@@ -253,44 +258,58 @@ class PyBaseballStatsProvider(StatsProvider):
         return profile
 
     def get_batter_profile(self, batter_name, team_abbr=None):
-        cache_key = f"batter:{batter_name}:{_season()}:v3"
+        """STATSAPI-FIRST: resolve the player's id and season HR from statsapi
+        (reliable), then layer Statcast bonus fields on top if they load. The
+        profile is NEVER blank just because Savant is blocked."""
+        cache_key = f"batter:{batter_name}:{_season()}:v4"
         cached = self.cache.get(cache_key)
         if cached:
             return BatterProfile(**cached)
+
+        pid = _resolve_player_id(batter_name)
+        hr_count = _mlb_stats_api_batter_hr(pid) if pid else None
+
+        profile = BatterProfile(
+            name=batter_name, team=team_abbr, player_id=pid, hr_count=hr_count,
+            data_quality="ok" if pid else "not_found",
+        )
+
+        # ---- Statcast BONUS layer (safe to fail) ----
         try:
             import pybaseball as pyb
             if self._batter_barrel_table is None:
                 self._batter_barrel_table = pyb.statcast_batter_exitvelo_barrels(_season(), minBBE=30)
             table = self._batter_barrel_table
-            if table is None or table.empty:
-                profile = BatterProfile(name=batter_name, team=team_abbr, data_quality="degraded")
-            else:
+            if table is not None and not table.empty:
                 row = _match_savant_name(table, batter_name)
-                if row is None:
-                    profile = BatterProfile(name=batter_name, team=team_abbr, data_quality="not_found")
-                else:
-                    barrel = _plausible_barrel(_safe_float(row.get("brl_percent")))
-                    hard_hit = _safe_float(row.get("ev95percent"))
-                    avg_ev = _safe_float(row.get("avg_hit_speed"))
-                    max_ev = _safe_float(row.get("max_hit_speed"))
-                    pull_pct = _safe_float(row.get("pull_percent"))
-                    hr_count = None
-                    pid = row.get("player_id")
-                    if pid is not None:
-                        try:
-                            hr_count = _mlb_stats_api_batter_hr(int(pid))
-                        except Exception:
-                            hr_count = None
-                    xwoba = self._batter_xwoba(batter_name)
-                    profile = BatterProfile(
-                        name=batter_name, team=team_abbr, barrel_pct=barrel, hard_hit_pct=hard_hit,
-                        hr_count=hr_count, avg_exit_velo=avg_ev, max_exit_velo=max_ev,
-                        pull_pct=pull_pct, xwoba=xwoba,
-                        data_quality="ok" if barrel is not None else "partial",
-                    )
+                if row is not None:
+                    profile.barrel_pct = _plausible_barrel(_safe_float(row.get("brl_percent")))
+                    profile.hard_hit_pct = _safe_float(row.get("ev95percent"))
+                    profile.avg_exit_velo = _safe_float(row.get("avg_hit_speed"))
+                    profile.max_exit_velo = _safe_float(row.get("max_hit_speed"))
+                    profile.pull_pct = _safe_float(row.get("pull_percent"))
+                    if profile.hr_count is None:
+                        spid = row.get("player_id")
+                        if spid is not None:
+                            try:
+                                profile.hr_count = _mlb_stats_api_batter_hr(int(spid))
+                                if profile.player_id is None:
+                                    profile.player_id = int(spid)
+                            except Exception:
+                                pass
         except Exception as exc:
-            logger.warning("batter profile lookup failed for %s: %s", batter_name, exc)
-            profile = BatterProfile(name=batter_name, team=team_abbr, data_quality="degraded")
+            logger.debug("Statcast batter bonus unavailable for %s: %s", batter_name, exc)
+
+        try:
+            profile.xwoba = self._batter_xwoba(batter_name)
+        except Exception:
+            profile.xwoba = None
+
+        if profile.player_id is None and profile.hr_count is None and profile.barrel_pct is None:
+            profile.data_quality = "not_found"
+        elif profile.barrel_pct is None:
+            profile.data_quality = "partial"
+
         self.cache.set(cache_key, asdict(profile))
         return profile
 
@@ -316,6 +335,47 @@ def _season():
     return datetime.now().year
 
 
+def _player_index():
+    """Full active-player list from statsapi, fetched ONCE per run and indexed
+    by lowercase full name. This is what makes reliable id resolution cheap."""
+    global _PLAYER_INDEX
+    if _PLAYER_INDEX is not None:
+        return _PLAYER_INDEX
+    index = {}
+    try:
+        resp = requests.get(f"{MLB_STATS_API}/sports/1/players",
+                            params={"season": _season()}, timeout=20)
+        resp.raise_for_status()
+        for p in resp.json().get("people", []):
+            name = (p.get("fullName") or "").strip().lower()
+            if name and name not in index:
+                index[name] = p.get("id")
+    except Exception as exc:
+        logger.warning("player index fetch failed: %s", exc)
+    _PLAYER_INDEX = index
+    logger.info("Player index loaded: %d active players.", len(index))
+    return index
+
+
+def _resolve_player_id(full_name):
+    """Resolve a statsapi player id by name. Exact match first; the fallback
+    requires the first name to agree so shared surnames never cross-match."""
+    if not full_name or full_name == "TBD":
+        return None
+    index = _player_index()
+    target = " ".join(full_name.strip().lower().split())
+    if target in index:
+        return index[target]
+    first, last = _split_name(full_name)
+    first, last = first.lower(), last.lower()
+    if not last:
+        return None
+    for name, pid in index.items():
+        if last in name and first and name.startswith(first):
+            return pid
+    return None
+
+
 def _mlb_stats_api_team_ops(team_abbr):
     tid = TEAM_IDS.get(team_abbr)
     if not tid:
@@ -333,41 +393,22 @@ def _mlb_stats_api_team_ops(team_abbr):
         return None
 
 
-def _resolve_pitcher_id(pitcher_name):
-    """Look up a pitcher's statsapi player id by name (active players).
-    The last-name fallback requires the first name to agree too, so it never
-    resolves to a different player who shares a surname."""
-    try:
-        url = f"{MLB_STATS_API}/sports/1/players"
-        resp = requests.get(url, params={"season": _season()}, timeout=15)
-        resp.raise_for_status()
-        people = resp.json().get("people", [])
-        target = " ".join(pitcher_name.strip().lower().split())
-        for p in people:
-            if p.get("fullName", "").strip().lower() == target:
-                return p.get("id")
-        first, last = _split_name(pitcher_name)
-        first, last = first.lower(), last.lower()
-        for p in people:
-            full = p.get("fullName", "").strip().lower()
-            if last and last in full and first and full.startswith(first):
-                return p.get("id")
-    except Exception as exc:
-        logger.debug("pitcher id resolve failed for %s: %s", pitcher_name, exc)
-    return None
-
-
 def _mlb_stats_api_batter_hr(player_id):
-    import requests
-    url = f"https://statsapi.mlb.com/api/v1/people/{player_id}/stats"
-    params = {"stats": "season", "group": "hitting", "season": _season()}
-    resp = requests.get(url, params=params, timeout=15)
-    resp.raise_for_status()
-    splits = resp.json().get("stats", [{}])[0].get("splits", [])
-    if not splits:
+    if not player_id:
         return None
-    hr = splits[0]["stat"].get("homeRuns")
-    return int(hr) if hr is not None else None
+    try:
+        url = f"{MLB_STATS_API}/people/{player_id}/stats"
+        params = {"stats": "season", "group": "hitting", "season": _season()}
+        resp = requests.get(url, params=params, timeout=15)
+        resp.raise_for_status()
+        splits = resp.json().get("stats", [{}])[0].get("splits", [])
+        if not splits:
+            return None
+        hr = splits[0]["stat"].get("homeRuns")
+        return int(hr) if hr is not None else None
+    except Exception as exc:
+        logger.debug("batter HR lookup failed for %s: %s", player_id, exc)
+        return None
 
 
 def _mlb_stats_api_pitcher_season(player_id):
@@ -397,10 +438,6 @@ def _mlb_stats_api_pitcher_season(player_id):
 
 
 def _match_savant_name(table, full_name):
-    """Match a 'last, first' Savant leaderboard row to a full name. Exact match
-    first; the last-name fallback additionally requires the first name to agree
-    (by first initial), so shared surnames (Bryan vs Elly De La Cruz) never
-    cross-match. Returns None when it can't disambiguate."""
     if "last_name, first_name" not in table.columns:
         return None
     first, last = _split_name(full_name)
@@ -417,12 +454,11 @@ def _match_savant_name(table, full_name):
         return None
     if first:
         cand_col = candidates["last_name, first_name"].astype(str).str.lower()
-        # entries are "last, first" -> the part after the comma is the first name
         first_names = cand_col.str.split(",").str[-1].str.strip()
         first_ok = candidates[first_names.str.startswith(first.lower())]
         if not first_ok.empty:
             return first_ok.iloc[0].to_dict()
-        return None  # shared surname but no first-name agreement -> no data
+        return None
     return candidates.iloc[0].to_dict()
 
 
@@ -461,8 +497,8 @@ class _MockStatsProvider(StatsProvider):
                                   woba=0.315, data_quality="mock")
 
     def get_batter_profile(self, batter_name, team_abbr=None):
-        return BatterProfile(name=batter_name, team=team_abbr, barrel_pct=7.5, hard_hit_pct=38.0,
-                              iso=0.16, hr_count=20, recent_barrel_trend=0.0,
+        return BatterProfile(name=batter_name, team=team_abbr, player_id=1, barrel_pct=7.5,
+                              hard_hit_pct=38.0, iso=0.16, hr_count=20, recent_barrel_trend=0.0,
                               avg_exit_velo=90.0, max_exit_velo=110.0, xwoba=0.340,
                               hr_fb_pct=15.0, pull_pct=42.0, data_quality="mock")
 
