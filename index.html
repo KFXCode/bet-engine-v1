@@ -176,9 +176,9 @@
   <div class="header">
     <h1>Daily Betting Report</h1>
     <p class="date">2026-08-22</p>
-    <p class="updated"><span class="dot"></span>Updated Aug 22, 2026 - 9:57 AM EDT</p>
+    <p class="updated"><span class="dot"></span>Updated Aug 22, 2026 - 10:13 AM EDT</p>
     <div class="strip">
-      <div class="item">Slate: <b>18 games</b></div>
+      <div class="item">Slate: <b>28 games</b></div>
       <div class="item">Moon: <b>Waxing Gibbous</b> in <b>Sagittarius</b></div>
       <div class="item">Numerology: <b>22</b></div>
     </div>
@@ -219,7 +219,7 @@
   <div class="warnbox">
     <b>Data quality warnings</b>
     <ul>
-      <li>1 MLB game(s) have no probable pitcher posted by MLB yet -- pitching-matchup grading and HR props are skipped for those until confirmed: STL@PHI</li><li>Starting lineups haven't posted yet -- HR picks are drawn from active rosters (may include players who end up benched). Re-run closer to first pitch for confirmed lineups.</li>
+      <li>1 MLB game(s) have no probable pitcher posted by MLB yet -- pitching-matchup grading and HR props are skipped for those until confirmed: STL@PHI</li><li>WAS @ DET: public betting % is not yet filled in -- edit manual_inputs/public_betting_2026-08-22.json for a sharper read.</li><li>ATL @ IND: public betting % is not yet filled in -- edit manual_inputs/public_betting_2026-08-22.json for a sharper read.</li><li>BAL @ MIN: public betting % is not yet filled in -- edit manual_inputs/public_betting_2026-08-22.json for a sharper read.</li><li>BUF @ CLE: public betting % is not yet filled in -- edit manual_inputs/public_betting_2026-08-22.json for a sharper read.</li><li>NO @ LAR: public betting % is not yet filled in -- edit manual_inputs/public_betting_2026-08-22.json for a sharper read.</li><li>NYG @ MIA: public betting % is not yet filled in -- edit manual_inputs/public_betting_2026-08-22.json for a sharper read.</li><li>CHI @ CIN: public betting % is not yet filled in -- edit manual_inputs/public_betting_2026-08-22.json for a sharper read.</li><li>PHI @ NE: public betting % is not yet filled in -- edit manual_inputs/public_betting_2026-08-22.json for a sharper read.</li><li>KC @ TB: public betting % is not yet filled in -- edit manual_inputs/public_betting_2026-08-22.json for a sharper read.</li><li>DAL @ ARI: public betting % is not yet filled in -- edit manual_inputs/public_betting_2026-08-22.json for a sharper read.</li><li>NFL records still building (no results stored yet) -- NFL talent/motivation factors run neutral until a few games are logged.</li><li>Starting lineups haven't posted yet -- HR picks are drawn from active rosters (may include players who end up benched). Re-run closer to first pitch for confirmed lineups.</li>
     </ul>
   </div>
   
@@ -233,6 +233,8 @@
     <button class="tab-btn" data-target="view-MLB" onclick="showView(this)">MLB</button>
     
     <button class="tab-btn" data-target="view-WNBA" onclick="showView(this)">WNBA</button>
+    
+    <button class="tab-btn" data-target="view-NFL" onclick="showView(this)">NFL</button>
     
     <button class="tab-btn" data-target="view-top" onclick="showView(this)">TOP PARLAY</button>
     <button class="tab-btn" data-target="view-history" onclick="showView(this)">HISTORY</button>
@@ -515,6 +517,97 @@
     
     
     <div class="dropped">No WNBA parlay today &mdash; fewer than 2 WNBA legs cleared the confidence bar.</div>
+    
+
+  </div>
+  
+  
+  <div class="view-panel" id="view-NFL" style="display:none;">
+
+    <div class="section-title"><span>NFL &middot; Today's Moneyline Picks</span><span class="expand-all" onclick="toggleAll(this)">Expand all</span></div>
+    
+      
+      
+      <details class="pick top-pick" open>
+        <summary>
+          <div class="s-main">
+            <div class="top-badge">★ Top NFL ML Today</div>
+            <div class="s-team">DET <span class="sport-tag">NFL</span> ML</div>
+            <div class="s-sub">Rank #1 &middot; Confidence 4/10 &middot; <span class="odds">+106</span></div>
+          </div>
+          <div class="s-right">
+            <div class="s-edge"><div class="n">2.3%</div><div class="l">Edge</div></div>
+            <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+        </summary>
+        <div class="body">
+          <div class="metrics">
+            <div class="metric"><div class="num">49.0%</div><div class="lbl">Model win%</div></div>
+            <div class="metric"><div class="num">46.7%</div><div class="lbl">Market win%</div></div>
+          </div>
+          <div class="flags">
+            
+            
+          </div>
+          <div class="why">
+            <div class="why-title">Why this clears every layer:</div>
+            <ul>
+              <li>EDGE SOURCE: data factors +1.7%, astrology/numerology +0.6% (of the 2.3% total edge). A healthy pick is driven mostly by DATA -- if astro is carrying it, treat it as thin.</li><li>Pythagorean win%: DET 0.567 vs WAS 0.516 (DET the deeper team)</li><li>Underdog value on DET: DET is a home dog at +106; DET's run differential (0.567) nearly matches the favorite (0.516)</li><li>Date reduces to 22 (master number) -> underdog lean</li><li>Probable starters' ERA unavailable -- neutral until confirmed.</li><li>No advanced data available today (team OPS + pitcher stats both missing) -- neutral.</li><li>PRESEASON: NFL August games are played mostly by backups, so records, scoring margins and form from them predict almost nothing about who wins. This factor is deliberately neutral -- treat any preseason pick as low confidence regardless of the edge number.</li><li>Recent bullpen workload unavailable -- neutral.</li><li>Tickets 50% DET / Handle 50% DET -> no split  [SIMULATED/PLACEHOLDER DATA -- fill in manual_inputs/public_betting_*.json]</li><li>park run factor 100</li><li>— Counter-signals we weighed (leaned toward the other side but didn't outweigh the pick):</li><li>games back: DET 6.0 vs WAS 1.5; streak: DET -3 vs WAS -1</li><li>Waxing Gibbous (72% illuminated), Moon in Sagittarius (fire sign) -> favorite lean  [FADE PHASE: Waxing Gibbous -- lunar weight doubled to 0.060 (same as the public/sharp factor). Public confidence runs high tonight, so hyped/tired favorites get pushed down and the value side gets pushed up.]</li>
+            </ul>
+          </div>
+        </div>
+      </details>
+      
+      
+      <details class="pick">
+        <summary>
+          <div class="s-main">
+            
+            <div class="s-team">ATL <span class="sport-tag">NFL</span> ML</div>
+            <div class="s-sub">Rank #2 &middot; Confidence 4/10 &middot; <span class="odds">+160</span></div>
+          </div>
+          <div class="s-right">
+            <div class="s-edge"><div class="n">2.2%</div><div class="l">Edge</div></div>
+            <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+        </summary>
+        <div class="body">
+          <div class="metrics">
+            <div class="metric"><div class="num">39.2%</div><div class="lbl">Model win%</div></div>
+            <div class="metric"><div class="num">37.0%</div><div class="lbl">Market win%</div></div>
+          </div>
+          <div class="flags">
+            
+            
+          </div>
+          <div class="why">
+            <div class="why-title">Why this clears every layer:</div>
+            <ul>
+              <li>EDGE SOURCE: data factors +1.7%, astrology/numerology +0.6% (of the 2.2% total edge). A healthy pick is driven mostly by DATA -- if astro is carrying it, treat it as thin.</li><li>Pythagorean win%: IND 0.522 vs ATL 0.573 (ATL the deeper team)</li><li>Underdog value on ATL: ATL's run differential (0.573) nearly matches the favorite (0.522)</li><li>games back: IND 1.0 vs ATL 1.0; streak: IND -1 vs ATL +2</li><li>Date reduces to 22 (master number) -> underdog lean</li><li>Probable starters' ERA unavailable -- neutral until confirmed.</li><li>No advanced data available today (team OPS + pitcher stats both missing) -- neutral.</li><li>PRESEASON: NFL August games are played mostly by backups, so records, scoring margins and form from them predict almost nothing about who wins. This factor is deliberately neutral -- treat any preseason pick as low confidence regardless of the edge number.</li><li>Recent bullpen workload unavailable -- neutral.</li><li>Tickets 50% IND / Handle 50% IND -> no split  [SIMULATED/PLACEHOLDER DATA -- fill in manual_inputs/public_betting_*.json]</li><li>park run factor 100</li><li>— Counter-signals we weighed (leaned toward the other side but didn't outweigh the pick):</li><li>Waxing Gibbous (72% illuminated), Moon in Sagittarius (fire sign) -> favorite lean  [FADE PHASE: Waxing Gibbous -- lunar weight doubled to 0.060 (same as the public/sharp factor). Public confidence runs high tonight, so hyped/tired favorites get pushed down and the value side gets pushed up.]</li>
+            </ul>
+          </div>
+        </div>
+      </details>
+      
+    
+
+    
+
+    <div class="section-title"><span>NFL &middot; Best Parlay</span></div>
+    
+    
+    <div class="parlay">
+      <div class="legs">2-Leg NFL Parlay</div>
+      <div class="odds">Combined: +436 &middot; 19.2% est. win probability</div>
+      <div style="margin-top:14px;">
+        
+        <div class="leg-row"><span class="n">Leg 1</span><span class="lbl">DET ML (+106)</span><span class="kind-tag">ML</span></div>
+        
+        <div class="leg-row"><span class="n">Leg 2</span><span class="lbl">ATL ML (+160)</span><span class="kind-tag">ML</span></div>
+        
+      </div>
+      <div class="note">Flat 1 unit. Built only from NFL legs the system graded today.</div>
+    </div>
     
 
   </div>
