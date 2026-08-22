@@ -11,12 +11,18 @@ etc. are websites for humans to read, not APIs. Four modes
   manual_inputs/public_betting_<date>.json. run_daily.py auto-creates that
   file with neutral 50/50 placeholders + every game listed, so you're just
   editing numbers, not writing JSON from scratch.
-- "url": set config.PUBLIC_BETTING_URL once to a splits page (e.g.
-  sportsbettingdime's MLB odds/trends page) and every run fetches +
-  parses THAT page fresh -- see data/public_betting_scraper.py for exactly
-  how (and its honest limitations: paywalled handle%, layout assumptions).
+- "url": set config.PUBLIC_BETTING_URL once to a splits page and every run
+  fetches + parses THAT page fresh -- see data/public_betting_scraper.py.
 - "mock": synthetic split, for demoing the pipeline only.
 - "api": stub for you to wire up a paid data feed you have access to.
+
+TEMPLATE MERGE FIX (Aug 22, 2026): ensure_manual_template used to bail out
+entirely if today's file already existed. So when a sport came online LATER
+in the day than the first run -- exactly what happened when the NFL preseason
+fix landed mid-day -- those games never got keys in the file, and there was
+no way to enter their splits without hand-writing JSON. It now MERGES: any
+game missing from the file is appended at neutral 50/50, and every value you
+already typed is left untouched.
 """
 
 import json
@@ -95,10 +101,7 @@ class ApiPublicBettingProvider(PublicBettingProvider):
 class UrlPublicBettingProvider(PublicBettingProvider):
     """Fetches + parses config.PUBLIC_BETTING_URL fresh every run instead of
     reading manual_inputs/*.json -- see data/public_betting_scraper.py for
-    the actual fetch/parse logic and its known limitations. Any game the
-    page doesn't seem to mention (or PUBLIC_BETTING_URL left blank) falls
-    back to a neutral 50/50 "missing" split, same as the manual provider
-    does for an unfilled-in game."""
+    the actual fetch/parse logic and its known limitations."""
 
     def get_splits(self, games, date_str):
         from data.public_betting_scraper import fetch_and_parse_splits
@@ -117,24 +120,44 @@ class UrlPublicBettingProvider(PublicBettingProvider):
 
 
 def ensure_manual_template(games, date_str):
-    """Writes manual_inputs/public_betting_<date>.json with every game listed
-    at a neutral 50/50 split, IF that file doesn't already exist. Never
-    overwrites a file you've already started filling in."""
+    """Make sure today's manual file lists EVERY game on today's slate.
+
+    Creates the file if it's missing, and MERGES in any game that isn't in it
+    yet (at neutral 50/50). Values already in the file are never touched, so
+    splits you've typed in are safe -- this only ever adds keys. That's what
+    lets a sport which comes online later in the day (NFL preseason, or any
+    season opening) still be fillable without hand-writing JSON."""
     path = config.MANUAL_INPUTS_DIR / f"public_betting_{date_str}.json"
-    if path.exists():
-        return
     config.MANUAL_INPUTS_DIR.mkdir(exist_ok=True)
-    template = {}
+
+    existing = {}
+    if path.exists():
+        try:
+            with open(path) as f:
+                existing = json.load(f) or {}
+        except Exception as exc:
+            logger.warning("Couldn't parse %s (%s) -- rewriting it as a fresh template.", path, exc)
+            existing = {}
+
+    added = []
     for game in games:
-        template[game.game_id] = {
+        if game.game_id in existing:
+            continue
+        existing[game.game_id] = {
             "_matchup": f"{game.away_team} @ {game.home_team}",
             "tickets_pct_home": 50.0,
             "handle_pct_home": 50.0,
             "source": "sportsbettingdime.com",
         }
+        added.append(f"{game.away_team}@{game.home_team} ({game.sport})")
+
+    if not added:
+        return
+
     with open(path, "w") as f:
-        json.dump(template, f, indent=2)
-    logger.info("Wrote %s -- fill in real tickets/handle %% before you trust today's edges.", path)
+        json.dump(existing, f, indent=2)
+    logger.info("Public-betting template %s: added %d game(s) -- %s. Fill in real tickets/handle %% "
+                "before you trust those edges.", path, len(added), ", ".join(added[:12]))
 
 
 def get_public_betting_provider():
