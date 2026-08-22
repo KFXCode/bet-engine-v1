@@ -106,5 +106,65 @@
     "tickets_pct_home": 50.0,
     "handle_pct_home": 50.0,
     "source": "sportsbettingdime.com"
+  },
+  "nfl-d1f28aaebc2721f3966582b9041e3da0": {
+    "_matchup": "WAS @ DET",
+    "tickets_pct_home": 50.0,
+    "handle_pct_home": 50.0,
+    "source": "sportsbettingdime.com"
+  },
+  "nfl-d93bfc969d95e6764567074282ab971a": {
+    "_matchup": "ATL @ IND",
+    "tickets_pct_home": 50.0,
+    "handle_pct_home": 50.0,
+    "source": "sportsbettingdime.com"
+  },
+  "nfl-be0d79220b3be1adf04a6d010c7e0f54": {
+    "_matchup": "BAL @ MIN",
+    "tickets_pct_home": 50.0,
+    "handle_pct_home": 50.0,
+    "source": "sportsbettingdime.com"
+  },
+  "nfl-7e346b13c17e63d081332574839ca53f": {
+    "_matchup": "BUF @ CLE",
+    "tickets_pct_home": 50.0,
+    "handle_pct_home": 50.0,
+    "source": "sportsbettingdime.com"
+  },
+  "nfl-b1293da5b4e1871d41005cbf4a087240": {
+    "_matchup": "NO @ LAR",
+    "tickets_pct_home": 50.0,
+    "handle_pct_home": 50.0,
+    "source": "sportsbettingdime.com"
+  },
+  "nfl-e93b37ffd39d7c804c1355833f5fce69": {
+    "_matchup": "NYG @ MIA",
+    "tickets_pct_home": 50.0,
+    "handle_pct_home": 50.0,
+    "source": "sportsbettingdime.com"
+  },
+  "nfl-663d2a6d60bc7e4ee8b599db2bd9de2f": {
+    "_matchup": "CHI @ CIN",
+    "tickets_pct_home": 50.0,
+    "handle_pct_home": 50.0,
+    "source": "sportsbettingdime.com"
+  },
+  "nfl-06caa9f04333a22dc22a4f934e0aa8f5": {
+    "_matchup": "PHI @ NE",
+    "tickets_pct_home": 50.0,
+    "handle_pct_home": 50.0,
+    "source": "sportsbettingdime.com"
+  },
+  "nfl-edf7586ff916bb2d7fa9599f1d6d9e42": {
+    "_matchup": "KC @ TB",
+    "tickets_pct_home": 50.0,
+    "handle_pct_home": 50.0,
+    "source": "sportsbettingdime.com"
+  },
+  "nfl-5660866f23bd706914fb55c61cc6b2b0": {
+    "_matchup": "DAL @ ARI",
+    "tickets_pct_home": 50.0,
+    "handle_pct_home": 50.0,
+    "source": "sportsbettingdime.com"
   }
 }
