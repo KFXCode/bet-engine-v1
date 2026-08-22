@@ -9,6 +9,12 @@ Moneyline/spread/total odds. Two implementations behind one interface:
 config.ODDS_MODE picks which one get_odds_provider() hands back. Every
 network path falls back to mock data on failure so a bad API response never
 crashes the daily run.
+
+PRESEASON FIX (Aug 22, 2026): The Odds API keeps NFL preseason under its own
+sport key (`americanfootball_nfl_preseason`); the regular-season key is empty
+in August. Each sport now maps to a LIST of keys and we merge events from all
+of them, so preseason games get REAL FanDuel prices instead of falling back to
+simulated odds. Same pattern for NHL/NBA preseason.
 """
 
 import logging
@@ -53,16 +59,15 @@ class OddsProvider:
         raise NotImplementedError
 
 
-# The Odds API's sport key per sport we support -- see
-# https://the-odds-api.com/sports-odds-data/sports-apis.html
+# One or MORE Odds API sport keys per sport (regular season + preseason).
 ODDS_API_SPORT_KEYS = {
-    "MLB": "baseball_mlb",
-    "WNBA": "basketball_wnba",
-    "NFL": "americanfootball_nfl",
-    "NCAAF": "americanfootball_ncaaf",
-    "NCAAB": "basketball_ncaab",
-    "NHL": "icehockey_nhl",
-    "NBA": "basketball_nba",
+    "MLB": ["baseball_mlb"],
+    "WNBA": ["basketball_wnba"],
+    "NFL": ["americanfootball_nfl", "americanfootball_nfl_preseason"],
+    "NCAAF": ["americanfootball_ncaaf"],
+    "NCAAB": ["basketball_ncaab"],
+    "NHL": ["icehockey_nhl", "icehockey_nhl_preseason"],
+    "NBA": ["basketball_nba", "basketball_nba_preseason"],
 }
 
 
@@ -105,16 +110,9 @@ class TheOddsApiProvider(OddsProvider):
         self.bookmaker = bookmaker or config.ODDS_API_BOOKMAKER
         self.sport = sport
 
-    def get_odds(self, games):
-        if not self.api_key:
-            logger.warning("ODDS_API_KEY missing -- falling back to mock odds for this run.")
-            return MockOddsProvider().get_odds(games)
-
-        sport_key = ODDS_API_SPORT_KEYS.get(self.sport)
-        if not sport_key:
-            logger.warning("No Odds API sport key mapped for %s -- falling back to mock odds.", self.sport)
-            return MockOddsProvider().get_odds(games)
-
+    def _fetch_events(self, sport_key):
+        """Events for ONE sport key. [] on any problem. A preseason key that
+        isn't live yet answers 404/422 -- expected, so debug-level only."""
         url = f"{config.ODDS_API_BASE_URL}/sports/{sport_key}/odds"
         params = {
             "apiKey": self.api_key,
@@ -125,10 +123,36 @@ class TheOddsApiProvider(OddsProvider):
         }
         try:
             resp = requests.get(url, params=params, timeout=15)
+            if resp.status_code in (404, 422):
+                logger.debug("Odds API key %s not currently active (%s).", sport_key, resp.status_code)
+                return []
             resp.raise_for_status()
             payload = resp.json()
+            return payload if isinstance(payload, list) else []
         except Exception as exc:
-            logger.error("The Odds API request failed (%s) -- falling back to mock odds.", exc)
+            logger.warning("The Odds API request failed for %s (%s).", sport_key, exc)
+            return []
+
+    def get_odds(self, games):
+        if not self.api_key:
+            logger.warning("ODDS_API_KEY missing -- falling back to mock odds for this run.")
+            return MockOddsProvider().get_odds(games)
+
+        sport_keys = ODDS_API_SPORT_KEYS.get(self.sport)
+        if not sport_keys:
+            logger.warning("No Odds API sport key mapped for %s -- falling back to mock odds.", self.sport)
+            return MockOddsProvider().get_odds(games)
+
+        payload = []
+        for key in sport_keys:
+            found = self._fetch_events(key)
+            if found:
+                logger.info("%s odds: %d event(s) from key %s.", self.sport, len(found), key)
+            payload.extend(found)
+
+        if not payload:
+            logger.error("No %s events from any Odds API key %s -- falling back to mock odds.",
+                         self.sport, sport_keys)
             return MockOddsProvider().get_odds(games)
 
         by_teams = {}
