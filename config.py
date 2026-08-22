@@ -95,23 +95,17 @@ FADE_MAX_PER_DAY = 5
 # ---------------------------------------------------------------------------
 HR_PROPS_ENABLED = True
 HR_PROP_MIN_SCORE = 0
-# ONE board, ranked by score. Exactly 3 picks a day, and once the day's 3 are
-# set they are LOCKED (run_daily reuses them on every later run that day), so
-# the 3 you see are the 3 that get graded in history -- no mid-day changes.
 HR_PROP_MAX_PER_DAY = 3
 HR_PROP_ROSTER_LIMIT = 9
 HR_PROP_STRONG_SCORE = 70
 HR_PROP_MIN_SEASON_HR = 4
 HR_PROP_TOP_N_POOL = 200
 
-# Longshot tier removed -- single ranked list.
 HR_VALUE_LONGSHOT_SLOTS = 0
 HR_LONGSHOT_MIN_ODDS = 450
 
 HR_EV_FILTER_ENABLED = True
 HR_MIN_EV_EDGE = 0.05
-# Score -> estimated true HR probability for the game.
-#   score 55 -> ~8.5%   score 70 -> ~16%   score 90 -> ~26%   score 100 capped 0.35
 HR_PROB_BASE = 0.06
 HR_PROB_PER_POINT = 0.005
 HR_PROB_MAX = 0.35
@@ -139,10 +133,16 @@ PARLAY_MIN_LEGS = 2
 # ---------------------------------------------------------------------------
 # Grading factor weights (model nudges the market, not replaces it)
 # ---------------------------------------------------------------------------
+# football_context (NFL/NCAAF only): rest-day edge, recent-form trend, and
+# home/away scoring split -- the football equivalents of MLB's pitcher
+# matchup. Sits at 0.04 because rest and form are the two biggest
+# publicly-measurable football edges. It scores 0 for every non-football
+# sport, so MLB/WNBA/etc grading is unchanged.
 FACTOR_WEIGHTS = {
     "matchup_pitching": 0.065,
     "public_sharp_split": 0.06,
     "advanced_analytics": 0.045,
+    "football_context": 0.04,
     "underdog_value": 0.03,
     "historical_form": 0.025,
     "talent_gap": 0.025,
@@ -152,7 +152,7 @@ FACTOR_WEIGHTS = {
     "situational": 0.01,
     "motivation": 0.01,
 }
-assert abs(sum(FACTOR_WEIGHTS.values()) - 0.34) < 1e-9
+assert abs(sum(FACTOR_WEIGHTS.values()) - 0.38) < 1e-9
 
 # ---------------------------------------------------------------------------
 # Scheduler
