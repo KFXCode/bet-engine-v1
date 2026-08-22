@@ -4,25 +4,28 @@ engine/grading_factors.py
 One function per grading factor. Each takes a GradingContext and returns an
 engine.models.FactorScore (signal -1..+1, + leans HOME).
 
-Reasoning strings name the actual TEAMS (home/away abbreviations) instead of
-the words "home"/"away", so a card is instantly readable.
+Reasoning strings name the actual TEAMS instead of "home"/"away".
 
 celestial_signal / numerology_signal arrive already converted to home/away
 convention by engine/scoring.py.
 
-FADE-PHASE MOON (Aug 21, 2026): on Waxing Gibbous / Full Moon / Waning Gibbous
--- the "public confidence high, overvalued favorites become fade material"
-nights -- score_moon_zodiac DOUBLES its weight (0.03 -> 0.06), putting lunar
-energy on par with the public/sharp money factor. On every other phase it
-stays at its normal, deliberately-small nudge weight.
+FADE-PHASE MOON: on Waxing Gibbous / Full Moon / Waning Gibbous, the
+"overvalued favorites become fade material" nights, score_moon_zodiac DOUBLES
+its weight so the fade has real teeth against heavy chalk.
+
+FOOTBALL CONTEXT (Aug 22, 2026): score_football_context is the football
+equivalent of MLB's pitcher-matchup factor -- rest-day edge, recent-form
+trend, and home/away scoring split, all derived from the game_scores table we
+already accumulate. It returns a neutral 0 for every non-football sport, and
+it says so plainly when NFL results are preseason noise rather than signal.
 """
 
 from dataclasses import dataclass
 
 import config
 from engine.models import FactorScore
+from data.football_context import matchup_football_context, FOOTBALL_SPORTS
 
-# Phases where the system's rule is "fade tired favorites & hyped teams".
 FADE_PHASES = {"Waxing Gibbous", "Full Moon", "Waning Gibbous"}
 FADE_PHASE_WEIGHT_MULTIPLIER = 2.0
 
@@ -57,7 +60,6 @@ def _g(obj, attr):
 
 
 def _teams(ctx):
-    """(home_abbr, away_abbr) with safe fallbacks."""
     g = ctx.game
     return (getattr(g, "home_team", "HOME") or "HOME",
             getattr(g, "away_team", "AWAY") or "AWAY")
@@ -103,9 +105,6 @@ def score_matchup_pitching(ctx):
 
 
 def score_advanced_analytics(ctx):
-    """Advanced pitching/hitting edge, anchored on RELIABLE MLB Stats API data
-    (team OPS, pitcher HR/9 allowed, pitcher K%). Barrel% / hard-hit% are a
-    bonus when they load. Averages every available sub-signal."""
     h, a = _teams(ctx)
     hp, ap = ctx.home_pitcher_profile, ctx.away_pitcher_profile
     ho, ao = ctx.home_offense, ctx.away_offense
@@ -137,6 +136,74 @@ def score_advanced_analytics(ctx):
     signal = _clip(sum(subs) / len(subs))
     return FactorScore("advanced_analytics", "Advanced analytics (OPS/HR9/K%/barrel)", signal,
                         config.FACTOR_WEIGHTS["advanced_analytics"], "; ".join(parts), "ok")
+
+
+def score_football_context(ctx):
+    """NFL / NCAAF only. Three real, publicly-measurable football edges built
+    from the results we already store: REST (short week vs extra rest),
+    RECENT FORM (last-3 scoring margin vs season baseline), and HOME/AWAY
+    SPLIT (football has the largest venue effect of the major sports).
+    Neutral 0 for every other sport."""
+    w = config.FACTOR_WEIGHTS["football_context"]
+    h, a = _teams(ctx)
+    sport = getattr(ctx.game, "sport", None)
+    if sport not in FOOTBALL_SPORTS:
+        return FactorScore("football_context", "Football context (rest / form / venue)", 0.0,
+                            w, "Not a football game -- factor not applicable.", "ok")
+
+    date_str = getattr(ctx.game, "date", None)
+    fc = matchup_football_context(sport, h, a, date_str)
+    hc, ac = fc.get("home") or {}, fc.get("away") or {}
+
+    if fc.get("preseason"):
+        return FactorScore("football_context", "Football context (rest / form / venue)", 0.0,
+                            w,
+                            "PRESEASON: NFL August games are played mostly by backups, so records, "
+                            "scoring margins and form from them predict almost nothing about who wins. "
+                            "This factor is deliberately neutral -- treat any preseason pick as low "
+                            "confidence regardless of the edge number.",
+                            "degraded")
+
+    if not hc.get("games") and not ac.get("games"):
+        return FactorScore("football_context", "Football context (rest / form / venue)", 0.0,
+                            w, "No completed games stored for either team yet this season -- "
+                               "rest/form/venue read is blind until results accumulate.", "degraded")
+
+    subs, parts = [], []
+
+    # 1. Rest edge. A full extra week of rest is a well-documented advantage;
+    #    a short week (<=4 days) is a documented disadvantage.
+    hrest, arest = hc.get("rest_days"), ac.get("rest_days")
+    if hrest is not None and arest is not None:
+        subs.append(_clip((hrest - arest) / 5.0))
+        parts.append(f"rest: {h} {hrest}d vs {a} {arest}d")
+        if min(hrest, arest) <= 4:
+            short = h if hrest <= 4 else a
+            parts.append(f"{short} on a short week")
+
+    # 2. Recent-form trend: last-3 margin vs season margin.
+    hfd, afd = hc.get("form_delta"), ac.get("form_delta")
+    if hfd is not None and afd is not None:
+        subs.append(_clip((hfd - afd) / 10.0))
+        parts.append(f"form trend (last 3 vs season): {h} {hfd:+.1f} vs {a} {afd:+.1f}")
+
+    # 3. Venue split: home team's home margin vs away team's road margin.
+    hm, am = hc.get("home_margin"), ac.get("away_margin")
+    if hm is not None and am is not None:
+        subs.append(_clip((hm - am) / 14.0))
+        parts.append(f"venue split: {h} at home {hm:+.1f} vs {a} on road {am:+.1f}")
+
+    if not subs:
+        return FactorScore("football_context", "Football context (rest / form / venue)", 0.0,
+                            w, "Not enough stored football results yet for a rest/form/venue read.",
+                            "degraded")
+
+    signal = _clip(sum(subs) / len(subs))
+    n = min(hc.get("games", 0), ac.get("games", 0))
+    quality = "ok" if n >= 3 else "partial"
+    note = "" if n >= 3 else f"  [small sample: only {n} stored game(s) for the thinner side]"
+    return FactorScore("football_context", "Football context (rest / form / venue)", signal,
+                        w, "; ".join(parts) + note, quality)
 
 
 def score_underdog_value(ctx):
@@ -299,10 +366,8 @@ def _injury_score(injuries):
 
 
 def score_moon_zodiac(ctx):
-    """Lunar energy. On FADE PHASES (Waxing Gibbous / Full / Waning Gibbous) --
-    the nights where public confidence runs high and overvalued favorites
-    become fade material -- this factor's weight DOUBLES so the fade actually
-    has teeth against a heavy chalk favorite instead of being outvoted."""
+    """On FADE PHASES the weight DOUBLES so hyped/tired favorites get pushed
+    down and the value side gets pushed up."""
     weight = config.FACTOR_WEIGHTS["moon_zodiac"]
     reasoning = ctx.celestial_reasoning
     phase = ctx.moon_phase
@@ -324,6 +389,7 @@ ALL_FACTOR_SCORERS = [
     score_talent_gap,
     score_matchup_pitching,
     score_advanced_analytics,
+    score_football_context,
     score_underdog_value,
     score_bullpen_fatigue,
     score_motivation,
