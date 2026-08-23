@@ -366,12 +366,19 @@ def main(argv=None):
             else:
                 prop["odds_american"] = None
                 prop["odds_book"] = None
+
+        # ALWAYS run finalize first. It is what computes each candidate's +EV /
+        # fair-price tag and appends it to the reasoning IN PLACE. On a LOCKED
+        # day we previously skipped this entirely, which is why the locked
+        # board lost its "[+EV ...]" / "[Fair price ...]" value line -- the
+        # picks showed a score but never told you whether the price was worth
+        # betting. Now the tag is applied either way; the lock only decides
+        # WHICH players are shown, never whether they're priced.
+        recent_missers = _recent_hr_missers(db, run_date)
+        fresh_board = finalize_hr_props(hr_pool, recent_miss_players=recent_missers)
+
         locked = _locked_hr_props(db, date_str, hr_pool)
-        if locked is not None:
-            hr_props = locked[:config.HR_PROP_MAX_PER_DAY]
-        else:
-            recent_missers = _recent_hr_missers(db, run_date)
-            hr_props = finalize_hr_props(hr_pool, recent_miss_players=recent_missers)
+        hr_props = (locked[:config.HR_PROP_MAX_PER_DAY] if locked is not None else fresh_board)
 
     raw_celestial, _, _ = celestial_signal_for(run_date)
     raw_numerology, _, _ = numerology_signal_for(run_date)
