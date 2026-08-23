@@ -142,10 +142,18 @@
   .bankroll .lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
   .bankroll .col { text-align: center; }
 
-  .sportrec { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 4px; }
-  .sportrec .chip { background: var(--card); border: 1px solid var(--card-border); border-radius: 999px;
-                    padding: 6px 12px; font-size: 12px; color: var(--muted); }
-  .sportrec .chip b { color: var(--fg); font-family: "SF Mono", "Roboto Mono", monospace; }
+  .byleague { background: var(--card); border: 1px solid var(--card-border); border-radius: 16px;
+              padding: 6px 20px 14px; margin-top: 14px; }
+  .byleague h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted);
+                 font-weight: 700; margin: 14px 0 10px; }
+  .lg-row { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+            padding: 10px 0; border-top: 1px solid var(--card-border); }
+  .lg-row:first-of-type { border-top: none; }
+  .lg-name { font-size: 15px; font-weight: 800; color: var(--fg); letter-spacing: 0.02em; }
+  .lg-stats { display: flex; gap: 16px; flex-wrap: wrap; }
+  .lg-stat { text-align: right; min-width: 62px; }
+  .lg-stat .v { font-size: 16px; font-weight: 800; font-family: "SF Mono", "Roboto Mono", monospace; }
+  .lg-stat .k { font-size: 9px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-top: 1px; }
 
   .hist-day { margin-top: 24px; }
   .hist-cols { display: flex; gap: 16px; flex-wrap: wrap; }
@@ -155,6 +163,8 @@
   .leg-row .n { color: var(--accent); font-weight: 800; font-size: 13px; }
   .leg-row .lbl { color: var(--fg); font-size: 15px; font-weight: 600; }
   .kind-tag { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; border: 1px solid var(--card-border); border-radius: 6px; padding: 1px 6px; }
+  .day-rec { color: var(--muted); font-weight: 400; text-transform: none; letter-spacing: 0; font-size: 12px; text-align: right; }
+  .day-rec b { color: var(--fg); font-family: "SF Mono", "Roboto Mono", monospace; }
 
   a { color: var(--accent); }
   a:hover { color: var(--fg); }
@@ -167,6 +177,7 @@
     .metrics { gap: 14px 22px; }
     .bankroll { padding: 16px; gap: 14px 8px; }
     .bankroll .num { font-size: 17px; }
+    .lg-stat { min-width: 54px; }
   }
 </style>
 </head>
@@ -176,9 +187,9 @@
   <div class="header">
     <h1>Daily Betting Report</h1>
     <p class="date">2026-08-23</p>
-    <p class="updated"><span class="dot"></span>Updated Aug 23, 2026 - 2:17 PM EDT</p>
+    <p class="updated"><span class="dot"></span>Updated Aug 23, 2026 - 2:29 PM EDT</p>
     <div class="strip">
-      <div class="item">Slate: <b>20 games</b></div>
+      <div class="item">Slate: <b>15 games</b></div>
       <div class="item">Moon: <b>Waxing Gibbous</b> in <b>Capricorn</b></div>
       <div class="item">Numerology: <b>5</b></div>
     </div>
@@ -206,7 +217,7 @@
         </div>
         <div class="cx-row">
           <div class="cx-h">🔢 Numerology 5</div>
-          <div class="cx-t">Change & chaos -- volatile, unpredictable day.</div>
+          <div class="cx-t">Change &amp; chaos -- volatile, unpredictable day.</div>
         </div>
         <div class="cx-row">
           <div class="cx-t" style="font-size:12px;">These are weighted <b style="color:var(--fg);">nudges</b> -- they tip close calls, and on fade phases they carry real weight, but they never override talent, pitching, and the money/sharp read.</div>
@@ -216,13 +227,6 @@
   </div>
 
   
-  <div class="warnbox">
-    <b>Data quality warnings</b>
-    <ul>
-      <li>NFL records still building (no results stored yet) -- NFL talent/motivation factors run neutral until a few games are logged.</li>
-    </ul>
-  </div>
-  
 
   
 
@@ -231,10 +235,6 @@
   <div class="tabs">
     
     <button class="tab-btn" data-target="view-MLB" onclick="showView(this)">MLB</button>
-    
-    <button class="tab-btn" data-target="view-WNBA" onclick="showView(this)">WNBA</button>
-    
-    <button class="tab-btn" data-target="view-NFL" onclick="showView(this)">NFL</button>
     
     <button class="tab-btn" data-target="view-top" onclick="showView(this)">TOP PARLAY</button>
     <button class="tab-btn" data-target="view-history" onclick="showView(this)">HISTORY</button>
@@ -314,39 +314,8 @@
         <summary>
           <div class="s-main">
             
-            <div class="s-team">TOR <span class="sport-tag">MLB</span> ML</div>
-            <div class="s-sub">Rank #3 &middot; Confidence 7/10 &middot; <span class="odds">+320</span></div>
-          </div>
-          <div class="s-right">
-            <div class="s-edge"><div class="n">4.8%</div><div class="l">Edge</div></div>
-            <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
-          </div>
-        </summary>
-        <div class="body">
-          <div class="metrics">
-            <div class="metric"><div class="num">27.9%</div><div class="lbl">Model win%</div></div>
-            <div class="metric"><div class="num">23.1%</div><div class="lbl">Market win%</div></div>
-          </div>
-          <div class="flags">
-            
-            
-          </div>
-          <div class="why">
-            <div class="why-title">Why this clears every layer:</div>
-            <ul>
-              <li>EDGE SOURCE: data factors +4.5%, astrology/numerology +0.3% (of the 4.8% total edge). A healthy pick is driven mostly by DATA -- if astro is carrying it, treat it as thin.</li><li>Underdog value on TOR: public 69% on the favorite -- price is shaded, TOR gains value</li><li>games back: NYY 3.0 vs TOR 5.0; streak: NYY -1 vs TOR +1</li><li>Tickets 69% NYY / Handle 28% NYY -> sharp money on TOR</li><li>Date reduces to 5 -> underdog lean</li><li>Starter ERA: NYY Carlos Rodón 3.22 vs TOR José Soriano 3.23 -> edge to NYY's starter</li><li>Not a football game -- factor not applicable.</li><li>Bullpen load (last 3d): NYY 3g/0 extra-inn (fatigue 1.00) vs TOR 3g/0 extra-inn (fatigue 1.00) -> fresher pen: even</li><li>park run factor 106; rest: NYY 1d, TOR 1d</li><li>Waxing Gibbous (80% illuminated), Moon in Capricorn (earth sign) -> underdog lean  [FADE PHASE: Waxing Gibbous -- lunar weight doubled to 0.060 (same as the public/sharp factor). Public confidence runs high tonight, so hyped/tired favorites get pushed down and the value side gets pushed up.]</li><li>— Counter-signals we weighed (leaned toward the other side but didn't outweigh the pick):</li><li>Pythagorean win%: NYY 0.582 vs TOR 0.459 (NYY the deeper team)</li><li>team OPS: NYY 0.714 vs TOR 0.687; HR/9 allowed: NYY SP 0.72 vs TOR SP 0.84; K%: NYY SP 26.5 vs TOR SP 23.5</li>
-            </ul>
-          </div>
-        </div>
-      </details>
-      
-      
-      <details class="pick">
-        <summary>
-          <div class="s-main">
-            
             <div class="s-team">CLE <span class="sport-tag">MLB</span> ML</div>
-            <div class="s-sub">Rank #4 &middot; Confidence 6/10 &middot; <span class="odds">-158</span></div>
+            <div class="s-sub">Rank #3 &middot; Confidence 6/10 &middot; <span class="odds">-158</span></div>
           </div>
           <div class="s-right">
             <div class="s-edge"><div class="n">4.5%</div><div class="l">Edge</div></div>
@@ -377,7 +346,7 @@
           <div class="s-main">
             
             <div class="s-team">CWS <span class="sport-tag">MLB</span> ML</div>
-            <div class="s-sub">Rank #5 &middot; Confidence 6/10 &middot; <span class="odds">-115</span></div>
+            <div class="s-sub">Rank #4 &middot; Confidence 6/10 &middot; <span class="odds">-115</span></div>
           </div>
           <div class="s-right">
             <div class="s-edge"><div class="n">4.4%</div><div class="l">Edge</div></div>
@@ -402,6 +371,37 @@
         </div>
       </details>
       
+      
+      <details class="pick">
+        <summary>
+          <div class="s-main">
+            
+            <div class="s-team">TOR <span class="sport-tag">MLB</span> ML</div>
+            <div class="s-sub">Rank #5 &middot; Confidence 6/10 &middot; <span class="odds">+320</span></div>
+          </div>
+          <div class="s-right">
+            <div class="s-edge"><div class="n">4.3%</div><div class="l">Edge</div></div>
+            <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+        </summary>
+        <div class="body">
+          <div class="metrics">
+            <div class="metric"><div class="num">27.4%</div><div class="lbl">Model win%</div></div>
+            <div class="metric"><div class="num">23.1%</div><div class="lbl">Market win%</div></div>
+          </div>
+          <div class="flags">
+            
+            
+          </div>
+          <div class="why">
+            <div class="why-title">Why this clears every layer:</div>
+            <ul>
+              <li>EDGE SOURCE: data factors +4.0%, astrology/numerology +0.3% (of the 4.3% total edge). A healthy pick is driven mostly by DATA -- if astro is carrying it, treat it as thin.</li><li>Underdog value on TOR: public 69% on the favorite -- price is shaded, TOR gains value</li><li>Tickets 69% NYY / Handle 28% NYY -> sharp money on TOR</li><li>Date reduces to 5 -> underdog lean</li><li>Starter ERA: NYY Carlos Rodón 3.22 vs TOR José Soriano 3.23 -> edge to NYY's starter</li><li>Not a football game -- factor not applicable.</li><li>Bullpen load (last 3d): NYY 3g/0 extra-inn (fatigue 1.00) vs TOR 3g/0 extra-inn (fatigue 1.00) -> fresher pen: even</li><li>park run factor 106; rest: NYY 1d, TOR 1d</li><li>Waxing Gibbous (80% illuminated), Moon in Capricorn (earth sign) -> underdog lean  [FADE PHASE: Waxing Gibbous -- lunar weight doubled to 0.060 (same as the public/sharp factor). Public confidence runs high tonight, so hyped/tired favorites get pushed down and the value side gets pushed up.]</li><li>— Counter-signals we weighed (leaned toward the other side but didn't outweigh the pick):</li><li>Pythagorean win%: NYY 0.582 vs TOR 0.458 (NYY the deeper team)</li><li>team OPS: NYY 0.714 vs TOR 0.687; HR/9 allowed: NYY SP 0.72 vs TOR SP 0.84; K%: NYY SP 26.5 vs TOR SP 23.5</li><li>games back: NYY 3.0 vs TOR 13.0; streak: NYY -1 vs TOR +1</li>
+            </ul>
+          </div>
+        </div>
+      </details>
+      
     
 
     
@@ -414,7 +414,7 @@
           <div class="s-main">
             <div class="top-badge">★ Top MLB Prop Today</div>
             <div class="s-team">Pete Alonso <span style="font-size:14px; color:var(--muted); font-weight:600;">HR</span></div>
-            <div class="s-sub">Rank #1 &middot; BAL vs Nick Martinez &middot; <span class="odds">+370</span></div>
+            <div class="s-sub">Rank #1 &middot; BAL vs Nick Martinez &middot; odds n/a</div>
           </div>
           <div class="s-right">
             <div class="s-edge"><div class="n" style="color:var(--accent);">82.0</div><div class="l" style="color:var(--accent); font-weight:800;">STRONG</div></div>
@@ -425,7 +425,7 @@
           <div class="why">
             <div class="why-title">Full breakdown &mdash; why this HR was chosen:</div>
             <ul>
-              <li>Base 35. Scale is built so 100 is the absolute ceiling -- a 55-70 is a decent spot, 75-90 is genuinely strong. Recent form is the heaviest input.</li><li>[Recent Form +22.0/22] Last 15 G: 7 HR, ISO 0.397, 10.8% HR/PA -> hot_score 1.00.</li><li>[Season Power +8/8] 30 HR -- elite volume.</li><li>[Barrel +10/10] ELITE 14.0% barrels.</li><li>[Park +7/7] HR factor 119 -- strong hitter's park.</li><li>[Overlay] Hitter-friendly conditions today.</li><li>FINAL HR SCORE: 82.0/100.</li><li>[Fair price +0.7%] Model 22.0% vs implied 21.3% at +370 -- a SPOT play.</li>
+              <li>Base 35. Scale is built so 100 is the absolute ceiling -- a 55-70 is a decent spot, 75-90 is genuinely strong. Recent form is the heaviest input.</li><li>[Recent Form +22.0/22] Last 15 G: 7 HR, ISO 0.397, 10.8% HR/PA -> hot_score 1.00.</li><li>[Season Power +8/8] 30 HR -- elite volume.</li><li>[Barrel +10/10] ELITE 14.0% barrels.</li><li>[Park +7/7] HR factor 119 -- strong hitter's park.</li><li>[Overlay] Hitter-friendly conditions today.</li><li>FINAL HR SCORE: 82.0/100.</li><li>[Value] HR odds unavailable right now -- ranked on model score; confirm the price before betting.</li>
             </ul>
           </div>
         </div>
@@ -437,7 +437,7 @@
           <div class="s-main">
             
             <div class="s-team">Jo Adell <span style="font-size:14px; color:var(--muted); font-weight:600;">HR</span></div>
-            <div class="s-sub">Rank #2 &middot; CLE vs Tomoyuki Sugano &middot; <span class="odds">+265</span></div>
+            <div class="s-sub">Rank #2 &middot; CLE vs Tomoyuki Sugano &middot; odds n/a</div>
           </div>
           <div class="s-right">
             <div class="s-edge"><div class="n" style="color:var(--accent);">81.0</div><div class="l" style="color:var(--accent); font-weight:800;">STRONG</div></div>
@@ -448,7 +448,7 @@
           <div class="why">
             <div class="why-title">Full breakdown &mdash; why this HR was chosen:</div>
             <ul>
-              <li>Base 35. Scale is built so 100 is the absolute ceiling -- a 55-70 is a decent spot, 75-90 is genuinely strong. Recent form is the heaviest input.</li><li>[Recent Form +22.0/22] Last 13 G: 4 HR, ISO 0.326, 7.7% HR/PA -> hot_score 1.00.</li><li>[Season Power +4/8] 20 HR -- legit power.</li><li>[Barrel +5/10] 10.1% barrels -- above avg.</li><li>[HR Rate Allowed +8/8] Tomoyuki Sugano 1.98 HR/9 -- serves them up.</li><li>[Park +7/7] HR factor 116 -- strong hitter's park.</li><li>FINAL HR SCORE: 81.0/100.</li><li>[Fair price -5.9%] Model 21.5% vs implied 27.4% at +265 -- a SPOT play.</li>
+              <li>Base 35. Scale is built so 100 is the absolute ceiling -- a 55-70 is a decent spot, 75-90 is genuinely strong. Recent form is the heaviest input.</li><li>[Recent Form +22.0/22] Last 13 G: 4 HR, ISO 0.326, 7.7% HR/PA -> hot_score 1.00.</li><li>[Season Power +4/8] 20 HR -- legit power.</li><li>[Barrel +5/10] 10.1% barrels -- above avg.</li><li>[HR Rate Allowed +8/8] Tomoyuki Sugano 1.98 HR/9 -- serves them up.</li><li>[Park +7/7] HR factor 116 -- strong hitter's park.</li><li>FINAL HR SCORE: 81.0/100.</li><li>[Value] HR odds unavailable right now -- ranked on model score; confirm the price before betting.</li>
             </ul>
           </div>
         </div>
@@ -485,87 +485,20 @@
     
     <div class="parlay">
       <div class="legs">4-Leg MLB Parlay</div>
-      <div class="odds">Combined: +10279 &middot; 1.3% est. win probability</div>
+      <div class="odds">Combined: +1747 &middot; 7.8% est. win probability</div>
       <div style="margin-top:14px;">
         
         <div class="leg-row"><span class="n">Leg 1</span><span class="lbl">OAK ML (+175)</span><span class="kind-tag">ML</span></div>
         
         <div class="leg-row"><span class="n">Leg 2</span><span class="lbl">TB ML (+120)</span><span class="kind-tag">ML</span></div>
         
-        <div class="leg-row"><span class="n">Leg 3</span><span class="lbl">Pete Alonso HR (+370)</span><span class="kind-tag">HR</span></div>
+        <div class="leg-row"><span class="n">Leg 3</span><span class="lbl">CLE ML (-158)</span><span class="kind-tag">ML</span></div>
         
-        <div class="leg-row"><span class="n">Leg 4</span><span class="lbl">Jo Adell HR (+265)</span><span class="kind-tag">HR</span></div>
+        <div class="leg-row"><span class="n">Leg 4</span><span class="lbl">CWS ML (-115)</span><span class="kind-tag">ML</span></div>
         
       </div>
       <div class="note">Flat 1 unit. Built only from MLB legs the system graded today.</div>
     </div>
-    
-
-  </div>
-  
-  
-  <div class="view-panel" id="view-WNBA" style="display:none;">
-
-    <div class="section-title"><span>WNBA &middot; Today's Moneyline Picks</span><span class="expand-all" onclick="toggleAll(this)">Expand all</span></div>
-    
-      <div class="dropped">No WNBA moneyline play cleared a real edge today.</div>
-    
-
-    
-
-    <div class="section-title"><span>WNBA &middot; Best Parlay</span></div>
-    
-    
-    <div class="dropped">No WNBA parlay today &mdash; fewer than 2 WNBA legs cleared the confidence bar.</div>
-    
-
-  </div>
-  
-  
-  <div class="view-panel" id="view-NFL" style="display:none;">
-
-    <div class="section-title"><span>NFL &middot; Today's Moneyline Picks</span><span class="expand-all" onclick="toggleAll(this)">Expand all</span></div>
-    
-      
-      
-      <details class="pick top-pick" open>
-        <summary>
-          <div class="s-main">
-            <div class="top-badge">★ Top NFL ML Today</div>
-            <div class="s-team">SEA <span class="sport-tag">NFL</span> ML</div>
-            <div class="s-sub">Rank #1 &middot; Confidence 8/10 &middot; <span class="odds">+154</span></div>
-          </div>
-          <div class="s-right">
-            <div class="s-edge"><div class="n">6.1%</div><div class="l">Edge</div></div>
-            <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
-          </div>
-        </summary>
-        <div class="body">
-          <div class="metrics">
-            <div class="metric"><div class="num">43.9%</div><div class="lbl">Model win%</div></div>
-            <div class="metric"><div class="num">37.8%</div><div class="lbl">Market win%</div></div>
-          </div>
-          <div class="flags">
-            
-            
-          </div>
-          <div class="why">
-            <div class="why-title">Why this clears every layer:</div>
-            <ul>
-              <li>EDGE SOURCE: data factors +5.8%, astrology/numerology +0.3% (of the 6.1% total edge). A healthy pick is driven mostly by DATA -- if astro is carrying it, treat it as thin.</li><li>Tickets 56% TEN / Handle 8% TEN -> sharp money on SEA</li><li>Date reduces to 5 -> underdog lean</li><li>Not enough season data yet to separate these teams on talent.</li><li>Probable starters' ERA unavailable -- neutral until confirmed.</li><li>No advanced data available today (team OPS + pitcher stats both missing) -- neutral.</li><li>PRESEASON: NFL August games are played mostly by backups, so records, scoring margins and form from them predict almost nothing about who wins. This factor is deliberately neutral -- treat any preseason pick as low confidence regardless of the edge number.</li><li>No live underdog value today -- no home-dog price, public fade, or competitive-dog signal.</li><li>Recent bullpen workload unavailable -- neutral.</li><li>park run factor 100</li><li>Waxing Gibbous (80% illuminated), Moon in Capricorn (earth sign) -> underdog lean  [FADE PHASE: Waxing Gibbous -- lunar weight doubled to 0.060 (same as the public/sharp factor). Public confidence runs high tonight, so hyped/tired favorites get pushed down and the value side gets pushed up.]</li><li>— Counter-signals we weighed (leaned toward the other side but didn't outweigh the pick):</li><li>streak: TEN +0 vs SEA -2</li>
-            </ul>
-          </div>
-        </div>
-      </details>
-      
-    
-
-    
-
-    <div class="section-title"><span>NFL &middot; Best Parlay</span></div>
-    
-    
-    <div class="dropped">No NFL parlay today &mdash; fewer than 2 NFL legs cleared the confidence bar.</div>
     
 
   </div>
@@ -590,16 +523,16 @@
     
     <div class="parlay">
       <div class="legs">4-Leg Top Parlay</div>
-      <div class="odds">Combined: +7122 &middot; 2.0% est. win probability</div>
+      <div class="odds">Combined: +1747 &middot; 7.8% est. win probability</div>
       <div style="margin-top:14px;">
         
         <div class="leg-row"><span class="n">Leg 1</span><span class="lbl">OAK ML (+175)</span><span class="kind-tag">ML</span></div>
         
-        <div class="leg-row"><span class="n">Leg 2</span><span class="lbl">SEA ML (+154)</span><span class="kind-tag">ML</span></div>
+        <div class="leg-row"><span class="n">Leg 2</span><span class="lbl">TB ML (+120)</span><span class="kind-tag">ML</span></div>
         
-        <div class="leg-row"><span class="n">Leg 3</span><span class="lbl">TB ML (+120)</span><span class="kind-tag">ML</span></div>
+        <div class="leg-row"><span class="n">Leg 3</span><span class="lbl">CLE ML (-158)</span><span class="kind-tag">ML</span></div>
         
-        <div class="leg-row"><span class="n">Leg 4</span><span class="lbl">Pete Alonso HR (+370)</span><span class="kind-tag">HR</span></div>
+        <div class="leg-row"><span class="n">Leg 4</span><span class="lbl">CWS ML (-115)</span><span class="kind-tag">ML</span></div>
         
       </div>
       <div class="note">Flat 1 unit. The single strongest ticket across every active sport &mdash; any mix of leagues and props the system rates highest today.</div>
@@ -610,8 +543,8 @@
   <div class="view-panel" id="view-history" style="display:none;">
     
     <div class="bankroll">
-      <div class="col"><div class="num">85-61</div><div class="lbl">Moneyline Record</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">Since 2026-07-24</div></div>
-      <div class="col"><div class="num">14-95</div><div class="lbl">HR Prop Record</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">Since 2026-07-24</div></div>
+      <div class="col"><div class="num">85-61</div><div class="lbl">Moneyline &middot; All Sports</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">Since 2026-07-24</div></div>
+      <div class="col"><div class="num">14-95</div><div class="lbl">Props &middot; All Sports</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">Since 2026-07-24</div></div>
       <div class="col"><div class="num" style="color:var(--accent);">+0.1%</div><div class="lbl">Avg CLV (ML)</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">beat close 8% &middot; n=90</div></div>
     </div>
     
@@ -622,12 +555,81 @@
       
       
 
+      <div class="byleague">
+        <h4>Record by league &mdash; every sport tracked separately</h4>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <div class="lg-row">
+          <span class="lg-name">MLB</span>
+          <span class="lg-stats">
+            <span class="lg-stat"><div class="v">85-61</div><div class="k">Moneyline</div></span>
+            <span class="lg-stat"><div class="v">14-95</div><div class="k">Props</div></span>
+            <span class="lg-stat"><div class="v" style="color:var(--warn);">39%</div><div class="k">Win rate</div></span>
+          </span>
+        </div>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+      </div>
+
       
       <div class="hist-day">
-        <div class="section-title" style="margin:0 0 12px;">2026-08-22
-          <span style="color:var(--muted); font-weight:400; text-transform:none; letter-spacing:0;">
-            &middot; ML 2-3
-            &middot; HR 0-3
+        <div class="section-title" style="margin:0 0 12px;">
+          <span>2026-08-22</span>
+          <span class="day-rec">
+            
+            
+            
+            
+            
+            
+            
+            MLB ML <b>2-3</b> &middot; Props <b>0-3</b> &nbsp; 
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
           </span>
         </div>
         <div class="hist-cols">
@@ -639,56 +641,56 @@
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">TEX ML (-158)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">CHC ML (+104)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">NYM ML (+102)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">TOR ML (-104)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">DET ML (-104)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Max Muncy to hit a HR (+320)</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Matt Olson to hit a HR (+255)</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; ">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Corey Seager to hit a HR (+320)</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
             </div>
@@ -733,10 +735,37 @@
       </div>
       
       <div class="hist-day">
-        <div class="section-title" style="margin:0 0 12px;">2026-08-21
-          <span style="color:var(--muted); font-weight:400; text-transform:none; letter-spacing:0;">
-            &middot; ML 4-1
-            &middot; HR 0-0
+        <div class="section-title" style="margin:0 0 12px;">
+          <span>2026-08-21</span>
+          <span class="day-rec">
+            
+            
+            
+            
+            
+            
+            
+            MLB ML <b>4-1</b> &nbsp; 
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
           </span>
         </div>
         <div class="hist-cols">
@@ -748,35 +777,35 @@
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">PHI ML (-250)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">ARI ML (-140)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">NYY ML (-198)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">DET ML (-108)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; ">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">LAD ML (-225)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
             </div>
@@ -809,10 +838,37 @@
       </div>
       
       <div class="hist-day">
-        <div class="section-title" style="margin:0 0 12px;">2026-08-20
-          <span style="color:var(--muted); font-weight:400; text-transform:none; letter-spacing:0;">
-            &middot; ML 3-1
-            &middot; HR 1-2
+        <div class="section-title" style="margin:0 0 12px;">
+          <span>2026-08-20</span>
+          <span class="day-rec">
+            
+            
+            
+            
+            
+            
+            
+            MLB ML <b>3-1</b> &middot; Props <b>1-2</b> &nbsp; 
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
           </span>
         </div>
         <div class="hist-cols">
@@ -824,49 +880,49 @@
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">STL ML (-108)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">KC ML (-128)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">WSH ML (+152)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">CLE ML (-205)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Jordan Walker to hit a HR (+390)</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Christian Walker to hit a HR (+425)</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; ">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Munetaka Murakami to hit a HR (+265)</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
             </div>
@@ -899,10 +955,37 @@
       </div>
       
       <div class="hist-day">
-        <div class="section-title" style="margin:0 0 12px;">2026-08-19
-          <span style="color:var(--muted); font-weight:400; text-transform:none; letter-spacing:0;">
-            &middot; ML 5-0
-            &middot; HR 1-2
+        <div class="section-title" style="margin:0 0 12px;">
+          <span>2026-08-19</span>
+          <span class="day-rec">
+            
+            
+            
+            
+            
+            
+            
+            MLB ML <b>5-0</b> &middot; Props <b>1-2</b> &nbsp; 
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
           </span>
         </div>
         <div class="hist-cols">
@@ -914,56 +997,56 @@
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">HOU ML (-148)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">NYY ML (-116)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">TB ML (-198)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">PIT ML (-154)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">CIN ML (-142)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Heriberto Hernández to hit a HR (+370)</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Elly De La Cruz to hit a HR (+305)</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; ">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Mickey Moniak to hit a HR (+350)</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
             </div>
@@ -1000,10 +1083,37 @@
       </div>
       
       <div class="hist-day">
-        <div class="section-title" style="margin:0 0 12px;">2026-08-18
-          <span style="color:var(--muted); font-weight:400; text-transform:none; letter-spacing:0;">
-            &middot; ML 4-1
-            &middot; HR 1-2
+        <div class="section-title" style="margin:0 0 12px;">
+          <span>2026-08-18</span>
+          <span class="day-rec">
+            
+            
+            
+            
+            
+            
+            
+            MLB ML <b>4-1</b> &middot; Props <b>1-2</b> &nbsp; 
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
           </span>
         </div>
         <div class="hist-cols">
@@ -1015,56 +1125,56 @@
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">LAD ML (-190)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">CLE ML (-184)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">MIL ML (-164)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">NYY ML (-108)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">CWS ML (+156)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Shohei Ohtani to hit a HR (+192)</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Mike Trout to hit a HR (+320)</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; ">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Sal Stewart to hit a HR (+330)</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
             </div>
@@ -1097,10 +1207,37 @@
       </div>
       
       <div class="hist-day">
-        <div class="section-title" style="margin:0 0 12px;">2026-08-17
-          <span style="color:var(--muted); font-weight:400; text-transform:none; letter-spacing:0;">
-            &middot; ML 4-1
-            &middot; HR 0-3
+        <div class="section-title" style="margin:0 0 12px;">
+          <span>2026-08-17</span>
+          <span class="day-rec">
+            
+            
+            
+            
+            
+            
+            
+            MLB ML <b>4-1</b> &middot; Props <b>0-3</b> &nbsp; 
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
           </span>
         </div>
         <div class="hist-cols">
@@ -1112,56 +1249,56 @@
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">BOS ML (-130)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">PHI ML (-245)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">KC ML (-178)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">ATL ML (-122)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">CHC ML (-156)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Matt Olson to hit a HR (+225)</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Jac Caglianone to hit a HR (+390)</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; ">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Colson Montgomery to hit a HR (+370)</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
             </div>
@@ -1194,10 +1331,37 @@
       </div>
       
       <div class="hist-day">
-        <div class="section-title" style="margin:0 0 12px;">2026-08-16
-          <span style="color:var(--muted); font-weight:400; text-transform:none; letter-spacing:0;">
-            &middot; ML 3-2
-            &middot; HR 1-2
+        <div class="section-title" style="margin:0 0 12px;">
+          <span>2026-08-16</span>
+          <span class="day-rec">
+            
+            
+            
+            
+            
+            
+            
+            MLB ML <b>3-2</b> &middot; Props <b>1-2</b> &nbsp; 
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
           </span>
         </div>
         <div class="hist-cols">
@@ -1209,56 +1373,56 @@
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">STL ML (+162)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">MIA ML (-118)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">NYM ML (-164)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">TEX ML (-130)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">MIN ML (-102)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Max Muncy to hit a HR (+305)</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Corey Seager to hit a HR (+305)</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; ">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Byron Buxton to hit a HR (+390)</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
             </div>
@@ -1291,10 +1455,37 @@
       </div>
       
       <div class="hist-day">
-        <div class="section-title" style="margin:0 0 12px;">2026-08-15
-          <span style="color:var(--muted); font-weight:400; text-transform:none; letter-spacing:0;">
-            &middot; ML 3-2
-            &middot; HR 0-3
+        <div class="section-title" style="margin:0 0 12px;">
+          <span>2026-08-15</span>
+          <span class="day-rec">
+            
+            
+            
+            
+            
+            
+            
+            MLB ML <b>3-2</b> &middot; Props <b>0-3</b> &nbsp; 
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
           </span>
         </div>
         <div class="hist-cols">
@@ -1306,56 +1497,56 @@
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">KC ML (+134)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">SF ML (-160)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">NYY ML (-172)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">BOS ML (-120)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">MIL ML (-128)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Heriberto Hernández to hit a HR (+330)</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Corbin Carroll to hit a HR (+400)</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; ">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Dominic Canzone to hit a HR (+390)</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
             </div>
@@ -1388,10 +1579,37 @@
       </div>
       
       <div class="hist-day">
-        <div class="section-title" style="margin:0 0 12px;">2026-08-14
-          <span style="color:var(--muted); font-weight:400; text-transform:none; letter-spacing:0;">
-            &middot; ML 2-3
-            &middot; HR 0-0
+        <div class="section-title" style="margin:0 0 12px;">
+          <span>2026-08-14</span>
+          <span class="day-rec">
+            
+            
+            
+            
+            
+            
+            
+            MLB ML <b>2-3</b> &nbsp; 
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
           </span>
         </div>
         <div class="hist-cols">
@@ -1403,35 +1621,35 @@
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">WSH ML (+106)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">CHC ML (-180)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">DET ML (-126)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">ATL ML (-184)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; ">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">LAD ML (-172)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
             </div>
@@ -1464,10 +1682,37 @@
       </div>
       
       <div class="hist-day">
-        <div class="section-title" style="margin:0 0 12px;">2026-08-13
-          <span style="color:var(--muted); font-weight:400; text-transform:none; letter-spacing:0;">
-            &middot; ML 3-2
-            &middot; HR 0-3
+        <div class="section-title" style="margin:0 0 12px;">
+          <span>2026-08-13</span>
+          <span class="day-rec">
+            
+            
+            
+            
+            
+            
+            
+            MLB ML <b>3-2</b> &middot; Props <b>0-3</b> &nbsp; 
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
           </span>
         </div>
         <div class="hist-cols">
@@ -1479,56 +1724,56 @@
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">BOS ML (-140)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">MIN ML (-108)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">NYY ML (-156)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">LAA ML (+138)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">MIL ML (+128)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Willson Contreras to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Jackson Chourio to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; ">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Royce Lewis to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
             </div>
@@ -1565,10 +1810,37 @@
       </div>
       
       <div class="hist-day">
-        <div class="section-title" style="margin:0 0 12px;">2026-08-12
-          <span style="color:var(--muted); font-weight:400; text-transform:none; letter-spacing:0;">
-            &middot; ML 2-3
-            &middot; HR 0-3
+        <div class="section-title" style="margin:0 0 12px;">
+          <span>2026-08-12</span>
+          <span class="day-rec">
+            
+            
+            
+            
+            
+            
+            
+            MLB ML <b>2-3</b> &middot; Props <b>0-3</b> &nbsp; 
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
           </span>
         </div>
         <div class="hist-cols">
@@ -1580,56 +1852,56 @@
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">ARI ML (-166)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">TB ML (-220)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">PIT ML (-102)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">HOU ML (-140)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">BAL ML (-104)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Junior Caminero to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Jac Caglianone to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; ">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Hunter Goodman to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
             </div>
@@ -1662,10 +1934,37 @@
       </div>
       
       <div class="hist-day">
-        <div class="section-title" style="margin:0 0 12px;">2026-08-11
-          <span style="color:var(--muted); font-weight:400; text-transform:none; letter-spacing:0;">
-            &middot; ML 1-4
-            &middot; HR 1-2
+        <div class="section-title" style="margin:0 0 12px;">
+          <span>2026-08-11</span>
+          <span class="day-rec">
+            
+            
+            
+            
+            
+            
+            
+            MLB ML <b>1-4</b> &middot; Props <b>1-2</b> &nbsp; 
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
           </span>
         </div>
         <div class="hist-cols">
@@ -1677,56 +1976,56 @@
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">TEX ML (-148)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">MIL ML (-126)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">CWS ML (-154)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">HOU ML (-180)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">TB ML (-172)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Max Muncy to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Pete Crow-Armstrong to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; ">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Jonathan Aranda to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
             </div>
@@ -1763,10 +2062,37 @@
       </div>
       
       <div class="hist-day">
-        <div class="section-title" style="margin:0 0 12px;">2026-08-10
-          <span style="color:var(--muted); font-weight:400; text-transform:none; letter-spacing:0;">
-            &middot; ML 2-3
-            &middot; HR 0-3
+        <div class="section-title" style="margin:0 0 12px;">
+          <span>2026-08-10</span>
+          <span class="day-rec">
+            
+            
+            
+            
+            
+            
+            
+            MLB ML <b>2-3</b> &middot; Props <b>0-3</b> &nbsp; 
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
           </span>
         </div>
         <div class="hist-cols">
@@ -1778,56 +2104,56 @@
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">BAL ML (-106)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">ARI ML (-194)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">LAD ML (-270)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">BOS ML (-158)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">STL ML (+108)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Willson Contreras to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Shohei Ohtani to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; ">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Tyler Soderstrom to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
             </div>
@@ -1860,10 +2186,37 @@
       </div>
       
       <div class="hist-day">
-        <div class="section-title" style="margin:0 0 12px;">2026-08-09
-          <span style="color:var(--muted); font-weight:400; text-transform:none; letter-spacing:0;">
-            &middot; ML 4-1
-            &middot; HR 1-2
+        <div class="section-title" style="margin:0 0 12px;">
+          <span>2026-08-09</span>
+          <span class="day-rec">
+            
+            
+            
+            
+            
+            
+            
+            MLB ML <b>4-1</b> &middot; Props <b>1-2</b> &nbsp; 
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
           </span>
         </div>
         <div class="hist-cols">
@@ -1875,56 +2228,56 @@
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">CWS ML (+116)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">KC ML (+142)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">MIA ML (-138)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">MIL ML (-245)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">DET ML (-116)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Kyle Schwarber to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Luis García Jr. to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; ">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Corey Seager to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
             </div>
@@ -1957,10 +2310,37 @@
       </div>
       
       <div class="hist-day">
-        <div class="section-title" style="margin:0 0 12px;">2026-08-08
-          <span style="color:var(--muted); font-weight:400; text-transform:none; letter-spacing:0;">
-            &middot; ML 1-4
-            &middot; HR 1-2
+        <div class="section-title" style="margin:0 0 12px;">
+          <span>2026-08-08</span>
+          <span class="day-rec">
+            
+            
+            
+            
+            
+            
+            
+            MLB ML <b>1-4</b> &middot; Props <b>1-2</b> &nbsp; 
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
           </span>
         </div>
         <div class="hist-cols">
@@ -1972,56 +2352,56 @@
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">CHC ML (-158)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">PHI ML (-158)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">BOS ML (-250)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">STL ML (-148)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">LAD ML (-184)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Matt Olson to hit a HR (+290)</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Bryan De La Cruz to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; ">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Ben Rice to hit a HR (+425)</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
             </div>
@@ -2058,10 +2438,37 @@
       </div>
       
       <div class="hist-day">
-        <div class="section-title" style="margin:0 0 12px;">2026-08-07
-          <span style="color:var(--muted); font-weight:400; text-transform:none; letter-spacing:0;">
-            &middot; ML 3-2
-            &middot; HR 0-24
+        <div class="section-title" style="margin:0 0 12px;">
+          <span>2026-08-07</span>
+          <span class="day-rec">
+            
+            
+            
+            
+            
+            
+            
+            MLB ML <b>3-2</b> &middot; Props <b>0-24</b> &nbsp; 
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
           </span>
         </div>
         <div class="hist-cols">
@@ -2073,203 +2480,203 @@
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Ben Rice to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Kazuma Okamoto to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Luis García Jr. to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Pete Alonso to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Ben Rice to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Kazuma Okamoto to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Pete Alonso to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Ben Rice to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Kazuma Okamoto to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Max Muncy to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Pete Alonso to hit a HR (+400)</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Ben Rice to hit a HR (+290)</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Pete Alonso to hit a HR (+400)</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Ben Rice to hit a HR (+290)</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Kazuma Okamoto to hit a HR (+440)</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Pete Alonso to hit a HR (+400)</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Ben Rice to hit a HR (+290)</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Kazuma Okamoto to hit a HR (+440)</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Pete Alonso to hit a HR (+400)</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Ben Rice to hit a HR (+290)</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Kazuma Okamoto to hit a HR (+450)</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">KC ML (+150)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">NYY ML (-122)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">MIL ML (-168)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">STL ML (-164)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">TB ML (+102)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Pete Alonso to hit a HR (+400)</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Ben Rice to hit a HR (+290)</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; ">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Kazuma Okamoto to hit a HR (+450)</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
             </div>
@@ -2302,10 +2709,37 @@
       </div>
       
       <div class="hist-day">
-        <div class="section-title" style="margin:0 0 12px;">2026-08-06
-          <span style="color:var(--muted); font-weight:400; text-transform:none; letter-spacing:0;">
-            &middot; ML 2-3
-            &middot; HR 1-2
+        <div class="section-title" style="margin:0 0 12px;">
+          <span>2026-08-06</span>
+          <span class="day-rec">
+            
+            
+            
+            
+            
+            
+            
+            MLB ML <b>2-3</b> &middot; Props <b>1-2</b> &nbsp; 
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
           </span>
         </div>
         <div class="hist-cols">
@@ -2317,56 +2751,56 @@
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">BAL ML (+155)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">BOS ML (+120)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">CIN ML (-562)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">TOR ML (+316)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">SEA ML (+226)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Kyle Schwarber to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Pete Alonso to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; ">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Sal Stewart to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
             </div>
@@ -2399,10 +2833,37 @@
       </div>
       
       <div class="hist-day">
-        <div class="section-title" style="margin:0 0 12px;">2026-08-05
-          <span style="color:var(--muted); font-weight:400; text-transform:none; letter-spacing:0;">
-            &middot; ML 3-2
-            &middot; HR 0-6
+        <div class="section-title" style="margin:0 0 12px;">
+          <span>2026-08-05</span>
+          <span class="day-rec">
+            
+            
+            
+            
+            
+            
+            
+            MLB ML <b>3-2</b> &middot; Props <b>0-6</b> &nbsp; 
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
           </span>
         </div>
         <div class="hist-cols">
@@ -2414,77 +2875,77 @@
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Junior Caminero to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Hunter Goodman to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Kazuma Okamoto to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">MIL ML (+293)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">HOU ML (+353)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">TB ML (-173)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">SD ML (-271)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">KC ML (+183)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Yordan Alvarez to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Junior Caminero to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; ">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Kazuma Okamoto to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
             </div>
@@ -2517,10 +2978,37 @@
       </div>
       
       <div class="hist-day">
-        <div class="section-title" style="margin:0 0 12px;">2026-08-04
-          <span style="color:var(--muted); font-weight:400; text-transform:none; letter-spacing:0;">
-            &middot; ML 3-2
-            &middot; HR 0-3
+        <div class="section-title" style="margin:0 0 12px;">
+          <span>2026-08-04</span>
+          <span class="day-rec">
+            
+            
+            
+            
+            
+            
+            
+            MLB ML <b>3-2</b> &middot; Props <b>0-3</b> &nbsp; 
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
           </span>
         </div>
         <div class="hist-cols">
@@ -2532,56 +3020,56 @@
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">SF ML (-155)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">PHI ML (+213)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">BAL ML (+291)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">ATL ML (+285)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">ARI ML (-505)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Pete Alonso to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Ben Rice to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; ">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Yordan Alvarez to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
             </div>
@@ -2614,10 +3102,37 @@
       </div>
       
       <div class="hist-day">
-        <div class="section-title" style="margin:0 0 12px;">2026-08-03
-          <span style="color:var(--muted); font-weight:400; text-transform:none; letter-spacing:0;">
-            &middot; ML 2-3
-            &middot; HR 0-3
+        <div class="section-title" style="margin:0 0 12px;">
+          <span>2026-08-03</span>
+          <span class="day-rec">
+            
+            
+            
+            
+            
+            
+            
+            MLB ML <b>2-3</b> &middot; Props <b>0-3</b> &nbsp; 
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
           </span>
         </div>
         <div class="hist-cols">
@@ -2629,56 +3144,56 @@
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">TB ML (+190)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">NYY ML (-270)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">WSH ML (+469)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">TOR ML (-375)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">LAD ML (+384)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">James Wood to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Yordan Alvarez to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; ">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Ben Rice to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
             </div>
@@ -2711,10 +3226,37 @@
       </div>
       
       <div class="hist-day">
-        <div class="section-title" style="margin:0 0 12px;">2026-08-02
-          <span style="color:var(--muted); font-weight:400; text-transform:none; letter-spacing:0;">
-            &middot; ML 3-2
-            &middot; HR 0-3
+        <div class="section-title" style="margin:0 0 12px;">
+          <span>2026-08-02</span>
+          <span class="day-rec">
+            
+            
+            
+            
+            
+            
+            
+            MLB ML <b>3-2</b> &middot; Props <b>0-3</b> &nbsp; 
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
           </span>
         </div>
         <div class="hist-cols">
@@ -2726,56 +3268,56 @@
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">KC ML (+403)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">MIL ML (+312)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">STL ML (+548)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">BOS ML (+348)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">CIN ML (+315)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Kazuma Okamoto to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Jordan Walker to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; ">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Kyle Schwarber to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
             </div>
@@ -2808,10 +3350,37 @@
       </div>
       
       <div class="hist-day">
-        <div class="section-title" style="margin:0 0 12px;">2026-08-01
-          <span style="color:var(--muted); font-weight:400; text-transform:none; letter-spacing:0;">
-            &middot; ML 2-3
-            &middot; HR 0-3
+        <div class="section-title" style="margin:0 0 12px;">
+          <span>2026-08-01</span>
+          <span class="day-rec">
+            
+            
+            
+            
+            
+            
+            
+            MLB ML <b>2-3</b> &middot; Props <b>0-3</b> &nbsp; 
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
           </span>
         </div>
         <div class="hist-cols">
@@ -2823,56 +3392,56 @@
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">DET ML (+180)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">ATL ML (-508)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">NYY ML (+271)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">CLE ML (-184)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">TEX ML (+154)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Kazuma Okamoto to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Jordan Walker to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; ">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Brandon Lowe to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
             </div>
@@ -2905,10 +3474,37 @@
       </div>
       
       <div class="hist-day">
-        <div class="section-title" style="margin:0 0 12px;">2026-07-31
-          <span style="color:var(--muted); font-weight:400; text-transform:none; letter-spacing:0;">
-            &middot; ML 2-3
-            &middot; HR 0-4
+        <div class="section-title" style="margin:0 0 12px;">
+          <span>2026-07-31</span>
+          <span class="day-rec">
+            
+            
+            
+            
+            
+            
+            
+            MLB ML <b>2-3</b> &middot; Props <b>0-4</b> &nbsp; 
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
           </span>
         </div>
         <div class="hist-cols">
@@ -2920,63 +3516,63 @@
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Ben Rice to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">MIL ML (-156)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">SD ML (-138)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">SEA ML (-166)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">WSH ML (+106)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">CLE ML (-138)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Hunter Goodman to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Ben Rice to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; ">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">James Wood to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
             </div>
@@ -3009,10 +3605,37 @@
       </div>
       
       <div class="hist-day">
-        <div class="section-title" style="margin:0 0 12px;">2026-07-30
-          <span style="color:var(--muted); font-weight:400; text-transform:none; letter-spacing:0;">
-            &middot; ML 3-2
-            &middot; HR 0-3
+        <div class="section-title" style="margin:0 0 12px;">
+          <span>2026-07-30</span>
+          <span class="day-rec">
+            
+            
+            
+            
+            
+            
+            
+            MLB ML <b>3-2</b> &middot; Props <b>0-3</b> &nbsp; 
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
           </span>
         </div>
         <div class="hist-cols">
@@ -3024,56 +3647,56 @@
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">TB ML (-178)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">ATL ML (-154)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">CWS ML (-116)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">PIT ML (-112)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">MIA ML (+110)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Munetaka Murakami to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">James Wood to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; ">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Drake Baldwin to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
             </div>
@@ -3106,10 +3729,37 @@
       </div>
       
       <div class="hist-day">
-        <div class="section-title" style="margin:0 0 12px;">2026-07-29
-          <span style="color:var(--muted); font-weight:400; text-transform:none; letter-spacing:0;">
-            &middot; ML 4-0
-            &middot; HR 0-3
+        <div class="section-title" style="margin:0 0 12px;">
+          <span>2026-07-29</span>
+          <span class="day-rec">
+            
+            
+            
+            
+            
+            
+            
+            MLB ML <b>4-0</b> &middot; Props <b>0-3</b> &nbsp; 
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
           </span>
         </div>
         <div class="hist-cols">
@@ -3121,49 +3771,49 @@
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">TOR ML</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">TB ML</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">ATL (Gm 2) ML</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">BOS ML</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Max Muncy to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Kazuma Okamoto to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; ">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">James Wood to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
             </div>
@@ -3196,10 +3846,37 @@
       </div>
       
       <div class="hist-day">
-        <div class="section-title" style="margin:0 0 12px;">2026-07-28
-          <span style="color:var(--muted); font-weight:400; text-transform:none; letter-spacing:0;">
-            &middot; ML 4-1
-            &middot; HR 1-2
+        <div class="section-title" style="margin:0 0 12px;">
+          <span>2026-07-28</span>
+          <span class="day-rec">
+            
+            
+            
+            
+            
+            
+            
+            MLB ML <b>4-1</b> &middot; Props <b>1-2</b> &nbsp; 
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
           </span>
         </div>
         <div class="hist-cols">
@@ -3211,56 +3888,56 @@
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">SD ML (-200)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">DET ML (-144)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">MIA ML (-110)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">CIN ML (-162)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">MIL ML (-148)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Sal Stewart to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">James Wood to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; ">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Sal Stewart to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
             </div>
@@ -3293,10 +3970,37 @@
       </div>
       
       <div class="hist-day">
-        <div class="section-title" style="margin:0 0 12px;">2026-07-27
-          <span style="color:var(--muted); font-weight:400; text-transform:none; letter-spacing:0;">
-            &middot; ML 2-3
-            &middot; HR 0-3
+        <div class="section-title" style="margin:0 0 12px;">
+          <span>2026-07-27</span>
+          <span class="day-rec">
+            
+            
+            
+            
+            
+            
+            
+            MLB ML <b>2-3</b> &middot; Props <b>0-3</b> &nbsp; 
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
           </span>
         </div>
         <div class="hist-cols">
@@ -3308,56 +4012,56 @@
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">BOS ML (-178)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">WSH ML (-122)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">LAA ML (+100)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">NYY ML (-146)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">CIN ML (-168)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Dominic Canzone to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Luke Raley to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; ">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Elly De La Cruz to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
             </div>
@@ -3390,10 +4094,37 @@
       </div>
       
       <div class="hist-day">
-        <div class="section-title" style="margin:0 0 12px;">2026-07-26
-          <span style="color:var(--muted); font-weight:400; text-transform:none; letter-spacing:0;">
-            &middot; ML 4-1
-            &middot; HR 2-1
+        <div class="section-title" style="margin:0 0 12px;">
+          <span>2026-07-26</span>
+          <span class="day-rec">
+            
+            
+            
+            
+            
+            
+            
+            MLB ML <b>4-1</b> &middot; Props <b>2-1</b> &nbsp; 
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
           </span>
         </div>
         <div class="hist-cols">
@@ -3405,56 +4136,56 @@
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">BOS ML (-112)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">MIL ML (-238)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">CWS ML (+109)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">MIN ML</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">ARI ML (+102)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Pete Alonso to hit a HR (+280)</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Dominic Canzone to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; ">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Brandon Nimmo to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
             </div>
@@ -3487,10 +4218,37 @@
       </div>
       
       <div class="hist-day">
-        <div class="section-title" style="margin:0 0 12px;">2026-07-25
-          <span style="color:var(--muted); font-weight:400; text-transform:none; letter-spacing:0;">
-            &middot; ML 4-1
-            &middot; HR 0-3
+        <div class="section-title" style="margin:0 0 12px;">
+          <span>2026-07-25</span>
+          <span class="day-rec">
+            
+            
+            
+            
+            
+            
+            
+            MLB ML <b>4-1</b> &middot; Props <b>0-3</b> &nbsp; 
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
           </span>
         </div>
         <div class="hist-cols">
@@ -3502,56 +4260,56 @@
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">ARI ML</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">WSH ML (-134)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">STL ML (-112)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">TB ML (-120)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">MIA ML (-142)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Bryan De La Cruz to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Christian Encarnacion-Strand to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; ">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Dominic Canzone to hit a HR</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
             </div>
@@ -3584,10 +4342,37 @@
       </div>
       
       <div class="hist-day">
-        <div class="section-title" style="margin:0 0 12px;">2026-07-24
-          <span style="color:var(--muted); font-weight:400; text-transform:none; letter-spacing:0;">
-            &middot; ML 1-2
-            &middot; HR 3-0
+        <div class="section-title" style="margin:0 0 12px;">
+          <span>2026-07-24</span>
+          <span class="day-rec">
+            
+            
+            
+            
+            
+            
+            
+            MLB ML <b>1-2</b> &middot; Props <b>3-0</b> &nbsp; 
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
           </span>
         </div>
         <div class="hist-cols">
@@ -3599,42 +4384,42 @@
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">ARI ML (-124)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">MIL ML (-122)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#e5484d;">&#10007;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">MIN ML (-144)</span>
                 <span class="kind-tag">ML</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Christian Encarnacion-Strand to hit a HR (+450)</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Drake Baldwin to hit a HR (+422)</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
               <div style="display:flex; align-items:center; gap:12px; ">
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:#2fd07a;">&#10003;</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">Matt Olson to hit a HR (+310)</span>
                 <span class="kind-tag">HR</span>
-                
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">MLB</span>
               </div>
               
             </div>
