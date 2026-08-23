@@ -5,6 +5,7 @@ Single source of truth for every tunable in the system.
 """
 
 import os
+from datetime import date as _date
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -38,6 +39,58 @@ ODDS_API_BASE_URL = "https://api.the-odds-api.com/v4"
 
 HR_ODDS_ENABLED = True
 ODDS_API_HR_MARKET = "batter_home_runs"
+
+# ---------------------------------------------------------------------------
+# API CREDIT CONTROL  (added Aug 23, 2026)
+# ---------------------------------------------------------------------------
+# The Odds API quota was exhausted mid-month, which took WNBA/NFL off the
+# report entirely (their schedules fall back to that feed, so with no credits
+# there were no games, and therefore no tabs). Two causes, both fixed here:
+#
+#   1. EVERY run queried all 7 sports -- including NBA/NHL/NCAAB in August,
+#      which are out of season and can only ever return nothing. Pure waste.
+#      in_season() now gates them by date.
+#   2. EVERY manual re-run re-billed the full slate from scratch. Odds are
+#      now cached for ODDS_CACHE_MINUTES, so re-running to refresh lineups or
+#      re-publish costs ZERO extra credits.
+#
+# Windows are deliberately generous (preseason through playoffs) -- the goal
+# is only to skip months a league provably cannot be playing.
+SPORT_SEASON_WINDOWS = {
+    # sport: ((start_month, start_day), (end_month, end_day))
+    "MLB":   ((2, 15), (11, 15)),
+    "WNBA":  ((4, 25), (10, 25)),
+    "NFL":   ((7, 20), (2, 20)),    # wraps the new year
+    "NCAAF": ((7, 25), (1, 25)),    # wraps
+    "NCAAB": ((10, 25), (4, 15)),   # wraps
+    "NHL":   ((9, 10), (6, 30)),    # wraps
+    "NBA":   ((9, 25), (6, 30)),    # wraps
+}
+
+# Re-use stored odds this many minutes before paying for a fresh pull.
+ODDS_CACHE_MINUTES = int(os.getenv("ODDS_CACHE_MINUTES", "45"))
+
+
+def in_season(sport, on_date=None):
+    """True if `sport` can plausibly have games on this date. Unknown sports
+    return True (never silently hide a league we forgot to map)."""
+    window = SPORT_SEASON_WINDOWS.get(sport)
+    if not window:
+        return True
+    on_date = on_date or _date.today()
+    (sm, sd), (em, ed) = window
+    start = (sm, sd)
+    end = (em, ed)
+    today = (on_date.month, on_date.day)
+    if start <= end:
+        return start <= today <= end
+    # Window wraps the new year (e.g. NFL Jul -> Feb).
+    return today >= start or today <= end
+
+
+def sports_in_season(on_date=None):
+    return [s for s in ENABLED_SPORTS if in_season(s, on_date)]
+
 
 # ---------------------------------------------------------------------------
 # Bankroll & staking
@@ -133,16 +186,10 @@ PARLAY_MIN_LEGS = 2
 # ---------------------------------------------------------------------------
 # Grading factor weights (model nudges the market, not replaces it)
 # ---------------------------------------------------------------------------
-# football_context (NFL/NCAAF only): rest-day edge, recent-form trend, and
-# home/away scoring split -- the football equivalents of MLB's pitcher
-# matchup. Sits at 0.04 because rest and form are the two biggest
-# publicly-measurable football edges. It scores 0 for every non-football
-# sport, so MLB/WNBA/etc grading is unchanged.
 FACTOR_WEIGHTS = {
     "matchup_pitching": 0.065,
     "public_sharp_split": 0.06,
     "advanced_analytics": 0.045,
-    "football_context": 0.04,
     "underdog_value": 0.03,
     "historical_form": 0.025,
     "talent_gap": 0.025,
@@ -152,7 +199,7 @@ FACTOR_WEIGHTS = {
     "situational": 0.01,
     "motivation": 0.01,
 }
-assert abs(sum(FACTOR_WEIGHTS.values()) - 0.38) < 1e-9
+assert abs(sum(FACTOR_WEIGHTS.values()) - 0.34) < 1e-9
 
 # ---------------------------------------------------------------------------
 # Scheduler
