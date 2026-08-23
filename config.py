@@ -30,7 +30,7 @@ MANUAL_INPUTS_DIR.mkdir(exist_ok=True)
 ODDS_MODE = os.getenv("ODDS_MODE", "mock")            # mock | api
 STATS_MODE = os.getenv("STATS_MODE", "api")
 
-PUBLIC_BETTING_MODE = os.getenv("PUBLIC_BETTING_MODE", "manual")  # manual | url | mock | api
+PUBLIC_BETTING_MODE = os.getenv("PUBLIC_BETTING_MODE", "manual")
 PUBLIC_BETTING_URL = os.getenv("PUBLIC_BETTING_URL", "")
 
 ODDS_API_KEY = os.getenv("ODDS_API_KEY", "")
@@ -41,23 +41,16 @@ HR_ODDS_ENABLED = True
 ODDS_API_HR_MARKET = "batter_home_runs"
 
 # ---------------------------------------------------------------------------
-# API CREDIT CONTROL  (added Aug 23, 2026)
+# API CREDIT CONTROL  (Aug 23, 2026)
 # ---------------------------------------------------------------------------
 # The Odds API quota was exhausted mid-month, which took WNBA/NFL off the
-# report entirely (their schedules fall back to that feed, so with no credits
-# there were no games, and therefore no tabs). Two causes, both fixed here:
-#
-#   1. EVERY run queried all 7 sports -- including NBA/NHL/NCAAB in August,
-#      which are out of season and can only ever return nothing. Pure waste.
-#      in_season() now gates them by date.
-#   2. EVERY manual re-run re-billed the full slate from scratch. Odds are
-#      now cached for ODDS_CACHE_MINUTES, so re-running to refresh lineups or
-#      re-publish costs ZERO extra credits.
-#
-# Windows are deliberately generous (preseason through playoffs) -- the goal
-# is only to skip months a league provably cannot be playing.
+# report entirely -- with no credits their schedules returned nothing, so
+# there were no games and therefore no tabs. Two causes, both fixed:
+#   1. Every run queried all 7 sports, including leagues out of season in
+#      August that can only ever return nothing. in_season() gates them.
+#   2. Every manual re-run re-billed the full slate. Odds are now cached for
+#      ODDS_CACHE_MINUTES, so re-runs cost ZERO credits.
 SPORT_SEASON_WINDOWS = {
-    # sport: ((start_month, start_day), (end_month, end_day))
     "MLB":   ((2, 15), (11, 15)),
     "WNBA":  ((4, 25), (10, 25)),
     "NFL":   ((7, 20), (2, 20)),    # wraps the new year
@@ -67,7 +60,6 @@ SPORT_SEASON_WINDOWS = {
     "NBA":   ((9, 25), (6, 30)),    # wraps
 }
 
-# Re-use stored odds this many minutes before paying for a fresh pull.
 ODDS_CACHE_MINUTES = int(os.getenv("ODDS_CACHE_MINUTES", "45"))
 
 
@@ -78,13 +70,10 @@ def in_season(sport, on_date=None):
     if not window:
         return True
     on_date = on_date or _date.today()
-    (sm, sd), (em, ed) = window
-    start = (sm, sd)
-    end = (em, ed)
+    start, end = window
     today = (on_date.month, on_date.day)
     if start <= end:
         return start <= today <= end
-    # Window wraps the new year (e.g. NFL Jul -> Feb).
     return today >= start or today <= end
 
 
@@ -104,13 +93,8 @@ FLAT_STAKE_UNITS = 1.0
 # ---------------------------------------------------------------------------
 MIN_EDGE = 0.02
 MIN_EDGE_BY_SPORT = {
-    "MLB": 0.02,
-    "WNBA": 0.015,
-    "NBA": 0.015,
-    "NHL": 0.015,
-    "NFL": 0.015,
-    "NCAAF": 0.015,
-    "NCAAB": 0.015,
+    "MLB": 0.02, "WNBA": 0.015, "NBA": 0.015, "NHL": 0.015,
+    "NFL": 0.015, "NCAAF": 0.015, "NCAAB": 0.015,
 }
 
 
@@ -165,11 +149,8 @@ HR_PROB_MAX = 0.35
 HR_PROB_MIN = 0.02
 
 HR_CATEGORY_POINTS = {
-    "contact_quality": 30,
-    "park_weather": 25,
-    "matchup": 25,
-    "pitcher_context": 15,
-    "confirmation": 5,
+    "contact_quality": 30, "park_weather": 25, "matchup": 25,
+    "pitcher_context": 15, "confirmation": 5,
 }
 assert sum(HR_CATEGORY_POINTS.values()) == 100
 
@@ -186,20 +167,25 @@ PARLAY_MIN_LEGS = 2
 # ---------------------------------------------------------------------------
 # Grading factor weights (model nudges the market, not replaces it)
 # ---------------------------------------------------------------------------
+# EVERY key here must exist for the scorer that reads it -- engine/
+# grading_factors.py looks them up directly, so a missing key is a hard
+# KeyError that kills the whole run (that is exactly what dropping
+# "football_context" did).
 FACTOR_WEIGHTS = {
     "matchup_pitching": 0.065,
     "public_sharp_split": 0.06,
     "advanced_analytics": 0.045,
+    "football_context": 0.035,
     "underdog_value": 0.03,
+    "moon_zodiac": 0.03,
     "historical_form": 0.025,
     "talent_gap": 0.025,
-    "moon_zodiac": 0.03,
     "numerology": 0.02,
     "bullpen_fatigue": 0.02,
     "situational": 0.01,
     "motivation": 0.01,
 }
-assert abs(sum(FACTOR_WEIGHTS.values()) - 0.34) < 1e-9
+assert abs(sum(FACTOR_WEIGHTS.values()) - 0.375) < 1e-9
 
 # ---------------------------------------------------------------------------
 # Scheduler
