@@ -16,13 +16,17 @@ etc. are websites for humans to read, not APIs. Four modes
 - "mock": synthetic split, for demoing the pipeline only.
 - "api": stub for you to wire up a paid data feed you have access to.
 
-TEMPLATE MERGE FIX (Aug 22, 2026): ensure_manual_template used to bail out
-entirely if today's file already existed. So when a sport came online LATER
-in the day than the first run -- exactly what happened when the NFL preseason
-fix landed mid-day -- those games never got keys in the file, and there was
-no way to enter their splits without hand-writing JSON. It now MERGES: any
-game missing from the file is appended at neutral 50/50, and every value you
-already typed is left untouched.
+TEMPLATE MERGE (Aug 22, 2026): ensure_manual_template used to bail out
+entirely if today's file already existed, so a sport that came online LATER
+in the day never got keys. It now MERGES -- missing games are appended at
+neutral 50/50, and numbers you already typed are never touched.
+
+LABEL REFRESH (Aug 23, 2026): the "_matchup" label is now also kept in sync
+on every run. It used to be written once at key creation and never updated,
+so after a team-mapping fix (Portland Fire was normalizing to "LA") the file
+still displayed the OLD wrong matchup forever, even though the split itself
+was applying correctly (splits key off game_id, not the label). Labels are
+cosmetic, but a stale one makes the file impossible to read confidently.
 """
 
 import json
@@ -120,13 +124,17 @@ class UrlPublicBettingProvider(PublicBettingProvider):
 
 
 def ensure_manual_template(games, date_str):
-    """Make sure today's manual file lists EVERY game on today's slate.
+    """Make sure today's manual file lists EVERY game on today's slate, with a
+    correct matchup label.
 
-    Creates the file if it's missing, and MERGES in any game that isn't in it
-    yet (at neutral 50/50). Values already in the file are never touched, so
-    splits you've typed in are safe -- this only ever adds keys. That's what
-    lets a sport which comes online later in the day (NFL preseason, or any
-    season opening) still be fillable without hand-writing JSON."""
+    - Creates the file if missing.
+    - MERGES in any game not in it yet, at neutral 50/50.
+    - REFRESHES the "_matchup" label on games already in it.
+
+    Percentages you've typed are never modified -- this only ever adds keys and
+    corrects labels. That's what lets a sport coming online later in the day
+    (NFL preseason, any season opener) still be fillable, and keeps labels
+    honest after a team-normalization fix."""
     path = config.MANUAL_INPUTS_DIR / f"public_betting_{date_str}.json"
     config.MANUAL_INPUTS_DIR.mkdir(exist_ok=True)
 
@@ -140,24 +148,35 @@ def ensure_manual_template(games, date_str):
             existing = {}
 
     added = []
+    relabeled = []
     for game in games:
-        if game.game_id in existing:
-            continue
-        existing[game.game_id] = {
-            "_matchup": f"{game.away_team} @ {game.home_team}",
-            "tickets_pct_home": 50.0,
-            "handle_pct_home": 50.0,
-            "source": "sportsbettingdime.com",
-        }
-        added.append(f"{game.away_team}@{game.home_team} ({game.sport})")
+        label = f"{game.away_team} @ {game.home_team}"
+        entry = existing.get(game.game_id)
+        if entry is None:
+            existing[game.game_id] = {
+                "_matchup": label,
+                "tickets_pct_home": 50.0,
+                "handle_pct_home": 50.0,
+                "source": "sportsbettingdime.com",
+            }
+            added.append(f"{label} ({game.sport})")
+        elif entry.get("_matchup") != label:
+            # Label only -- the typed percentages are left exactly as they are.
+            old = entry.get("_matchup")
+            entry["_matchup"] = label
+            relabeled.append(f"{old} -> {label}")
 
-    if not added:
+    if not added and not relabeled:
         return
 
     with open(path, "w") as f:
         json.dump(existing, f, indent=2)
-    logger.info("Public-betting template %s: added %d game(s) -- %s. Fill in real tickets/handle %% "
-                "before you trust those edges.", path, len(added), ", ".join(added[:12]))
+    if added:
+        logger.info("Public-betting template %s: added %d game(s) -- %s. Fill in real tickets/handle %% "
+                    "before you trust those edges.", path, len(added), ", ".join(added[:12]))
+    if relabeled:
+        logger.info("Public-betting template %s: corrected %d matchup label(s) -- %s",
+                    path, len(relabeled), ", ".join(relabeled[:12]))
 
 
 def get_public_betting_provider():
