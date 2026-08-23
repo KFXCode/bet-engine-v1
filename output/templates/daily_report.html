@@ -142,10 +142,18 @@
   .bankroll .lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
   .bankroll .col { text-align: center; }
 
-  .sportrec { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 4px; }
-  .sportrec .chip { background: var(--card); border: 1px solid var(--card-border); border-radius: 999px;
-                    padding: 6px 12px; font-size: 12px; color: var(--muted); }
-  .sportrec .chip b { color: var(--fg); font-family: "SF Mono", "Roboto Mono", monospace; }
+  .byleague { background: var(--card); border: 1px solid var(--card-border); border-radius: 16px;
+              padding: 6px 20px 14px; margin-top: 14px; }
+  .byleague h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted);
+                 font-weight: 700; margin: 14px 0 10px; }
+  .lg-row { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+            padding: 10px 0; border-top: 1px solid var(--card-border); }
+  .lg-row:first-of-type { border-top: none; }
+  .lg-name { font-size: 15px; font-weight: 800; color: var(--fg); letter-spacing: 0.02em; }
+  .lg-stats { display: flex; gap: 16px; flex-wrap: wrap; }
+  .lg-stat { text-align: right; min-width: 62px; }
+  .lg-stat .v { font-size: 16px; font-weight: 800; font-family: "SF Mono", "Roboto Mono", monospace; }
+  .lg-stat .k { font-size: 9px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-top: 1px; }
 
   .hist-day { margin-top: 24px; }
   .hist-cols { display: flex; gap: 16px; flex-wrap: wrap; }
@@ -155,6 +163,8 @@
   .leg-row .n { color: var(--accent); font-weight: 800; font-size: 13px; }
   .leg-row .lbl { color: var(--fg); font-size: 15px; font-weight: 600; }
   .kind-tag { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; border: 1px solid var(--card-border); border-radius: 6px; padding: 1px 6px; }
+  .day-rec { color: var(--muted); font-weight: 400; text-transform: none; letter-spacing: 0; font-size: 12px; text-align: right; }
+  .day-rec b { color: var(--fg); font-family: "SF Mono", "Roboto Mono", monospace; }
 
   a { color: var(--accent); }
   a:hover { color: var(--fg); }
@@ -167,6 +177,7 @@
     .metrics { gap: 14px 22px; }
     .bankroll { padding: 16px; gap: 14px 8px; }
     .bankroll .num { font-size: 17px; }
+    .lg-stat { min-width: 54px; }
   }
 </style>
 </head>
@@ -200,15 +211,15 @@
       'water': ['Water signs (Cancer, Scorpio, Pisces) bring emotional swings and volatility -- underdog/upset energy.', 'dog']
     } %}
     {% set number_meaning = {
-      1: 'Leadership & new beginnings -- backs the front-runner.',
-      2: 'Partnership & balance -- close, evenly-matched energy.',
-      3: 'Expression & luck -- creative, favorable vibes.',
+      1: 'Leadership &amp; new beginnings -- backs the front-runner.',
+      2: 'Partnership &amp; balance -- close, evenly-matched energy.',
+      3: 'Expression &amp; luck -- creative, favorable vibes.',
       4: 'Structure disrupted -- foundations shaky, lean underdog.',
-      5: 'Change & chaos -- volatile, unpredictable day.',
-      6: 'Harmony & responsibility -- order favors the stronger side.',
+      5: 'Change &amp; chaos -- volatile, unpredictable day.',
+      6: 'Harmony &amp; responsibility -- order favors the stronger side.',
       7: 'Introspection -- quiet, neutral energy.',
-      8: 'Karma, power & reversal -- revenge spots and upsets carry weight.',
-      9: 'Completion & fulfillment -- things fall into place for the favorite.',
+      8: 'Karma, power &amp; reversal -- revenge spots and upsets carry weight.',
+      9: 'Completion &amp; fulfillment -- things fall into place for the favorite.',
       11: 'Master number -- heightened intuition, strong favorite energy.',
       22: 'Master number -- the master builder under strain; upset energy.',
       33: 'Master number -- rare harmony and balance.'
@@ -402,8 +413,8 @@
   <div class="view-panel" id="view-history" style="display:none;">
     {% if bankroll %}
     <div class="bankroll">
-      <div class="col"><div class="num">{{ bankroll.wins|default(0) }}-{{ bankroll.losses|default(0) }}</div><div class="lbl">Moneyline Record</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">{% if bankroll.ml_since %}Since {{ bankroll.ml_since }}{% else %}No graded picks yet{% endif %}</div></div>
-      <div class="col"><div class="num">{{ bankroll.hr_wins|default(0) }}-{{ bankroll.hr_losses|default(0) }}</div><div class="lbl">HR Prop Record</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">{% if bankroll.hr_since %}Since {{ bankroll.hr_since }}{% else %}No graded picks yet{% endif %}</div></div>
+      <div class="col"><div class="num">{{ bankroll.wins|default(0) }}-{{ bankroll.losses|default(0) }}</div><div class="lbl">Moneyline &middot; All Sports</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">{% if bankroll.ml_since %}Since {{ bankroll.ml_since }}{% else %}No graded picks yet{% endif %}</div></div>
+      <div class="col"><div class="num">{{ bankroll.hr_wins|default(0) }}-{{ bankroll.hr_losses|default(0) }}</div><div class="lbl">Props &middot; All Sports</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">{% if bankroll.hr_since %}Since {{ bankroll.hr_since }}{% else %}No graded picks yet{% endif %}</div></div>
       <div class="col"><div class="num" style="color:{% if bankroll.clv_avg is not none and bankroll.clv_avg > 0 %}var(--accent){% elif bankroll.clv_avg is not none and bankroll.clv_avg < 0 %}var(--warn){% else %}var(--fg){% endif %};">{% if bankroll.clv_avg is not none %}{{ '%+.1f' | format(bankroll.clv_avg) }}%{% else %}--{% endif %}</div><div class="lbl">Avg CLV (ML)</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">{% if bankroll.clv_n %}beat close {{ bankroll.clv_beat|int }}% &middot; n={{ bankroll.clv_n }}{% else %}building sample{% endif %}</div></div>
     </div>
     {% endif %}
@@ -411,23 +422,48 @@
     {% if history %}
       {% set all_picks = [] %}
       {% for day in history %}{% for p in day['picks'] %}{% if all_picks.append(p) %}{% endif %}{% endfor %}{% endfor %}
-      {% set sports_seen = all_picks | map(attribute='sport') | select('defined') | list | unique | list %}
-      {% if sports_seen | length > 1 %}
-      <div class="sportrec">
-        {% for s in sports_seen %}
-        {% set sw = all_picks | selectattr('sport','equalto',s) | selectattr('status','equalto','won') | list | length %}
-        {% set sl = all_picks | selectattr('sport','equalto',s) | selectattr('status','equalto','lost') | list | length %}
-        <div class="chip">{{ s }} <b>{{ sw }}-{{ sl }}</b></div>
+      {% set league_order = ['MLB', 'WNBA', 'NFL', 'NCAAF', 'NCAAB', 'NHL', 'NBA'] %}
+      {% set seen = all_picks | map(attribute='sport') | list %}
+
+      <div class="byleague">
+        <h4>Record by league &mdash; every sport tracked separately</h4>
+        {% for lg in league_order %}
+        {% set lg_picks = all_picks | selectattr('sport', 'equalto', lg) | list %}
+        {% if lg_picks %}
+        {% set mlw = lg_picks | selectattr('kind','equalto','moneyline') | selectattr('status','equalto','won') | list | length %}
+        {% set mll = lg_picks | selectattr('kind','equalto','moneyline') | selectattr('status','equalto','lost') | list | length %}
+        {% set prw = lg_picks | rejectattr('kind','equalto','moneyline') | selectattr('status','equalto','won') | list | length %}
+        {% set prl = lg_picks | rejectattr('kind','equalto','moneyline') | selectattr('status','equalto','lost') | list | length %}
+        {% set tw = mlw + prw %}
+        {% set tl = mll + prl %}
+        <div class="lg-row">
+          <span class="lg-name">{{ lg }}</span>
+          <span class="lg-stats">
+            <span class="lg-stat"><div class="v">{{ mlw }}-{{ mll }}</div><div class="k">Moneyline</div></span>
+            <span class="lg-stat"><div class="v">{{ prw }}-{{ prl }}</div><div class="k">Props</div></span>
+            <span class="lg-stat"><div class="v" style="color:{% if tw > tl %}var(--accent){% elif tl > tw %}var(--warn){% else %}var(--fg){% endif %};">{% if (tw + tl) %}{{ ((100 * tw) / (tw + tl))|round(0)|int }}%{% else %}--{% endif %}</div><div class="k">Win rate</div></span>
+          </span>
+        </div>
+        {% endif %}
         {% endfor %}
+        {% if not all_picks %}<div style="color:var(--muted); font-size:13px; padding:8px 0;">No graded picks in any league yet.</div>{% endif %}
       </div>
-      {% endif %}
 
       {% for day in history %}
       <div class="hist-day">
-        <div class="section-title" style="margin:0 0 12px;">{{ day.date }}
-          <span style="color:var(--muted); font-weight:400; text-transform:none; letter-spacing:0;">
-            &middot; ML {{ day['picks']|selectattr('kind','equalto','moneyline')|selectattr('status','equalto','won')|list|length }}-{{ day['picks']|selectattr('kind','equalto','moneyline')|selectattr('status','equalto','lost')|list|length }}
-            &middot; HR {{ day['picks']|selectattr('kind','equalto','hr_prop')|selectattr('status','equalto','won')|list|length }}-{{ day['picks']|selectattr('kind','equalto','hr_prop')|selectattr('status','equalto','lost')|list|length }}
+        <div class="section-title" style="margin:0 0 12px;">
+          <span>{{ day.date }}</span>
+          <span class="day-rec">
+            {% for lg in league_order %}
+            {% set dp = day['picks'] | selectattr('sport','equalto',lg) | list %}
+            {% if dp %}
+            {% set dmw = dp | selectattr('kind','equalto','moneyline') | selectattr('status','equalto','won') | list | length %}
+            {% set dml = dp | selectattr('kind','equalto','moneyline') | selectattr('status','equalto','lost') | list | length %}
+            {% set dpw = dp | rejectattr('kind','equalto','moneyline') | selectattr('status','equalto','won') | list | length %}
+            {% set dpl = dp | rejectattr('kind','equalto','moneyline') | selectattr('status','equalto','lost') | list | length %}
+            {{ lg }} ML <b>{{ dmw }}-{{ dml }}</b>{% if dpw or dpl %} &middot; Props <b>{{ dpw }}-{{ dpl }}</b>{% endif %}{% if not loop.last %} &nbsp; {% endif %}
+            {% endif %}
+            {% endfor %}
           </span>
         </div>
         <div class="hist-cols">
@@ -439,7 +475,7 @@
                 <span style="font-size:20px; line-height:1; flex-shrink:0; color:{{ '#2fd07a' if item.status == 'won' else ('#e5484d' if item.status == 'lost' else 'var(--muted)') }};">{% if item.status == 'won' %}&#10003;{% elif item.status == 'lost' %}&#10007;{% else %}&ndash;{% endif %}</span>
                 <span style="color:var(--fg); font-size:15px; font-weight:600;">{{ item.label }}</span>
                 <span class="kind-tag">{{ 'HR' if item.kind == 'hr_prop' else 'ML' }}</span>
-                {% if item.sport and item.sport != 'MLB' %}<span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">{{ item.sport }}</span>{% endif %}
+                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">{{ item.sport | default('MLB') }}</span>
               </div>
               {% endfor %}
             </div>
