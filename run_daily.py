@@ -98,6 +98,21 @@ def _fetch_schedule(sport, date_str):
     return []
 
 
+def _active_sports_today(run_date):
+    """Only query leagues that can actually be playing. Out-of-season sports
+    used to be queried on EVERY run -- 3 extra leagues x 2 sport keys in
+    August, all guaranteed to return nothing. That waste is what drained the
+    Odds API quota, which in turn knocked WNBA and NFL off the report (their
+    schedules fall back to that same feed, so with no credits there were no
+    games and therefore no tabs)."""
+    live = [s for s in config.ENABLED_SPORTS if config.in_season(s, run_date)]
+    skipped = [s for s in config.ENABLED_SPORTS if s not in live]
+    if skipped:
+        logger.info("Season gate: querying %s | skipping out-of-season %s (saves API credits).",
+                    ", ".join(live), ", ".join(skipped))
+    return live
+
+
 def _recent_hr_missers(db, run_date):
     """NORMALIZED names to fade for ROTATION (hard no-repeat): faded if seen on
     any of the last HR_HARD_BENCH_DAYS days, or picked
@@ -196,8 +211,10 @@ def main(argv=None):
                 else datetime.now(ZoneInfo(config.TIMEZONE)).date())
     date_str = run_date.strftime("%Y-%m-%d")
 
+    live_sports = _active_sports_today(run_date)
+
     games = []
-    for sport in config.ENABLED_SPORTS:
+    for sport in live_sports:
         games.extend(_fetch_schedule(sport, date_str))
 
     if args.auto:
@@ -218,13 +235,13 @@ def main(argv=None):
     data_warnings = []
 
     if not games:
-        logger.info("No games found across enabled sports (%s) for %s.", ", ".join(config.ENABLED_SPORTS), date_str)
+        logger.info("No games found across in-season sports (%s) for %s.", ", ".join(live_sports), date_str)
         history = _build_history(db, date_str)
         report = DailyReport(date=date_str, slate_size=0, plays=[], fade_teams=[], hr_props=[], parlay=None,
                               dropped_notes=[], celestial=_celestial_dict(run_date),
                               numerology=_numerology_dict(run_date),
                               bankroll_summary=bankroll_summary(db, history),
-                              data_warnings=["No games on today's schedule across enabled sports."],
+                              data_warnings=["No games on today's schedule across in-season sports."],
                               results_recap=_build_results_recap(db, date_str),
                               history=history,
                               sport_parlays={}, top_parlay={}, double_parlay={}, active_sports=[],
@@ -250,11 +267,19 @@ def main(argv=None):
         )
 
     odds_by_game = {}
-    for sport in config.ENABLED_SPORTS:
+    for sport in live_sports:
         sport_games = [g for g in games if g.sport == sport]
         if not sport_games:
             continue
         odds_by_game.update(get_odds_provider(sport).get_odds(sport_games))
+
+    simulated_games = [g for g in games
+                       if odds_by_game.get(g.game_id) and odds_by_game[g.game_id].book == "mock"]
+    if simulated_games:
+        data_warnings.append(
+            f"{len(simulated_games)} game(s) are showing SIMULATED odds, not real FanDuel prices. "
+            f"This usually means The Odds API is out of credits or rate-limited -- check "
+            f"the-odds-api.com/account. Do NOT bet these prices until it clears.")
 
     now_iso = datetime.now(timezone.utc).isoformat()
     for game in games:
@@ -266,7 +291,7 @@ def main(argv=None):
             if real:
                 odds = _row_to_odds(real)
                 odds_by_game[game.game_id] = odds
-                logger.info("Game %s already started/not in live feed -- restored last real FanDuel line.", game.game_id)
+                logger.info("Game %s not in live feed -- restored last real FanDuel line.", game.game_id)
         if odds.book != "mock":
             is_opening = db.get_opening_line(game.game_id) is None
             db.record_odds_snapshot(game.game_id, odds, now_iso, is_opening=is_opening)
@@ -367,13 +392,10 @@ def main(argv=None):
                 prop["odds_american"] = None
                 prop["odds_book"] = None
 
-        # ALWAYS run finalize first. It is what computes each candidate's +EV /
-        # fair-price tag and appends it to the reasoning IN PLACE. On a LOCKED
-        # day we previously skipped this entirely, which is why the locked
-        # board lost its "[+EV ...]" / "[Fair price ...]" value line -- the
-        # picks showed a score but never told you whether the price was worth
-        # betting. Now the tag is applied either way; the lock only decides
-        # WHICH players are shown, never whether they're priced.
+        # ALWAYS finalize first: it computes each candidate's +EV / fair-price
+        # tag in place. On a LOCKED day we used to skip this, which is why the
+        # locked board lost its value line. The lock decides WHICH players
+        # show, never whether they're priced.
         recent_missers = _recent_hr_missers(db, run_date)
         fresh_board = finalize_hr_props(hr_pool, recent_miss_players=recent_missers)
 
