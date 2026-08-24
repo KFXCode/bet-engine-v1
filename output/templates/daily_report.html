@@ -159,19 +159,10 @@
   .rec-row .mk { font-size: 18px; line-height: 1; flex-shrink: 0; }
   .rec-row .lb { font-size: 14px; font-weight: 600; color: var(--fg); }
 
-  .hist-cols { display: flex; gap: 16px; flex-wrap: wrap; }
-  .hist-cols .col { flex: 1 1 260px; }
-  .hist-cols .col h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0 0 8px; font-weight: 700; }
   .leg-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
   .leg-row .n { color: var(--accent); font-weight: 800; font-size: 13px; }
   .leg-row .lbl { color: var(--fg); font-size: 15px; font-weight: 600; }
   .kind-tag { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; border: 1px solid var(--card-border); border-radius: 6px; padding: 1px 6px; }
-
-  .bankroll { display: flex; justify-content: space-around; background: var(--card); border: 1px solid var(--card-border);
-              border-radius: 16px; padding: 20px; margin-top: 0; flex-wrap: wrap; gap: 12px;}
-  .bankroll .num { font-size: 20px; font-weight: 700; font-family: "SF Mono", "Roboto Mono", monospace; }
-  .bankroll .lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
-  .bankroll .col { text-align: center; }
 
   a { color: var(--accent); }
   a:hover { color: var(--fg); }
@@ -182,8 +173,6 @@
     .pick .body { padding: 0 18px 18px; }
     .pick .s-team { font-size: 19px; }
     .metrics { gap: 14px 22px; }
-    .bankroll { padding: 16px; gap: 14px 8px; }
-    .bankroll .num { font-size: 17px; }
     .rec > summary { padding: 15px 16px; }
     .rec .r-body { padding: 0 16px 16px; }
     .rec .r-sum { gap: 12px; }
@@ -412,7 +401,7 @@
         {% set sport_days = [] %}
         {% for day in history %}
         {% set dp = day['picks'] | selectattr('sport','equalto',sport) | list %}
-        {% if dp %}{% if sport_days.append((day.date, dp)) %}{% endif %}{% endif %}
+        {% if dp %}{% if sport_days.append((day.date, dp, day['parlay'], day['double'])) %}{% endif %}{% endif %}
         {% endfor %}
         {% if sport_days %}
           {% for d in sport_days %}
@@ -432,6 +421,12 @@
               <span class="kind-tag">{{ 'HR' if item.kind == 'hr_prop' else 'ML' }}</span>
             </div>
             {% endfor %}
+            {% if d[2] or d[3] %}
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              {% if d[2] %}<div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> {{ d[2] | join(' + ') }}</div>{% endif %}
+              {% if d[3] %}<div style="font-size:12px; color:var(--muted);"><b style="color:var(--accent);">Double Your Money:</b> {{ d[3] | join(' + ') }}</div>{% endif %}
+            </div>
+            {% endif %}
           </div>
           {% endfor %}
         {% else %}
@@ -472,55 +467,6 @@
     {% else %}
     <div class="dropped">No top parlay today &mdash; fewer than 2 legs cleared the confidence bar across all sports. Discipline over action.</div>
     {% endif %}
-
-    {% if bankroll %}
-    <div class="section-title"><span>Overall &middot; all sports</span></div>
-    <div class="bankroll">
-      <div class="col"><div class="num">{{ bankroll.wins|default(0) }}-{{ bankroll.losses|default(0) }}</div><div class="lbl">Moneyline</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">{% if bankroll.ml_since %}Since {{ bankroll.ml_since }}{% else %}No graded picks yet{% endif %}</div></div>
-      <div class="col"><div class="num">{{ bankroll.hr_wins|default(0) }}-{{ bankroll.hr_losses|default(0) }}</div><div class="lbl">Props</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">{% if bankroll.hr_since %}Since {{ bankroll.hr_since }}{% else %}No graded picks yet{% endif %}</div></div>
-      <div class="col"><div class="num" style="color:{% if bankroll.clv_avg is not none and bankroll.clv_avg > 0 %}var(--accent){% elif bankroll.clv_avg is not none and bankroll.clv_avg < 0 %}var(--warn){% else %}var(--fg){% endif %};">{% if bankroll.clv_avg is not none %}{{ '%+.1f' | format(bankroll.clv_avg) }}%{% else %}--{% endif %}</div><div class="lbl">Avg CLV (ML)</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">{% if bankroll.clv_n %}beat close {{ bankroll.clv_beat|int }}% &middot; n={{ bankroll.clv_n }}{% else %}building sample{% endif %}</div></div>
-    </div>
-    {% endif %}
-
-    <details class="rec" style="margin-top:20px;">
-      <summary>
-        <span class="r-title">Parlay History &middot; all sports</span>
-        <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
-      </summary>
-      <div class="r-body">
-        {% if history %}
-          {% for day in history %}
-          <div class="rec-day">
-            <div class="d-head"><span class="d-date">{{ day.date }}</span></div>
-            <div class="hist-cols">
-              <div class="col">
-                <h4>Best Parlay</h4>
-                {% if day['parlay'] %}
-                  {% for leg in day['parlay'] %}
-                  <div class="rec-row"><span class="lb" style="font-size:13px;">{{ loop.index }}. {{ leg }}</span></div>
-                  {% endfor %}
-                {% else %}
-                  <div style="color:var(--muted); font-size:13px;">None this day.</div>
-                {% endif %}
-              </div>
-              <div class="col">
-                <h4>Double Your Money</h4>
-                {% if day['double'] %}
-                  {% for leg in day['double'] %}
-                  <div class="rec-row"><span class="lb" style="font-size:13px;">{{ loop.index }}. {{ leg }}</span></div>
-                  {% endfor %}
-                {% else %}
-                  <div style="color:var(--muted); font-size:13px;">None this day.</div>
-                {% endif %}
-              </div>
-            </div>
-          </div>
-          {% endfor %}
-        {% else %}
-          <div style="color:var(--muted); font-size:13px; padding:12px 0;">No parlay history yet.</div>
-        {% endif %}
-      </div>
-    </details>
   </div>
 
   <script>
