@@ -3,6 +3,15 @@ output/html_report.py
 =======================
 Renders the dark sportsbook-style, mobile/PWA-ready HTML daily report.
 Writes report_<date>.html (archive) and latest.html (always overwritten).
+
+Two additions (Aug 24, 2026):
+  - td_props: NFL anytime-TD props, so the NFL tab can show props the way the
+    MLB tab shows HR props.
+  - pick_changes: this was BUILT and stored but never passed to the template,
+    so the "Picks updated earlier today" box could never appear no matter how
+    many times a pre-lock pick changed. Any value the template reads has to be
+    handed to it explicitly here -- that omission made a working feature look
+    broken.
 """
 
 import shutil
@@ -34,6 +43,7 @@ def render_daily_report(report):
         fade_teams=report.fade_teams,
         parlay=report.parlay,
         hr_props=report.hr_props,
+        td_props=getattr(report, "td_props", []),
         dropped_notes=report.dropped_notes,
         bankroll=report.bankroll_summary,
         results_recap=report.results_recap,
@@ -43,6 +53,7 @@ def render_daily_report(report):
         top_parlay=report.top_parlay,
         double_parlay=report.double_parlay,
         active_sports=report.active_sports,
+        pick_changes=getattr(report, "pick_changes", []),
         unit_size=config.FLAT_STAKE_UNITS,
     )
     _ensure_pwa_assets()
