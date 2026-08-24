@@ -1,23 +1,24 @@
 """
 backtest/grader.py
 ====================
-Post-game review: fetch final scores for any game with pending moneyline
-recommendations, mark each recommendation won/lost, and roll the result into
-bankroll_log. run_daily.py calls this automatically at the start of each run.
+Post-game review: fetch final scores for any game with pending recommendations,
+mark each won/lost/push, and roll the result into bankroll_log. run_daily.py
+calls this automatically at the start of every run.
 
-ALL SPORTS (Aug 21, 2026): this used to settle every pick through
-statsapi.mlb.com. A WNBA/NFL/NBA/NHL/NCAA game_id means nothing to that
-endpoint, so those picks silently stayed "pending" FOREVER and never showed up
-in the History tab -- which is why WNBA results were missing. Non-MLB picks now
-settle through data/final_scores.py (ESPN scoreboard), matched on the stored
-game's date + team abbreviations since our non-MLB ids are hashes.
+ALL SPORTS: MLB settles through statsapi.mlb.com; every other league settles
+through data/final_scores.py (ESPN scoreboard, multi-host) matched on the
+stored game's date + team abbreviations, since our non-MLB ids are hashes.
 
-HR props are auto-graded from the final boxscore -- but ONLY once the game is
-Final, so an in-progress game can't mark every not-yet-homered player "lost".
+PROP GRADING:
+  - HR props  -> data/lineups.get_hr_settled_players (MLB boxscore)
+  - TD props  -> data/td_settle.get_td_scorers (NFL boxscore TD columns)
+Both are gated on the game actually being FINAL. Without that gate an
+in-progress game marks every player who simply hasn't scored YET as a loss,
+which silently destroys the prop record.
 
-CLV (Closing Line Value): when a moneyline pick is graded, compare the PRICE we
+CLV (Closing Line Value): when a moneyline pick is graded, compare the price we
 recommended to the CLOSING line. Positive CLV = the market moved toward our
-side after we picked it -- the most reliable signal a pick was genuinely +EV.
+side after we picked it -- the most reliable single signal a pick was +EV.
 """
 
 import logging
@@ -30,6 +31,7 @@ import requests
 import config
 from data.lineups import get_hr_settled_players
 from data.final_scores import get_final_score_espn
+from data.td_settle import get_td_scorers
 
 logger = logging.getLogger(__name__)
 
@@ -72,22 +74,23 @@ def _compute_clv(db, rec):
 def grade_pending(db):
     pending = db.get_pending_recommendations()
     if not pending:
-        return {"graded": 0, "hr_graded": 0}
+        return {"graded": 0, "hr_graded": 0, "td_graded": 0}
 
     graded_count = 0
     hr_graded = 0
-    final_cache = {}          # game_id -> (home,away) | None   (None => not Final yet)
-    hr_settlement_cache = {}  # game_id -> set(names) | None
+    td_graded = 0
+    final_cache = {}
+    hr_settlement_cache = {}
+    td_settlement_cache = {}
     by_date = {}
 
     def _final(game_id, sport):
-        """MLB settles through statsapi; every other sport settles through the
-        ESPN scoreboard using the stored date + team abbreviations."""
+        """MLB via statsapi; everything else via the ESPN scoreboard."""
         if game_id in final_cache:
             return final_cache[game_id]
+        result = None
         if sport and sport != "MLB":
             row = db.get_game(game_id)
-            result = None
             if row:
                 result = get_final_score_espn(sport, row.get("date"),
                                               row.get("home_team"), row.get("away_team"))
@@ -101,9 +104,8 @@ def grade_pending(db):
     for rec in pending:
         sport = rec.get("sport") or "MLB"
 
+        # ---- HR props (MLB) -------------------------------------------------
         if rec["kind"] == "hr_prop" and rec["game_id"]:
-            # Gate on Final: never grade an HR prop while the game is live, or
-            # a player who simply hasn't homered YET gets marked a loss.
             if _final(rec["game_id"], sport) is None:
                 continue
             if rec["game_id"] not in hr_settlement_cache:
@@ -118,6 +120,27 @@ def grade_pending(db):
             logger.info("HR prop graded %s: %s -> %s", rec["date"], rec["side_or_player"], status)
             continue
 
+        # ---- Anytime-TD props (NFL) ----------------------------------------
+        if rec["kind"] == "td_prop" and rec["game_id"]:
+            if _final(rec["game_id"], sport) is None:
+                continue
+            if rec["game_id"] not in td_settlement_cache:
+                row = db.get_game(rec["game_id"])
+                td_settlement_cache[rec["game_id"]] = (
+                    get_td_scorers(row.get("date"), row.get("home_team"), row.get("away_team"))
+                    if row else None
+                )
+            scorers = td_settlement_cache[rec["game_id"]]
+            if scorers is None:
+                continue
+            scorers_norm = {_norm_name(n) for n in scorers}
+            status = "won" if _norm_name(rec["side_or_player"]) in scorers_norm else "lost"
+            db.set_recommendation_status(rec["id"], status)
+            td_graded += 1
+            logger.info("TD prop graded %s: %s -> %s", rec["date"], rec["side_or_player"], status)
+            continue
+
+        # ---- Moneyline ------------------------------------------------------
         if rec["kind"] != "moneyline" or not rec["game_id"]:
             continue
         result = _final(rec["game_id"], sport)
@@ -155,7 +178,9 @@ def grade_pending(db):
 
     for day, totals in sorted(by_date.items()):
         prior = db.get_bankroll_history(limit=1)
-        prior_bankroll = prior[0]["running_bankroll"] if prior and prior[0].get("running_bankroll") is not None else config.STARTING_BANKROLL
+        prior_bankroll = (prior[0]["running_bankroll"]
+                          if prior and prior[0].get("running_bankroll") is not None
+                          else config.STARTING_BANKROLL)
         net_dollars = totals["d_won"] - totals["d_staked"]
         db.upsert_bankroll_day(
             day, units_staked=totals["staked"], units_won=totals["won"],
@@ -164,8 +189,9 @@ def grade_pending(db):
             bets_graded=totals["graded"], wins=totals["wins"],
         )
 
-    logger.info("Grading pass complete: %d moneyline, %d HR props settled.", graded_count, hr_graded)
-    return {"graded": graded_count, "hr_graded": hr_graded}
+    logger.info("Grading pass complete: %d moneyline, %d HR, %d TD settled.",
+                graded_count, hr_graded, td_graded)
+    return {"graded": graded_count, "hr_graded": hr_graded, "td_graded": td_graded}
 
 
 def _get_final_score_mlb(game_id):
