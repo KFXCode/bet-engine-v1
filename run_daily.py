@@ -50,6 +50,7 @@ from engine.scoring import evaluate_game
 from engine.strategy_rules import select_daily_plays, select_fade_teams, get_parlay_pool
 from engine.hr_props import evaluate_hr_prop_candidates, finalize_hr_props
 from engine.td_props import evaluate_td_candidates, finalize_td_props
+from engine.totals import evaluate_totals, label_for as total_label
 from engine.parlay import maybe_build_parlay, build_daily_parlay, build_double_parlay
 from engine.models import DailyReport, ProbablePitcher, MoneylineOdds
 
@@ -116,9 +117,7 @@ def _active_sports_today(run_date):
 
 
 def _recent_prop_players(db, run_date, kind, lookback_days, bench_days, max_appearances=None):
-    """Normalized player names to fade for rotation, shared by HR and TD props:
-    faded if seen in the last `bench_days`, or picked `max_appearances`+ times
-    within `lookback_days`. Only used when SETTING a fresh board."""
+    """Normalized player names to fade for rotation, shared by HR and TD props."""
     appearances = {}
     recent = set()
     for i in range(1, lookback_days + 1):
@@ -220,8 +219,7 @@ def _build_td_props(db, games, odds_by_game, date_str, run_date, data_warnings):
                 if pid not in td_profiles:
                     td_profiles[pid] = get_td_profile(pid, p["name"])
 
-    with_profile = sum(1 for v in td_profiles.values() if v)
-    if not with_profile:
+    if not any(td_profiles.values()):
         data_warnings.append(
             "NFL TD props: no player TD history loaded (ESPN athlete stats unavailable) -- "
             "TD props are skipped today.")
@@ -250,30 +248,31 @@ def _build_td_props(db, games, odds_by_game, date_str, run_date, data_warnings):
     return board
 
 
-def _log_td_props(db, date_str, td_props):
-    """Store TD props so they lock for the day and appear in NFL history."""
-    if not td_props:
+def _log_props(db, date_str, rows, kind, sport, name_key, label_fn=None):
+    """Store props/totals so they lock for the day and reach history."""
+    if not rows:
         return
     try:
-        if db.get_recommendations_for_date(date_str, kind="td_prop"):
+        if db.get_recommendations_for_date(date_str, kind=kind):
             return
     except Exception:
         pass
     now_iso = datetime.now(timezone.utc).isoformat()
-    for c in td_props:
+    for c in rows:
         try:
             db.insert_recommendation(
-                date=date_str, game_id=c.get("game_id"), kind="td_prop",
-                side_or_player=c["player_name"], team=c.get("team"), sport="NFL",
+                date=date_str, game_id=c.get("game_id"), kind=kind,
+                side_or_player=(label_fn(c) if label_fn else c[name_key]),
+                team=c.get("team"), sport=c.get("sport") or sport,
                 odds_american=c.get("odds_american"),
-                edge_pct=c.get("ev_edge"), model_prob=c.get("model_prob"),
-                market_prob=c.get("implied_prob"),
+                edge_pct=c.get("ev_edge", c.get("edge_pct")),
+                model_prob=c.get("model_prob"), market_prob=c.get("market_prob", c.get("implied_prob")),
                 stake_units=1.0, stake_dollars=0.0,
                 reasoning=c.get("reasoning", []), factor_scores=[],
                 created_at=now_iso,
             )
         except Exception as exc:
-            logger.warning("Could not log TD prop %s: %s", c.get("player_name"), exc)
+            logger.warning("Could not log %s %s: %s", kind, c.get(name_key), exc)
 
 
 def main(argv=None):
@@ -304,10 +303,10 @@ def main(argv=None):
 
     if not args.skip_grading:
         result = grade_pending(db)
-        if result.get("graded"):
-            logger.info("Graded %s moneyline pick(s) from prior days.", result["graded"])
-        if result.get("hr_graded"):
-            logger.info("Graded %s HR prop(s) from prior days.", result["hr_graded"])
+        for key, label in (("graded", "moneyline pick(s)"), ("hr_graded", "HR prop(s)"),
+                           ("td_graded", "TD prop(s)"), ("totals_graded", "total(s)")):
+            if result.get(key):
+                logger.info("Graded %s %s from prior days.", result[key], label)
 
     data_warnings = []
 
@@ -322,7 +321,7 @@ def main(argv=None):
                               results_recap=_build_results_recap(db, date_str),
                               history=history,
                               sport_parlays={}, top_parlay={}, double_parlay={}, active_sports=[],
-                              pick_changes=get_pick_changes(date_str), td_props=[])
+                              pick_changes=get_pick_changes(date_str), td_props=[], totals=[])
         _emit(report)
         if args.auto:
             auto_gate.mark_published(date_str)
@@ -477,6 +476,7 @@ def main(argv=None):
         hr_props = (locked[:config.HR_PROP_MAX_PER_DAY] if locked is not None else fresh_board)
 
     td_props = _build_td_props(db, games, odds_by_game, date_str, run_date, data_warnings)
+    totals = evaluate_totals(games, odds_by_game, team_records)
 
     raw_celestial, _, _ = celestial_signal_for(run_date)
     raw_numerology, _, _ = numerology_signal_for(run_date)
@@ -500,7 +500,8 @@ def main(argv=None):
     log_recommendations(db, date_str, plays, hr_props, top_parlay,
                         sport_parlays=sport_parlays, double_parlay=double_parlay,
                         first_pitch_utc=earliest_first_pitch)
-    _log_td_props(db, date_str, td_props)
+    _log_props(db, date_str, td_props, "td_prop", "NFL", "player_name")
+    _log_props(db, date_str, totals, "total", "NCAAF", "matchup", label_fn=total_label)
 
     history = _build_history(db, date_str)
     report = DailyReport(
@@ -513,7 +514,7 @@ def main(argv=None):
         sport_parlays=sport_parlays, top_parlay=top_parlay, double_parlay=double_parlay,
         active_sports=active_sports,
         pick_changes=get_pick_changes(date_str),
-        td_props=td_props,
+        td_props=td_props, totals=totals,
     )
     _emit(report)
     if args.auto:
@@ -522,9 +523,9 @@ def main(argv=None):
 
 def _build_history(db, today_str):
     """Past graded slates, newest first -- STRICTLY days before today_str.
-    Each day carries: picks (tagged with their SPORT so WNBA/NFL results are
-    visible, not just MLB), that day's Best Parlay, and the Double Your Money
-    ticket."""
+    Each day carries: picks (tagged with their SPORT so WNBA/NFL/NCAAF results
+    are visible, not just MLB), that day's Best Parlay, and the Double Your
+    Money ticket."""
     seed = [
         {"date": "2026-07-30",
          "parlay": ["PIT ML (-112)", "TB ML (-178)", "ATL ML (-154)", "CWS ML (-116)"],
@@ -601,15 +602,15 @@ def _build_history(db, today_str):
             by_date[d] = []
             order.append(d)
         sport = r.get("sport") or "MLB"
+        odds = r["odds_american"]
         if r["kind"] == "moneyline":
-            odds = r["odds_american"]
             label = f"{r['team']} ML ({odds:+d})" if odds is not None else f"{r['team']} ML"
         elif r["kind"] == "hr_prop":
-            odds = r["odds_american"]
             label = f"{r['side_or_player']} to hit a HR ({odds:+d})" if odds is not None else f"{r['side_or_player']} to hit a HR"
         elif r["kind"] == "td_prop":
-            odds = r["odds_american"]
             label = f"{r['side_or_player']} anytime TD ({odds:+d})" if odds is not None else f"{r['side_or_player']} anytime TD"
+        elif r["kind"] == "total":
+            label = r["side_or_player"]
         else:
             continue
         by_date[d].append({"label": label, "status": r["status"], "kind": r["kind"], "sport": sport})
@@ -636,15 +637,15 @@ def _build_results_recap(db, date_str):
     for r in db.get_recommendations_for_date(recap_date):
         if r["status"] not in ("won", "lost", "push"):
             continue
+        odds = r["odds_american"]
         if r["kind"] == "moneyline":
-            odds = r["odds_american"]
             label = f"{r['team']} ML ({odds:+d})" if odds is not None else f"{r['team']} ML"
         elif r["kind"] == "hr_prop":
-            odds = r["odds_american"]
             label = f"{r['side_or_player']} to hit a HR ({odds:+d})" if odds is not None else f"{r['side_or_player']} to hit a HR"
         elif r["kind"] == "td_prop":
-            odds = r["odds_american"]
             label = f"{r['side_or_player']} anytime TD ({odds:+d})" if odds is not None else f"{r['side_or_player']} anytime TD"
+        elif r["kind"] == "total":
+            label = r["side_or_player"]
         else:
             continue
         items.append({"label": label, "status": r["status"], "kind": r["kind"],
