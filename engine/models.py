@@ -145,6 +145,7 @@ class DailyReport:
     active_sports: list = field(default_factory=list)
     # Plain-English notes of any pre-lock pick changes made earlier today.
     pick_changes: list = field(default_factory=list)
-    # NFL anytime-touchdown-scorer props (engine/td_props.py) -- the football
-    # counterpart to hr_props. Empty on days with no NFL slate.
+    # NFL anytime-touchdown-scorer props (engine/td_props.py).
     td_props: List[dict] = field(default_factory=list)
+    # Over/Under game-total picks (engine/totals.py). NCAAF by default.
+    totals: List[dict] = field(default_factory=list)
