@@ -1,0 +1,74 @@
+{
+  "824235": {
+    "_matchup": "TB @ DET",
+    "tickets_pct_home": 20.0,
+    "handle_pct_home": 17.0,
+    "source": "sportsbettingdime.com"
+  },
+  "823828": {
+    "_matchup": "BOS @ MIA",
+    "tickets_pct_home": 24.0,
+    "handle_pct_home": 39.0,
+    "source": "sportsbettingdime.com"
+  },
+  "822695": {
+    "_matchup": "COL @ WSH",
+    "tickets_pct_home": 90.0,
+    "handle_pct_home": 88.0,
+    "source": "sportsbettingdime.com"
+  },
+  "824557": {
+    "_matchup": "TEX @ CWS",
+    "tickets_pct_home": 71.0,
+    "handle_pct_home": 70.0,
+    "source": "sportsbettingdime.com"
+  },
+  "823992": {
+    "_matchup": "CLE @ LAA",
+    "tickets_pct_home": 12.0,
+    "handle_pct_home": 5.0,
+    "source": "sportsbettingdime.com"
+  },
+  "825041": {
+    "_matchup": "CHC @ AZ",
+    "tickets_pct_home": 20.0,
+    "handle_pct_home": 36.0,
+    "source": "sportsbettingdime.com"
+  },
+  "823260": {
+    "_matchup": "PIT @ SD",
+    "tickets_pct_home": 69.0,
+    "handle_pct_home": 65.0,
+    "source": "sportsbettingdime.com"
+  },
+  "824964": {
+    "_matchup": "MIN @ ATH",
+    "tickets_pct_home": 16.0,
+    "handle_pct_home": 12.0,
+    "source": "sportsbettingdime.com"
+  },
+  "823097": {
+    "_matchup": "PHI @ SEA",
+    "tickets_pct_home": 17.0,
+    "handle_pct_home": 8.0,
+    "source": "sportsbettingdime.com"
+  },
+  "823183": {
+    "_matchup": "CIN @ SF",
+    "tickets_pct_home": 15.0,
+    "handle_pct_home": 10.0,
+    "source": "sportsbettingdime.com"
+  },
+  "wnba-401857171": {
+    "_matchup": "GS @ MIN",
+    "tickets_pct_home": 91.0,
+    "handle_pct_home": 91.0,
+    "source": "draftkings"
+  },
+  "wnba-401857172": {
+    "_matchup": "ATL @ LA",
+    "tickets_pct_home": 5.0,
+    "handle_pct_home": 5.0,
+    "source": "draftkings"
+  }
+}
