@@ -291,6 +291,7 @@
 
   {% for sport in shown_sports %}
   {% set sp_plays = plays | selectattr('sport', 'equalto', sport) | list %}
+  {% set sp_totals = totals | selectattr('sport', 'equalto', sport) | list %}
   {% set sp_hist = all_hist_picks | selectattr('sport', 'equalto', sport) | list %}
   {% set mlw = sp_hist | selectattr('kind','equalto','moneyline') | selectattr('status','equalto','won') | list | length %}
   {% set mll = sp_hist | selectattr('kind','equalto','moneyline') | selectattr('status','equalto','lost') | list | length %}
@@ -335,6 +336,38 @@
       {% endfor %}
     {% else %}
       <div class="dropped">{% if sport in active_sports %}No {{ sport }} moneyline play cleared a real edge today.{% else %}No {{ sport }} games on today's schedule. Past results are in the record below.{% endif %}</div>
+    {% endif %}
+
+    {% if sp_totals %}
+    <div class="section-title"><span>{{ sport }} &middot; Total Points (O/U)</span><span class="expand-all" onclick="toggleAll(this)">Expand all</span></div>
+      {% for t in sp_totals %}
+      <details class="pick{% if loop.first %} top-prop{% endif %}"{% if loop.first %} open{% endif %}>
+        <summary>
+          <div class="s-main">
+            {% if loop.first %}<div class="top-badge">★ Top {{ sport }} Total Today</div>{% endif %}
+            <div class="s-team">{{ t.side | title }} {{ '%.1f' | format(t.line) }}</div>
+            <div class="s-sub">{{ t.matchup }} &middot; projected <b style="color:var(--fg);">{{ '%.1f' | format(t.projected) }}</b> &middot; <span class="odds">{{ '%+d' | format(t.odds_american) }}</span></div>
+          </div>
+          <div class="s-right">
+            <div class="s-edge"><div class="n">{{ '%.1f' | format(t.edge_pct * 100) }}%</div><div class="l">Edge</div></div>
+            <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+        </summary>
+        <div class="body">
+          <div class="metrics">
+            <div class="metric"><div class="num">{{ '%.1f' | format(t.model_prob * 100) }}%</div><div class="lbl">Model {{ t.side }}%</div></div>
+            <div class="metric"><div class="num">{{ '%.1f' | format(t.market_prob * 100) }}%</div><div class="lbl">Market implied</div></div>
+            <div class="metric"><div class="num">{{ '%+.1f' | format(t.projected - t.line) }}</div><div class="lbl">Pts vs line</div></div>
+          </div>
+          <div class="why">
+            <div class="why-title">How this total was projected:</div>
+            <ul>
+              {% for reason in t.reasoning %}<li>{{ reason }}</li>{% endfor %}
+            </ul>
+          </div>
+        </div>
+      </details>
+      {% endfor %}
     {% endif %}
 
     {% if sport == 'MLB' %}
@@ -428,7 +461,7 @@
         <span class="r-title">{{ sport }} Record &amp; History</span>
         <span class="r-sum">
           <span class="r-stat"><span class="v">{{ mlw }}-{{ mll }}</span><div class="k">Moneyline</div></span>
-          <span class="r-stat"><span class="v">{{ prw }}-{{ prl }}</span><div class="k">Props</div></span>
+          <span class="r-stat"><span class="v">{{ prw }}-{{ prl }}</span><div class="k">Props/Totals</div></span>
           <span class="r-stat"><span class="v" style="color:{% if tw > tl %}var(--accent){% elif tl > tw %}var(--warn){% else %}var(--fg){% endif %};">{% if (tw + tl) %}{{ ((100 * tw) / (tw + tl))|round(0)|int }}%{% else %}--{% endif %}</span><div class="k">Win rate</div></span>
           <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
         </span>
@@ -448,13 +481,13 @@
           <div class="rec-day">
             <div class="d-head">
               <span class="d-date">{{ d[0] }}</span>
-              <span class="d-rec">ML <b>{{ dmw }}-{{ dml }}</b>{% if dpw or dpl %} &middot; Props <b>{{ dpw }}-{{ dpl }}</b>{% endif %}</span>
+              <span class="d-rec">ML <b>{{ dmw }}-{{ dml }}</b>{% if dpw or dpl %} &middot; Props/Totals <b>{{ dpw }}-{{ dpl }}</b>{% endif %}</span>
             </div>
             {% for item in d[1] %}
             <div class="rec-row">
               <span class="mk" style="color:{{ '#2fd07a' if item.status == 'won' else ('#e5484d' if item.status == 'lost' else 'var(--muted)') }};">{% if item.status == 'won' %}&#10003;{% elif item.status == 'lost' %}&#10007;{% else %}&ndash;{% endif %}</span>
               <span class="lb">{{ item.label }}</span>
-              <span class="kind-tag">{% if item.kind == 'hr_prop' %}HR{% elif item.kind == 'td_prop' %}TD{% else %}ML{% endif %}</span>
+              <span class="kind-tag">{% if item.kind == 'hr_prop' %}HR{% elif item.kind == 'td_prop' %}TD{% elif item.kind == 'total' %}O/U{% else %}ML{% endif %}</span>
             </div>
             {% endfor %}
             {% if d[2] or d[3] %}
