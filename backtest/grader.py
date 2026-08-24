@@ -9,12 +9,17 @@ ALL SPORTS: MLB settles through statsapi.mlb.com; every other league settles
 through data/final_scores.py (ESPN scoreboard, multi-host) matched on the
 stored game's date + team abbreviations, since our non-MLB ids are hashes.
 
-PROP GRADING:
-  - HR props  -> data/lineups.get_hr_settled_players (MLB boxscore)
-  - TD props  -> data/td_settle.get_td_scorers (NFL boxscore TD columns)
-Both are gated on the game actually being FINAL. Without that gate an
-in-progress game marks every player who simply hasn't scored YET as a loss,
-which silently destroys the prop record.
+BET TYPES:
+  moneyline -> winner of the game
+  hr_prop   -> data/lineups.get_hr_settled_players (MLB boxscore)
+  td_prop   -> data/td_settle.get_td_scorers (NFL boxscore TD columns)
+  total     -> final combined score vs the line stored on the pick. An exact
+               landing (line 52, game totals 52) is a PUSH, not a loss -- that
+               matters because whole-number totals push often enough that
+               calling them losses would understate the record.
+
+Every prop/total is gated on the game being FINAL. Without that gate an
+in-progress game marks players who simply haven't scored YET as losses.
 
 CLV (Closing Line Value): when a moneyline pick is graded, compare the price we
 recommended to the CLOSING line. Positive CLV = the market moved toward our
@@ -71,14 +76,25 @@ def _compute_clv(db, rec):
     return round((close_p - pick_p) * 100.0, 2)
 
 
+def _parse_total_pick(side_or_player):
+    """'over 54.5' / 'under 47' -> ('over', 54.5). None if unparseable."""
+    if not side_or_player:
+        return None
+    m = re.match(r"\s*(over|under)\s+([0-9]+(?:\.[0-9]+)?)", str(side_or_player), re.I)
+    if not m:
+        return None
+    return m.group(1).lower(), float(m.group(2))
+
+
 def grade_pending(db):
     pending = db.get_pending_recommendations()
     if not pending:
-        return {"graded": 0, "hr_graded": 0, "td_graded": 0}
+        return {"graded": 0, "hr_graded": 0, "td_graded": 0, "totals_graded": 0}
 
     graded_count = 0
     hr_graded = 0
     td_graded = 0
+    totals_graded = 0
     final_cache = {}
     hr_settlement_cache = {}
     td_settlement_cache = {}
@@ -140,6 +156,43 @@ def grade_pending(db):
             logger.info("TD prop graded %s: %s -> %s", rec["date"], rec["side_or_player"], status)
             continue
 
+        # ---- Game totals (Over/Under) ---------------------------------------
+        if rec["kind"] == "total" and rec["game_id"]:
+            result = _final(rec["game_id"], sport)
+            if result is None:
+                continue
+            parsed = _parse_total_pick(rec["side_or_player"])
+            if not parsed:
+                logger.warning("Total pick %s: could not parse '%s' -- leaving pending.",
+                               rec["id"], rec["side_or_player"])
+                continue
+            side, line = parsed
+            combined = result[0] + result[1]
+            if combined == line:
+                status = "push"
+            elif side == "over":
+                status = "won" if combined > line else "lost"
+            else:
+                status = "won" if combined < line else "lost"
+            db.set_recommendation_status(rec["id"], status)
+            totals_graded += 1
+            logger.info("%s TOTAL graded %s: %s %s -> %s (final combined %s)",
+                        sport, rec["date"], side.upper(), line, status, combined)
+
+            day = by_date.setdefault(rec["date"], {"staked": 0.0, "won": 0.0, "d_staked": 0.0,
+                                                     "d_won": 0.0, "wins": 0, "graded": 0})
+            day["staked"] += rec["stake_units"] or 0
+            day["d_staked"] += rec["stake_dollars"] or 0
+            day["graded"] += 1
+            if status == "won":
+                day["won"] += _payout(rec["odds_american"], rec["stake_units"])
+                day["d_won"] += _payout(rec["odds_american"], rec["stake_dollars"])
+                day["wins"] += 1
+            elif status == "push":
+                day["won"] += rec["stake_units"] or 0
+                day["d_won"] += rec["stake_dollars"] or 0
+            continue
+
         # ---- Moneyline ------------------------------------------------------
         if rec["kind"] != "moneyline" or not rec["game_id"]:
             continue
@@ -189,9 +242,10 @@ def grade_pending(db):
             bets_graded=totals["graded"], wins=totals["wins"],
         )
 
-    logger.info("Grading pass complete: %d moneyline, %d HR, %d TD settled.",
-                graded_count, hr_graded, td_graded)
-    return {"graded": graded_count, "hr_graded": hr_graded, "td_graded": td_graded}
+    logger.info("Grading pass complete: %d moneyline, %d HR, %d TD, %d totals settled.",
+                graded_count, hr_graded, td_graded, totals_graded)
+    return {"graded": graded_count, "hr_graded": hr_graded,
+            "td_graded": td_graded, "totals_graded": totals_graded}
 
 
 def _get_final_score_mlb(game_id):
