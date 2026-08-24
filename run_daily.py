@@ -30,6 +30,8 @@ from data.standings_scores import get_records as get_scores_records
 from data.rosters import get_team_batters
 from data.lineups import get_confirmed_lineup, get_confirmed_pitcher
 from data.hr_odds import fetch_hr_odds
+from data.nfl_players import get_skill_players, get_td_profile
+from data.td_odds import fetch_td_odds
 import re as _re
 import unicodedata as _ud
 
@@ -47,6 +49,7 @@ from data.numerology import numerology_signal_for, reduce_date
 from engine.scoring import evaluate_game
 from engine.strategy_rules import select_daily_plays, select_fade_teams, get_parlay_pool
 from engine.hr_props import evaluate_hr_prop_candidates, finalize_hr_props
+from engine.td_props import evaluate_td_candidates, finalize_td_props
 from engine.parlay import maybe_build_parlay, build_daily_parlay, build_double_parlay
 from engine.models import DailyReport, ProbablePitcher, MoneylineOdds
 
@@ -82,6 +85,9 @@ HR_ROTATION_LOOKBACK_DAYS = 7
 HR_ROTATION_MAX_APPEARANCES = 2
 HR_HARD_BENCH_DAYS = 3
 
+TD_ROTATION_LOOKBACK_DAYS = 14
+TD_HARD_BENCH_DAYS = 7
+
 
 def _fetch_schedule(sport, date_str):
     if sport == "MLB":
@@ -99,12 +105,8 @@ def _fetch_schedule(sport, date_str):
 
 
 def _active_sports_today(run_date):
-    """Only query leagues that can actually be playing. Out-of-season sports
-    used to be queried on EVERY run -- 3 extra leagues x 2 sport keys in
-    August, all guaranteed to return nothing. That waste is what drained the
-    Odds API quota, which in turn knocked WNBA and NFL off the report (their
-    schedules fall back to that same feed, so with no credits there were no
-    games and therefore no tabs)."""
+    """Only query leagues that can actually be playing, so out-of-season sports
+    don't burn Odds API credits returning nothing."""
     live = [s for s in config.ENABLED_SPORTS if config.in_season(s, run_date)]
     skipped = [s for s in config.ENABLED_SPORTS if s not in live]
     if skipped:
@@ -113,19 +115,18 @@ def _active_sports_today(run_date):
     return live
 
 
-def _recent_hr_missers(db, run_date):
-    """NORMALIZED names to fade for ROTATION (hard no-repeat): faded if seen on
-    any of the last HR_HARD_BENCH_DAYS days, or picked
-    HR_ROTATION_MAX_APPEARANCES+ times in HR_ROTATION_LOOKBACK_DAYS. Only
-    applies when SETTING a fresh board -- never overrides a locked day."""
+def _recent_prop_players(db, run_date, kind, lookback_days, bench_days, max_appearances=None):
+    """Normalized player names to fade for rotation, shared by HR and TD props:
+    faded if seen in the last `bench_days`, or picked `max_appearances`+ times
+    within `lookback_days`. Only used when SETTING a fresh board."""
     appearances = {}
-    recent_days = set()
-    for i in range(1, HR_ROTATION_LOOKBACK_DAYS + 1):
+    recent = set()
+    for i in range(1, lookback_days + 1):
         d = (run_date - timedelta(days=i)).strftime("%Y-%m-%d")
         try:
-            rows = db.get_recommendations_for_date(d, kind="hr_prop")
+            rows = db.get_recommendations_for_date(d, kind=kind)
         except Exception as exc:
-            logger.warning("HR rotation: could not read %s: %s", d, exc)
+            logger.warning("%s rotation: could not read %s: %s", kind, d, exc)
             continue
         seen_today = set()
         for r in rows:
@@ -134,25 +135,25 @@ def _recent_hr_missers(db, run_date):
                 continue
             seen_today.add(key)
             appearances[key] = appearances.get(key, 0) + 1
-            if i <= HR_HARD_BENCH_DAYS:
-                recent_days.add(key)
-    cold = {key for key, n in appearances.items()
-            if n >= HR_ROTATION_MAX_APPEARANCES or key in recent_days}
+            if i <= bench_days:
+                recent.add(key)
+    cold = set(recent)
+    if max_appearances:
+        cold |= {k for k, n in appearances.items() if n >= max_appearances}
     if cold:
-        logger.info("HR-DIAG: rotation fade (%d bats): %s", len(cold), ", ".join(sorted(cold)))
+        logger.info("%s rotation fade (%d): %s", kind, len(cold), ", ".join(sorted(cold)))
     return cold
 
 
-def _locked_hr_props(db, date_str, pool):
-    """If today's HR picks are ALREADY logged, reuse those exact players (with
-    fresh odds/reasoning) so the board never changes through the day."""
+def _locked_props(db, date_str, pool, kind, name_key="player_name"):
+    """If today's props of this kind are already logged, reuse those exact
+    players (with fresh odds/reasoning) so the board never shifts mid-day."""
     try:
-        existing = db.get_recommendations_for_date(date_str, kind="hr_prop")
+        existing = db.get_recommendations_for_date(date_str, kind=kind)
     except Exception as exc:
-        logger.warning("HR lock: could not read today's HR rows: %s", exc)
+        logger.warning("%s lock: could not read today's rows: %s", kind, exc)
         return None
-    names = []
-    seen = set()
+    names, seen = [], set()
     for r in existing:
         k = _norm_player(r["side_or_player"])
         if k and k not in seen:
@@ -162,13 +163,13 @@ def _locked_hr_props(db, date_str, pool):
         return None
     by_name = {}
     for c in pool:
-        by_name.setdefault(_norm_player(c["player_name"]), c)
+        by_name.setdefault(_norm_player(c[name_key]), c)
     locked = [by_name[k] for k in names if k in by_name]
     for c in locked:
         c["pick_type"] = "core"
     if locked:
-        logger.info("HR-DIAG: LOCKED to today's already-published picks: %s",
-                    ", ".join(c["player_name"] for c in locked))
+        logger.info("%s LOCKED to today's published picks: %s", kind,
+                    ", ".join(c[name_key] for c in locked))
         return locked
     return None
 
@@ -197,6 +198,82 @@ def _row_to_odds(row):
         captured_at=row["captured_at"], home_spread=row["home_spread"],
         away_spread=row["away_spread"], total=row["total"],
     )
+
+
+def _build_td_props(db, games, odds_by_game, date_str, run_date, data_warnings):
+    """NFL anytime-TD props: skill rosters -> season TD profiles -> Poisson
+    model -> priced board, locked per day like HR props."""
+    nfl_games = [g for g in games if g.sport == "NFL"]
+    if not nfl_games:
+        return []
+
+    rosters_by_team = {}
+    td_profiles = {}
+    for game in nfl_games:
+        for team in (game.home_team, game.away_team):
+            if team in rosters_by_team:
+                continue
+            players = get_skill_players(team)
+            rosters_by_team[team] = players
+            for p in players:
+                pid = p["player_id"]
+                if pid not in td_profiles:
+                    td_profiles[pid] = get_td_profile(pid, p["name"])
+
+    with_profile = sum(1 for v in td_profiles.values() if v)
+    if not with_profile:
+        data_warnings.append(
+            "NFL TD props: no player TD history loaded (ESPN athlete stats unavailable) -- "
+            "TD props are skipped today.")
+        return []
+
+    pool = evaluate_td_candidates(nfl_games, rosters_by_team, td_profiles, odds_by_game)
+    if not pool:
+        return []
+
+    prices = fetch_td_odds(pool, nfl_games)
+    for c in pool:
+        price = prices.get((c["game_id"], _norm_player(c["player_name"])))
+        c["odds_american"] = price["odds"] if price else None
+        c["odds_book"] = price["book"] if price else None
+
+    cold = _recent_prop_players(db, run_date, "td_prop",
+                                TD_ROTATION_LOOKBACK_DAYS, TD_HARD_BENCH_DAYS)
+    fresh_board = finalize_td_props(pool, recent_players=cold)
+    locked = _locked_props(db, date_str, pool, "td_prop")
+    board = locked if locked is not None else fresh_board
+
+    if board and all(c.get("odds_american") is None for c in board):
+        data_warnings.append(
+            "NFL TD props are showing without prices -- anytime-TD is a paid player-props "
+            "market on The Odds API. The picks are still model-ranked; confirm the price yourself.")
+    return board
+
+
+def _log_td_props(db, date_str, td_props):
+    """Store TD props so they lock for the day and appear in NFL history."""
+    if not td_props:
+        return
+    try:
+        if db.get_recommendations_for_date(date_str, kind="td_prop"):
+            return
+    except Exception:
+        pass
+    now_iso = datetime.now(timezone.utc).isoformat()
+    for c in td_props:
+        try:
+            db.insert_recommendation(
+                date=date_str, game_id=c.get("game_id"), kind="td_prop",
+                side_or_player=c["player_name"], team=c.get("team"), sport="NFL",
+                odds_american=c.get("odds_american"),
+                edge_pct=c.get("ev_edge"), model_prob=c.get("model_prob"),
+                market_prob=c.get("implied_prob"),
+                stake_units=1.0, stake_dollars=0.0,
+                reasoning=c.get("reasoning", []), factor_scores=[],
+                created_at=now_iso,
+            )
+        except Exception as exc:
+            logger.warning("Could not log TD prop %s: %s", c.get("player_name"), exc)
 
 
 def main(argv=None):
@@ -245,7 +322,7 @@ def main(argv=None):
                               results_recap=_build_results_recap(db, date_str),
                               history=history,
                               sport_parlays={}, top_parlay={}, double_parlay={}, active_sports=[],
-                              pick_changes=get_pick_changes(date_str))
+                              pick_changes=get_pick_changes(date_str), td_props=[])
         _emit(report)
         if args.auto:
             auto_gate.mark_published(date_str)
@@ -392,15 +469,14 @@ def main(argv=None):
                 prop["odds_american"] = None
                 prop["odds_book"] = None
 
-        # ALWAYS finalize first: it computes each candidate's +EV / fair-price
-        # tag in place. On a LOCKED day we used to skip this, which is why the
-        # locked board lost its value line. The lock decides WHICH players
-        # show, never whether they're priced.
-        recent_missers = _recent_hr_missers(db, run_date)
+        recent_missers = _recent_prop_players(db, run_date, "hr_prop",
+                                              HR_ROTATION_LOOKBACK_DAYS, HR_HARD_BENCH_DAYS,
+                                              max_appearances=HR_ROTATION_MAX_APPEARANCES)
         fresh_board = finalize_hr_props(hr_pool, recent_miss_players=recent_missers)
-
-        locked = _locked_hr_props(db, date_str, hr_pool)
+        locked = _locked_props(db, date_str, hr_pool, "hr_prop")
         hr_props = (locked[:config.HR_PROP_MAX_PER_DAY] if locked is not None else fresh_board)
+
+    td_props = _build_td_props(db, games, odds_by_game, date_str, run_date, data_warnings)
 
     raw_celestial, _, _ = celestial_signal_for(run_date)
     raw_numerology, _, _ = numerology_signal_for(run_date)
@@ -424,6 +500,7 @@ def main(argv=None):
     log_recommendations(db, date_str, plays, hr_props, top_parlay,
                         sport_parlays=sport_parlays, double_parlay=double_parlay,
                         first_pitch_utc=earliest_first_pitch)
+    _log_td_props(db, date_str, td_props)
 
     history = _build_history(db, date_str)
     report = DailyReport(
@@ -436,6 +513,7 @@ def main(argv=None):
         sport_parlays=sport_parlays, top_parlay=top_parlay, double_parlay=double_parlay,
         active_sports=active_sports,
         pick_changes=get_pick_changes(date_str),
+        td_props=td_props,
     )
     _emit(report)
     if args.auto:
@@ -444,9 +522,9 @@ def main(argv=None):
 
 def _build_history(db, today_str):
     """Past graded slates, newest first -- STRICTLY days before today_str.
-    Each day carries: picks (tagged with their SPORT so WNBA/NFL/etc results
-    are visible, not just MLB), that day's Best Parlay, and the 2-leg Double
-    Your Money ticket."""
+    Each day carries: picks (tagged with their SPORT so WNBA/NFL results are
+    visible, not just MLB), that day's Best Parlay, and the Double Your Money
+    ticket."""
     seed = [
         {"date": "2026-07-30",
          "parlay": ["PIT ML (-112)", "TB ML (-178)", "ATL ML (-154)", "CWS ML (-116)"],
@@ -529,6 +607,9 @@ def _build_history(db, today_str):
         elif r["kind"] == "hr_prop":
             odds = r["odds_american"]
             label = f"{r['side_or_player']} to hit a HR ({odds:+d})" if odds is not None else f"{r['side_or_player']} to hit a HR"
+        elif r["kind"] == "td_prop":
+            odds = r["odds_american"]
+            label = f"{r['side_or_player']} anytime TD ({odds:+d})" if odds is not None else f"{r['side_or_player']} anytime TD"
         else:
             continue
         by_date[d].append({"label": label, "status": r["status"], "kind": r["kind"], "sport": sport})
@@ -561,6 +642,9 @@ def _build_results_recap(db, date_str):
         elif r["kind"] == "hr_prop":
             odds = r["odds_american"]
             label = f"{r['side_or_player']} to hit a HR ({odds:+d})" if odds is not None else f"{r['side_or_player']} to hit a HR"
+        elif r["kind"] == "td_prop":
+            odds = r["odds_american"]
+            label = f"{r['side_or_player']} anytime TD ({odds:+d})" if odds is not None else f"{r['side_or_player']} anytime TD"
         else:
             continue
         items.append({"label": label, "status": r["status"], "kind": r["kind"],
