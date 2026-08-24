@@ -136,35 +136,42 @@
   .dropped { font-size: 13px; color: var(--muted); background: var(--card); border: 1px solid var(--card-border);
              border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; }
 
-  .bankroll { display: flex; justify-content: space-around; background: var(--card); border: 1px solid var(--card-border);
-              border-radius: 16px; padding: 20px; margin-top: 0; flex-wrap: wrap; gap: 12px;}
-  .bankroll .num { font-size: 20px; font-weight: 700; font-family: "SF Mono", "Roboto Mono", monospace; }
-  .bankroll .lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
-  .bankroll .col { text-align: center; }
+  /* Per-sport record & history dropdown -- lives INSIDE each sport's tab */
+  .rec { background: var(--card); border: 1px solid var(--card-border); border-radius: 16px;
+         overflow: hidden; margin-top: 8px; margin-bottom: 24px; }
+  .rec > summary { list-style: none; cursor: pointer; padding: 18px 22px; display: flex;
+                   align-items: center; justify-content: space-between; gap: 12px; }
+  .rec > summary::-webkit-details-marker { display: none; }
+  .rec .r-title { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent); }
+  .rec .r-sum { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+  .rec .r-stat { text-align: right; }
+  .rec .r-stat .v { font-size: 17px; font-weight: 800; font-family: "SF Mono", "Roboto Mono", monospace; }
+  .rec .r-stat .k { font-size: 9px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-top: 1px; }
+  .rec .chev { width: 20px; height: 20px; flex-shrink: 0; transition: transform 0.2s; color: var(--muted); }
+  .rec[open] .chev { transform: rotate(180deg); }
+  .rec .r-body { padding: 0 22px 20px; }
+  .rec-day { border-top: 1px solid var(--card-border); padding: 14px 0 4px; }
+  .rec-day .d-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+  .rec-day .d-date { font-size: 13px; font-weight: 800; color: var(--fg); font-variant-numeric: tabular-nums; }
+  .rec-day .d-rec { font-size: 12px; color: var(--muted); }
+  .rec-day .d-rec b { color: var(--fg); font-family: "SF Mono", "Roboto Mono", monospace; }
+  .rec-row { display: flex; align-items: center; gap: 11px; padding: 4px 0; }
+  .rec-row .mk { font-size: 18px; line-height: 1; flex-shrink: 0; }
+  .rec-row .lb { font-size: 14px; font-weight: 600; color: var(--fg); }
 
-  .byleague { background: var(--card); border: 1px solid var(--card-border); border-radius: 16px;
-              padding: 6px 20px 14px; margin-top: 14px; }
-  .byleague h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted);
-                 font-weight: 700; margin: 14px 0 10px; }
-  .lg-row { display: flex; align-items: center; justify-content: space-between; gap: 12px;
-            padding: 10px 0; border-top: 1px solid var(--card-border); }
-  .lg-row:first-of-type { border-top: none; }
-  .lg-name { font-size: 15px; font-weight: 800; color: var(--fg); letter-spacing: 0.02em; }
-  .lg-stats { display: flex; gap: 16px; flex-wrap: wrap; }
-  .lg-stat { text-align: right; min-width: 62px; }
-  .lg-stat .v { font-size: 16px; font-weight: 800; font-family: "SF Mono", "Roboto Mono", monospace; }
-  .lg-stat .k { font-size: 9px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-top: 1px; }
-
-  .hist-day { margin-top: 24px; }
   .hist-cols { display: flex; gap: 16px; flex-wrap: wrap; }
-  .hist-cols .col { flex: 1 1 240px; }
+  .hist-cols .col { flex: 1 1 260px; }
   .hist-cols .col h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0 0 8px; font-weight: 700; }
   .leg-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
   .leg-row .n { color: var(--accent); font-weight: 800; font-size: 13px; }
   .leg-row .lbl { color: var(--fg); font-size: 15px; font-weight: 600; }
   .kind-tag { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; border: 1px solid var(--card-border); border-radius: 6px; padding: 1px 6px; }
-  .day-rec { color: var(--muted); font-weight: 400; text-transform: none; letter-spacing: 0; font-size: 12px; text-align: right; }
-  .day-rec b { color: var(--fg); font-family: "SF Mono", "Roboto Mono", monospace; }
+
+  .bankroll { display: flex; justify-content: space-around; background: var(--card); border: 1px solid var(--card-border);
+              border-radius: 16px; padding: 20px; margin-top: 0; flex-wrap: wrap; gap: 12px;}
+  .bankroll .num { font-size: 20px; font-weight: 700; font-family: "SF Mono", "Roboto Mono", monospace; }
+  .bankroll .lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  .bankroll .col { text-align: center; }
 
   a { color: var(--accent); }
   a:hover { color: var(--fg); }
@@ -177,7 +184,9 @@
     .metrics { gap: 14px 22px; }
     .bankroll { padding: 16px; gap: 14px 8px; }
     .bankroll .num { font-size: 17px; }
-    .lg-stat { min-width: 54px; }
+    .rec > summary { padding: 15px 16px; }
+    .rec .r-body { padding: 0 16px 16px; }
+    .rec .r-sum { gap: 12px; }
   }
 </style>
 </head>
@@ -278,19 +287,31 @@
   </div>
   {% endif %}
 
+  {% set league_order = ['MLB', 'WNBA', 'NFL', 'NCAAF', 'NCAAB', 'NHL', 'NBA'] %}
+  {% set all_hist_picks = [] %}
+  {% for day in history %}{% for p in day['picks'] %}{% if all_hist_picks.append(p) %}{% endif %}{% endfor %}{% endfor %}
+  {% set hist_sports = all_hist_picks | map(attribute='sport') | list %}
+  {% set shown_sports = [] %}
+  {% for s in league_order %}{% if s in active_sports or s in hist_sports %}{% if shown_sports.append(s) %}{% endif %}{% endif %}{% endfor %}
+
   <div class="tabs">
-    {% for sport in active_sports %}
+    {% for sport in shown_sports %}
     <button class="tab-btn" data-target="view-{{ sport }}" onclick="showView(this)">{{ sport }}</button>
     {% endfor %}
     <button class="tab-btn" data-target="view-top" onclick="showView(this)">TOP PARLAY</button>
-    <button class="tab-btn" data-target="view-history" onclick="showView(this)">HISTORY</button>
   </div>
 
-  {% for sport in active_sports %}
+  {% for sport in shown_sports %}
   {% set sp_plays = plays | selectattr('sport', 'equalto', sport) | list %}
+  {% set sp_hist = all_hist_picks | selectattr('sport', 'equalto', sport) | list %}
+  {% set mlw = sp_hist | selectattr('kind','equalto','moneyline') | selectattr('status','equalto','won') | list | length %}
+  {% set mll = sp_hist | selectattr('kind','equalto','moneyline') | selectattr('status','equalto','lost') | list | length %}
+  {% set prw = sp_hist | rejectattr('kind','equalto','moneyline') | selectattr('status','equalto','won') | list | length %}
+  {% set prl = sp_hist | rejectattr('kind','equalto','moneyline') | selectattr('status','equalto','lost') | list | length %}
+  {% set tw = mlw + prw %}{% set tl = mll + prl %}
   <div class="view-panel" id="view-{{ sport }}" style="display:none;">
 
-    <div class="section-title"><span>{{ sport }} &middot; Today's Moneyline Picks</span><span class="expand-all" onclick="toggleAll(this)">Expand all</span></div>
+    <div class="section-title"><span>{{ sport }} &middot; Today's Moneyline Picks</span>{% if sp_plays %}<span class="expand-all" onclick="toggleAll(this)">Expand all</span>{% endif %}</div>
     {% if sp_plays %}
       {% for play in sp_plays | sort(attribute='edge_pct', reverse=true) %}
       {% set ml_conf = [[((play.edge_pct * 100) + 2)|round(0)|int, 10]|min, 1]|max %}
@@ -325,11 +346,11 @@
       </details>
       {% endfor %}
     {% else %}
-      <div class="dropped">No {{ sport }} moneyline play cleared a real edge today.</div>
+      <div class="dropped">{% if sport in active_sports %}No {{ sport }} moneyline play cleared a real edge today.{% else %}No {{ sport }} games on today's schedule. Past results are in the record below.{% endif %}</div>
     {% endif %}
 
     {% if sport == 'MLB' %}
-    <div class="section-title"><span>HR Props</span><span class="expand-all" onclick="toggleAll(this)">Expand all</span></div>
+    <div class="section-title"><span>HR Props</span>{% if hr_props %}<span class="expand-all" onclick="toggleAll(this)">Expand all</span>{% endif %}</div>
     {% if hr_props %}
       {% for prop in hr_props %}
       {% set strong = prop.score >= 70 %}
@@ -377,6 +398,48 @@
     <div class="dropped">No {{ sport }} parlay today &mdash; fewer than 2 {{ sport }} legs cleared the confidence bar.</div>
     {% endif %}
 
+    <details class="rec">
+      <summary>
+        <span class="r-title">{{ sport }} Record &amp; History</span>
+        <span class="r-sum">
+          <span class="r-stat"><span class="v">{{ mlw }}-{{ mll }}</span><div class="k">Moneyline</div></span>
+          <span class="r-stat"><span class="v">{{ prw }}-{{ prl }}</span><div class="k">Props</div></span>
+          <span class="r-stat"><span class="v" style="color:{% if tw > tl %}var(--accent){% elif tl > tw %}var(--warn){% else %}var(--fg){% endif %};">{% if (tw + tl) %}{{ ((100 * tw) / (tw + tl))|round(0)|int }}%{% else %}--{% endif %}</span><div class="k">Win rate</div></span>
+          <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+        </span>
+      </summary>
+      <div class="r-body">
+        {% set sport_days = [] %}
+        {% for day in history %}
+        {% set dp = day['picks'] | selectattr('sport','equalto',sport) | list %}
+        {% if dp %}{% if sport_days.append((day.date, dp)) %}{% endif %}{% endif %}
+        {% endfor %}
+        {% if sport_days %}
+          {% for d in sport_days %}
+          {% set dmw = d[1] | selectattr('kind','equalto','moneyline') | selectattr('status','equalto','won') | list | length %}
+          {% set dml = d[1] | selectattr('kind','equalto','moneyline') | selectattr('status','equalto','lost') | list | length %}
+          {% set dpw = d[1] | rejectattr('kind','equalto','moneyline') | selectattr('status','equalto','won') | list | length %}
+          {% set dpl = d[1] | rejectattr('kind','equalto','moneyline') | selectattr('status','equalto','lost') | list | length %}
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">{{ d[0] }}</span>
+              <span class="d-rec">ML <b>{{ dmw }}-{{ dml }}</b>{% if dpw or dpl %} &middot; Props <b>{{ dpw }}-{{ dpl }}</b>{% endif %}</span>
+            </div>
+            {% for item in d[1] %}
+            <div class="rec-row">
+              <span class="mk" style="color:{{ '#2fd07a' if item.status == 'won' else ('#e5484d' if item.status == 'lost' else 'var(--muted)') }};">{% if item.status == 'won' %}&#10003;{% elif item.status == 'lost' %}&#10007;{% else %}&ndash;{% endif %}</span>
+              <span class="lb">{{ item.label }}</span>
+              <span class="kind-tag">{{ 'HR' if item.kind == 'hr_prop' else 'ML' }}</span>
+            </div>
+            {% endfor %}
+          </div>
+          {% endfor %}
+        {% else %}
+          <div style="color:var(--muted); font-size:13px; padding:12px 0;">No graded {{ sport }} picks yet. Results appear here once games go final.</div>
+        {% endif %}
+      </div>
+    </details>
+
   </div>
   {% endfor %}
 
@@ -390,9 +453,10 @@
         <div class="leg-row"><span class="n">Leg {{ loop.index }}</span><span class="lbl">{{ leg.label }}</span><span class="kind-tag">{{ leg.sport }}</span></div>
         {% endfor %}
       </div>
-      <div class="note" style="color:var(--muted); font-size:13px; margin-top:8px;">The two safest ML picks across all sports that combine to roughly double a 1-unit stake. Flat 1 unit. Tracked daily in History.</div>
+      <div class="note" style="color:var(--muted); font-size:13px; margin-top:8px;">The two safest ML picks across all sports that combine to roughly double a 1-unit stake. Flat 1 unit.</div>
     </div>
     {% endif %}
+
     <div class="section-title"><span>Top Parlay of the Day &middot; all sports combined</span></div>
     {% if top_parlay and top_parlay.legs %}
     <div class="parlay">
@@ -408,108 +472,55 @@
     {% else %}
     <div class="dropped">No top parlay today &mdash; fewer than 2 legs cleared the confidence bar across all sports. Discipline over action.</div>
     {% endif %}
-  </div>
 
-  <div class="view-panel" id="view-history" style="display:none;">
     {% if bankroll %}
+    <div class="section-title"><span>Overall &middot; all sports</span></div>
     <div class="bankroll">
-      <div class="col"><div class="num">{{ bankroll.wins|default(0) }}-{{ bankroll.losses|default(0) }}</div><div class="lbl">Moneyline &middot; All Sports</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">{% if bankroll.ml_since %}Since {{ bankroll.ml_since }}{% else %}No graded picks yet{% endif %}</div></div>
-      <div class="col"><div class="num">{{ bankroll.hr_wins|default(0) }}-{{ bankroll.hr_losses|default(0) }}</div><div class="lbl">Props &middot; All Sports</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">{% if bankroll.hr_since %}Since {{ bankroll.hr_since }}{% else %}No graded picks yet{% endif %}</div></div>
+      <div class="col"><div class="num">{{ bankroll.wins|default(0) }}-{{ bankroll.losses|default(0) }}</div><div class="lbl">Moneyline</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">{% if bankroll.ml_since %}Since {{ bankroll.ml_since }}{% else %}No graded picks yet{% endif %}</div></div>
+      <div class="col"><div class="num">{{ bankroll.hr_wins|default(0) }}-{{ bankroll.hr_losses|default(0) }}</div><div class="lbl">Props</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">{% if bankroll.hr_since %}Since {{ bankroll.hr_since }}{% else %}No graded picks yet{% endif %}</div></div>
       <div class="col"><div class="num" style="color:{% if bankroll.clv_avg is not none and bankroll.clv_avg > 0 %}var(--accent){% elif bankroll.clv_avg is not none and bankroll.clv_avg < 0 %}var(--warn){% else %}var(--fg){% endif %};">{% if bankroll.clv_avg is not none %}{{ '%+.1f' | format(bankroll.clv_avg) }}%{% else %}--{% endif %}</div><div class="lbl">Avg CLV (ML)</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">{% if bankroll.clv_n %}beat close {{ bankroll.clv_beat|int }}% &middot; n={{ bankroll.clv_n }}{% else %}building sample{% endif %}</div></div>
     </div>
     {% endif %}
 
-    {% if history %}
-      {% set all_picks = [] %}
-      {% for day in history %}{% for p in day['picks'] %}{% if all_picks.append(p) %}{% endif %}{% endfor %}{% endfor %}
-      {% set league_order = ['MLB', 'WNBA', 'NFL', 'NCAAF', 'NCAAB', 'NHL', 'NBA'] %}
-      {% set seen = all_picks | map(attribute='sport') | list %}
-
-      <div class="byleague">
-        <h4>Record by league &mdash; every sport tracked separately</h4>
-        {% for lg in league_order %}
-        {% set lg_picks = all_picks | selectattr('sport', 'equalto', lg) | list %}
-        {% if lg_picks %}
-        {% set mlw = lg_picks | selectattr('kind','equalto','moneyline') | selectattr('status','equalto','won') | list | length %}
-        {% set mll = lg_picks | selectattr('kind','equalto','moneyline') | selectattr('status','equalto','lost') | list | length %}
-        {% set prw = lg_picks | rejectattr('kind','equalto','moneyline') | selectattr('status','equalto','won') | list | length %}
-        {% set prl = lg_picks | rejectattr('kind','equalto','moneyline') | selectattr('status','equalto','lost') | list | length %}
-        {% set tw = mlw + prw %}
-        {% set tl = mll + prl %}
-        <div class="lg-row">
-          <span class="lg-name">{{ lg }}</span>
-          <span class="lg-stats">
-            <span class="lg-stat"><div class="v">{{ mlw }}-{{ mll }}</div><div class="k">Moneyline</div></span>
-            <span class="lg-stat"><div class="v">{{ prw }}-{{ prl }}</div><div class="k">Props</div></span>
-            <span class="lg-stat"><div class="v" style="color:{% if tw > tl %}var(--accent){% elif tl > tw %}var(--warn){% else %}var(--fg){% endif %};">{% if (tw + tl) %}{{ ((100 * tw) / (tw + tl))|round(0)|int }}%{% else %}--{% endif %}</div><div class="k">Win rate</div></span>
-          </span>
-        </div>
-        {% endif %}
-        {% endfor %}
-        {% if not all_picks %}<div style="color:var(--muted); font-size:13px; padding:8px 0;">No graded picks in any league yet.</div>{% endif %}
-      </div>
-
-      {% for day in history %}
-      <div class="hist-day">
-        <div class="section-title" style="margin:0 0 12px;">
-          <span>{{ day.date }}</span>
-          <span class="day-rec">
-            {% for lg in league_order %}
-            {% set dp = day['picks'] | selectattr('sport','equalto',lg) | list %}
-            {% if dp %}
-            {% set dmw = dp | selectattr('kind','equalto','moneyline') | selectattr('status','equalto','won') | list | length %}
-            {% set dml = dp | selectattr('kind','equalto','moneyline') | selectattr('status','equalto','lost') | list | length %}
-            {% set dpw = dp | rejectattr('kind','equalto','moneyline') | selectattr('status','equalto','won') | list | length %}
-            {% set dpl = dp | rejectattr('kind','equalto','moneyline') | selectattr('status','equalto','lost') | list | length %}
-            {{ lg }} ML <b>{{ dmw }}-{{ dml }}</b>{% if dpw or dpl %} &middot; Props <b>{{ dpw }}-{{ dpl }}</b>{% endif %}{% if not loop.last %} &nbsp; {% endif %}
-            {% endif %}
-            {% endfor %}
-          </span>
-        </div>
-        <div class="hist-cols">
-          <div class="col">
-            <h4>Picks</h4>
-            <div class="dropped" style="margin-bottom:0;">
-              {% for item in day['picks'] %}
-              <div style="display:flex; align-items:center; gap:12px; {{ 'margin-bottom:12px;' if not loop.last else '' }}">
-                <span style="font-size:20px; line-height:1; flex-shrink:0; color:{{ '#2fd07a' if item.status == 'won' else ('#e5484d' if item.status == 'lost' else 'var(--muted)') }};">{% if item.status == 'won' %}&#10003;{% elif item.status == 'lost' %}&#10007;{% else %}&ndash;{% endif %}</span>
-                <span style="color:var(--fg); font-size:15px; font-weight:600;">{{ item.label }}</span>
-                <span class="kind-tag">{{ 'HR' if item.kind == 'hr_prop' else 'ML' }}</span>
-                <span class="kind-tag" style="color:var(--accent); border-color:var(--accent-dim);">{{ item.sport | default('MLB') }}</span>
+    <details class="rec" style="margin-top:20px;">
+      <summary>
+        <span class="r-title">Parlay History &middot; all sports</span>
+        <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+      </summary>
+      <div class="r-body">
+        {% if history %}
+          {% for day in history %}
+          <div class="rec-day">
+            <div class="d-head"><span class="d-date">{{ day.date }}</span></div>
+            <div class="hist-cols">
+              <div class="col">
+                <h4>Best Parlay</h4>
+                {% if day['parlay'] %}
+                  {% for leg in day['parlay'] %}
+                  <div class="rec-row"><span class="lb" style="font-size:13px;">{{ loop.index }}. {{ leg }}</span></div>
+                  {% endfor %}
+                {% else %}
+                  <div style="color:var(--muted); font-size:13px;">None this day.</div>
+                {% endif %}
               </div>
-              {% endfor %}
+              <div class="col">
+                <h4>Double Your Money</h4>
+                {% if day['double'] %}
+                  {% for leg in day['double'] %}
+                  <div class="rec-row"><span class="lb" style="font-size:13px;">{{ loop.index }}. {{ leg }}</span></div>
+                  {% endfor %}
+                {% else %}
+                  <div style="color:var(--muted); font-size:13px;">None this day.</div>
+                {% endif %}
+              </div>
             </div>
           </div>
-          <div class="col">
-            <h4>Best Parlay</h4>
-            <div class="dropped" style="margin-bottom:0; border-style:dashed; border-color:var(--accent);">
-              {% if day['parlay'] %}
-                {% for leg in day['parlay'] %}
-                <div class="leg-row" style="margin-bottom:{{ '10px' if not loop.last else '0' }};"><span class="n" style="font-size:12px;">Leg {{ loop.index }}</span><span class="lbl" style="font-size:14px;">{{ leg }}</span></div>
-                {% endfor %}
-              {% else %}
-                <span style="color:var(--muted);">No parlay this day.</span>
-              {% endif %}
-            </div>
-          </div>
-          <div class="col">
-            <h4>Double Your Money</h4>
-            <div class="dropped" style="margin-bottom:0; border-color:var(--accent);">
-              {% if day['double'] %}
-                {% for leg in day['double'] %}
-                <div class="leg-row" style="margin-bottom:{{ '10px' if not loop.last else '0' }};"><span class="n" style="font-size:12px;">Leg {{ loop.index }}</span><span class="lbl" style="font-size:14px;">{{ leg }}</span></div>
-                {% endfor %}
-              {% else %}
-                <span style="color:var(--muted);">No 2-leg ticket this day.</span>
-              {% endif %}
-            </div>
-          </div>
-        </div>
+          {% endfor %}
+        {% else %}
+          <div style="color:var(--muted); font-size:13px; padding:12px 0;">No parlay history yet.</div>
+        {% endif %}
       </div>
-      {% endfor %}
-    {% else %}
-      <div class="dropped">No graded history yet. Past days appear here once their games go final.</div>
-    {% endif %}
+    </details>
   </div>
 
   <script>
@@ -527,7 +538,7 @@
       var picks = [];
       var el = section.nextElementSibling;
       while (el && !el.classList.contains('section-title')) {
-        if (el.tagName === 'DETAILS') picks.push(el);
+        if (el.tagName === 'DETAILS' && el.classList.contains('pick')) picks.push(el);
         el = el.nextElementSibling;
       }
       var anyClosed = picks.some(function (p) { return !p.open; });
