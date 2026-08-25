@@ -2,7 +2,9 @@ name: Daily MLB Report
 
 on:
   schedule:
-    - cron: "0,30 11-23 * * *"
+    # once a day, 09:00 ET — an hour before the 10:00 ET publish target below.
+    # It used to run every 30 minutes, which is what drained the odds credits.
+    - cron: "0 13 * * *"
   workflow_dispatch: {}
 
 permissions:
