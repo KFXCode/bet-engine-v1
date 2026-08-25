@@ -5,33 +5,32 @@ One-time-per-season backfill of LAST season's final scores into the shared
 `game_scores` table -- the same table data/standings_scores.py aggregates into
 team records, and therefore the same data engine/totals.py projects totals from.
 
-WHY THIS EXISTS: the totals model needs each team's points-scored and
-points-allowed per game. Those came only from results our own runs had stored,
-and the store starts empty -- so at Week 1 of a season there was NO scoring
-history for any team and totals produced nothing for weeks. That was a data
-gap, not a real "wait for the sample" rule: last season's results exist and are
-the correct opening baseline for a projection.
+WHY THIS EXISTS: the totals model needs each team's points scored and allowed
+per game. Those came only from results our own runs had stored, and the store
+starts empty -- so at Week 1 no team had scoring history and totals produced
+nothing for weeks. That was a data gap, not a real sampling rule: last
+season's results exist and are the correct opening baseline.
 
-HOW: ESPN's scoreboard accepts a DATE RANGE, so a whole season is one request
-(verified: 2025 college football = 911 completed games across 68 dates in a
-single call) rather than ~100 daily calls. Costs zero Odds API credits.
+WHY MONTHLY CHUNKS (v2): the first version pulled a whole season in ONE
+request. ESPN caps a scoreboard response at 1000 events, so the big leagues
+came back truncated -- NBA stopped at 996 and NHL at 999, meaning partial
+seasons masquerading as complete ones -- and college basketball, the largest
+slate of all, timed out and seeded nothing at all. Fetching month by month
+keeps every response small enough to return in full and to finish inside the
+timeout. It costs ~30 requests once per season and zero Odds API credits.
 
-Seeding is idempotent and self-marking: a marker row in stats_cache records
-that a sport/season was seeded, so this runs once and never repeats. Rows go in
-with INSERT OR REPLACE keyed on the ESPN event id, so even a re-run can't
-double-count a game.
-
-NOTE ON BLENDING: seeded rows carry last season's dates, so once the new season
-starts, get_records(season=<current year>) naturally reads only current-season
-games -- the seed is what makes the FIRST weeks work, and current results take
-over on their own. Set SEED_INTO_CURRENT_SEASON to stamp seeded games with the
-current season instead, which keeps prior-year form in the averages all year.
+Seeding is idempotent and self-marking (marker rows in stats_cache), and rows
+are keyed on the ESPN event id with INSERT OR REPLACE, so re-runs can never
+double-count a game. The marker key carries a VERSION -- bumping it is how a
+fix like this re-seeds sports that were already marked done under the old,
+truncated logic.
 """
 
 import json
 import logging
 import sqlite3
 import time
+from datetime import date, timedelta
 
 import requests
 
@@ -44,25 +43,28 @@ from data.teams_wnba import normalize_wnba_team
 
 logger = logging.getLogger(__name__)
 
-# league path, ESPN group filter (80 = FBS), and the prior-season date range.
+# Bump this when the seeding logic changes in a way that needs a re-pull.
+SEED_VERSION = 2
+
+# league path, ESPN group filter, and the prior-season (month, day) range.
 SEED_PLANS = {
     "NCAAF": {"path": "football/college-football", "groups": 80,
-              "range": ("0823", "1213")},
+              "start": (8, 23), "end": (12, 13)},
     "NFL":   {"path": "football/nfl", "groups": None,
-              "range": ("0904", "0110")},
+              "start": (9, 4), "end": (1, 10)},
     "NCAAB": {"path": "basketball/mens-college-basketball", "groups": 50,
-              "range": ("1103", "0315")},
+              "start": (11, 3), "end": (3, 15)},
     "NBA":   {"path": "basketball/nba", "groups": None,
-              "range": ("1022", "0415")},
+              "start": (10, 22), "end": (4, 15)},
     "NHL":   {"path": "hockey/nhl", "groups": None,
-              "range": ("1008", "0415")},
+              "start": (10, 8), "end": (4, 15)},
     "WNBA":  {"path": "basketball/wnba", "groups": None,
-              "range": ("0515", "0920")},
+              "start": (5, 15), "end": (9, 20)},
 }
 
-# When True, seeded games are stamped with the CURRENT season year so prior-year
-# scoring stays in the averages all season. When False (default) they keep their
-# real prior-year dates and only bridge the early weeks.
+# Seeded games are stamped with the CURRENT season year so prior-year scoring
+# stays in the averages all season. False keeps their real prior-year dates,
+# which means the seed only bridges the opening weeks.
 SEED_INTO_CURRENT_SEASON = True
 
 HOSTS = [
@@ -107,65 +109,41 @@ def _conn():
     return c
 
 
-def _already_seeded(conn, marker):
-    row = conn.execute("SELECT payload FROM stats_cache WHERE key=?", (marker,)).fetchone()
-    return row is not None
+def _month_windows(start_date, end_date):
+    """[(YYYYMMDD, YYYYMMDD)] calendar-month slices covering the range."""
+    windows = []
+    cursor = start_date
+    while cursor <= end_date:
+        if cursor.month == 12:
+            month_end = date(cursor.year, 12, 31)
+        else:
+            month_end = date(cursor.year, cursor.month + 1, 1) - timedelta(days=1)
+        window_end = min(month_end, end_date)
+        windows.append((cursor.strftime("%Y%m%d"), window_end.strftime("%Y%m%d")))
+        cursor = window_end + timedelta(days=1)
+    return windows
 
 
-def _mark_seeded(conn, marker, count):
-    conn.execute("INSERT OR REPLACE INTO stats_cache (key, payload, cached_at) VALUES (?, ?, ?)",
-                 (marker, json.dumps({"games": count}), time.time()))
-    conn.commit()
-
-
-def _fetch_range(path, groups, start, end):
+def _fetch_window(path, groups, start, end):
     params = {"dates": f"{start}-{end}", "limit": 1000}
     if groups:
         params["groups"] = groups
     for tpl in HOSTS:
         try:
-            resp = requests.get(tpl.format(path=path), params=params, headers=HEADERS, timeout=45)
+            resp = requests.get(tpl.format(path=path), params=params, headers=HEADERS, timeout=40)
             resp.raise_for_status()
             events = resp.json().get("events", [])
             if events:
+                if len(events) >= 1000:
+                    logger.warning("Seed window %s-%s hit the 1000-event cap -- may be truncated.",
+                                   start, end)
                 return events
         except Exception as exc:
-            logger.debug("Seed fetch failed (%s): %s", tpl, exc)
+            logger.debug("Seed fetch failed (%s %s-%s): %s", tpl, start, end, exc)
     return []
 
 
-def ensure_season_seeded(sport, current_season):
-    """Backfill last season's finals for `sport` if we haven't already.
-    Safe to call on every run -- returns immediately once the marker exists."""
-    plan = SEED_PLANS.get(sport)
-    if not plan:
-        return 0
-
-    prior = current_season - 1
-    marker = f"seed:{sport}:{prior}"
-    try:
-        conn = _conn()
-    except Exception as exc:
-        logger.warning("Seed %s: cannot open DB: %s", sport, exc)
-        return 0
-
-    if _already_seeded(conn, marker):
-        conn.close()
-        return 0
-
-    start_md, end_md = plan["range"]
-    # A range ending earlier in the calendar than it starts wraps the new year.
-    start = f"{prior}{start_md}"
-    end = f"{prior if end_md >= start_md else prior + 1}{end_md}"
-
-    logger.info("Seeding %s history from %s-%s (one-time, prior season).", sport, start, end)
-    events = _fetch_range(plan["path"], plan.get("groups"), start, end)
-    if not events:
-        logger.warning("Seed %s: ESPN returned no events for %s-%s -- will retry next run.",
-                       sport, start, end)
-        conn.close()
-        return 0
-
+def _parse_rows(sport, events, current_season):
     normalize = _normalizer(sport)
     rows = []
     for ev in events:
@@ -194,9 +172,53 @@ def ensure_season_seeded(sport, current_season):
                           if SEED_INTO_CURRENT_SEASON and len(real_date) == 10 else real_date)
             rows.append((f"seed-{sport}-{ev.get('id')}", sport, stamp_date,
                          home[0], away[0], home[1], away[1]))
+    return rows
 
-    if not rows:
-        logger.warning("Seed %s: no completed games parsed out of %d events.", sport, len(events))
+
+def ensure_season_seeded(sport, current_season):
+    """Backfill last season's finals for `sport` if not already seeded under
+    the current SEED_VERSION. Safe to call every run."""
+    plan = SEED_PLANS.get(sport)
+    if not plan:
+        return 0
+
+    prior = current_season - 1
+    marker = f"seed{SEED_VERSION}:{sport}:{prior}"
+    try:
+        conn = _conn()
+    except Exception as exc:
+        logger.warning("Seed %s: cannot open DB: %s", sport, exc)
+        return 0
+
+    if conn.execute("SELECT 1 FROM stats_cache WHERE key=?", (marker,)).fetchone():
+        conn.close()
+        return 0
+
+    s_month, s_day = plan["start"]
+    e_month, e_day = plan["end"]
+    start_date = date(prior, s_month, s_day)
+    # An end month earlier than the start month means the season crosses years.
+    end_year = prior if (e_month, e_day) >= (s_month, s_day) else prior + 1
+    end_date = date(end_year, e_month, e_day)
+
+    windows = _month_windows(start_date, end_date)
+    logger.info("Seeding %s prior season (%s -> %s) in %d monthly window(s).",
+                sport, start_date, end_date, len(windows))
+
+    all_rows = []
+    seen_keys = set()
+    for start, end in windows:
+        events = _fetch_window(plan["path"], plan.get("groups"), start, end)
+        if not events:
+            continue
+        for row in _parse_rows(sport, events, current_season):
+            if row[0] in seen_keys:
+                continue
+            seen_keys.add(row[0])
+            all_rows.append(row)
+
+    if not all_rows:
+        logger.warning("Seed %s: no completed games parsed -- will retry next run.", sport)
         conn.close()
         return 0
 
@@ -204,15 +226,16 @@ def ensure_season_seeded(sport, current_season):
         conn.executemany(
             "INSERT OR REPLACE INTO game_scores "
             "(game_key, sport, date, home_team, away_team, home_pts, away_pts) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)", rows)
+            "VALUES (?, ?, ?, ?, ?, ?, ?)", all_rows)
+        conn.execute("INSERT OR REPLACE INTO stats_cache (key, payload, cached_at) VALUES (?, ?, ?)",
+                     (marker, json.dumps({"games": len(all_rows)}), time.time()))
         conn.commit()
-        _mark_seeded(conn, marker, len(rows))
-        logger.info("Seeded %s: %d prior-season games stored -- totals and records now have "
-                    "a real baseline from day one.", sport, len(rows))
+        logger.info("Seeded %s: %d prior-season games stored across %d window(s).",
+                    sport, len(all_rows), len(windows))
     except Exception as exc:
         logger.warning("Seed %s store failed: %s", sport, exc)
         conn.close()
         return 0
 
     conn.close()
-    return len(rows)
+    return len(all_rows)
