@@ -4,6 +4,14 @@ data/standings.py
 Team records (wins/losses, run differential, games back, current streak)
 from the MLB Stats API standings endpoint. Powers the "talent gap" and
 "motivation" grading factors.
+
+ALSO the home of the once-per-season history seed (see seed_history_for_all
+below). That lives here because this module is the one records call that runs
+UNCONDITIONALLY on every run. The seed was originally triggered from
+standings_scores.get_records(), which is only called for sports that have
+games TODAY -- so NCAAF, with no games in August, never seeded at all and the
+totals model still had nothing to project from. Seeding must not depend on
+today's schedule; it has to happen for every sport whose season is in range.
 """
 
 import logging
@@ -17,13 +25,47 @@ logger = logging.getLogger(__name__)
 
 STANDINGS_API = "https://statsapi.mlb.com/api/v1/standings"
 
+# Sports whose prior-season finals we backfill so records/totals have a real
+# baseline from day one. MLB is excluded: its records come live from the
+# statsapi standings endpoint above, which is complete on its own.
+SEED_SPORTS = ["NCAAF", "NFL", "NCAAB", "NBA", "NHL", "WNBA"]
+
+
+def seed_history_for_all(season=None, sports=None):
+    """Backfill prior-season finals for every listed sport that hasn't been
+    seeded yet. Idempotent (each sport/season self-marks once done) and safe to
+    call every run. Independent of today's schedule by design."""
+    season = season or datetime.now().year
+    from data.seed_history import ensure_season_seeded  # local import: avoids a cycle
+
+    total = 0
+    for sport in (sports or SEED_SPORTS):
+        try:
+            total += ensure_season_seeded(sport, season)
+        except Exception as exc:
+            logger.warning("History seed for %s skipped: %s", sport, exc)
+    if total:
+        logger.info("History seed: %d prior-season game(s) stored across %d sport(s).",
+                    total, len(sports or SEED_SPORTS))
+    return total
+
 
 def get_all_team_records(season=None):
     """Returns dict team_abbr -> {wins, losses, runs_scored, runs_allowed,
     games_back, streak, division_rivals}. Never raises; returns {} on
     failure so callers degrade gracefully (talent/motivation factors just
-    go neutral for the day)."""
+    go neutral for the day).
+
+    Seeds prior-season history for the non-MLB sports first -- this is the
+    unconditional hook that guarantees it happens regardless of which leagues
+    are playing today."""
     season = season or datetime.now().year
+
+    try:
+        seed_history_for_all(season)
+    except Exception as exc:
+        logger.warning("History seed pass failed (continuing): %s", exc)
+
     try:
         resp = requests.get(
             STANDINGS_API,
