@@ -2,9 +2,13 @@ name: Daily MLB Report
 
 on:
   schedule:
-    # once a day, 09:00 ET — an hour before the 10:00 ET publish target below.
+    # TWO runs a day, which is all the system needs:
+    #  1) 09:00 ET pre-game  -- builds and publishes the day's picks.
+    #  2) 02:00 ET overnight -- grades every game that finished, so records
+    #     and history are correct before you wake up.
     # It used to run every 30 minutes, which is what drained the odds credits.
-    - cron: "0 13 * * *"
+    - cron: "0 13 * * *"   # 09:00 ET  (pre-game publish)
+    - cron: "0 6 * * *"    # 02:00 ET  (overnight grading)
   workflow_dispatch: {}
 
 permissions:
@@ -25,7 +29,7 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run today's pipeline (auto-gated on schedule; always forced on manual "Run workflow")
+      - name: Run pipeline (pre-game publish, overnight grading, or forced manual run)
         env:
           STATS_MODE: api
           ODDS_MODE: api
@@ -37,7 +41,15 @@ jobs:
           DAILY_RUN_MINUTE: "0"
           AUTO_RUN_LEAD_MINUTES: "60"
         run: |
-          if [ "${{ github.event_name }}" = "schedule" ]; then
+          # The 06:00 UTC (02:00 ET) slot is the grading pass: yesterday's
+          # games are final, so grade them for YESTERDAY's date. It does not
+          # try to publish a new slate -- picks are published by the morning
+          # run only, so an overnight run can never overwrite a locked board.
+          if [ "${{ github.event.schedule }}" = "0 6 * * *" ]; then
+            echo "Overnight grading pass -- settling yesterday's finished games."
+            python run_daily.py --date "$(TZ=America/New_York date -d 'yesterday' +%F)"
+          elif [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "Pre-game scheduled run -- auto-gated publish."
             python run_daily.py --auto
           else
             echo "Manually triggered -- forcing a fresh run + publish regardless of timing/once-a-day gate."
