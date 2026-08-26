@@ -1,28 +1,36 @@
 """
 data/odds_providers.py
 =======================
-Moneyline/spread/total odds. Two implementations behind one interface:
+Moneyline/total odds. Two implementations behind one interface:
 
 - MockOddsProvider   : deterministic-per-day synthetic odds, zero setup.
 - TheOddsApiProvider : real odds from https://the-odds-api.com, FanDuel book.
 
-config.ODDS_MODE picks which one get_odds_provider() hands back. Every
-network path falls back to mock data on failure so a bad API response never
-crashes the daily run.
+CREDIT DISCIPLINE (Aug 26, 2026) -- the account burned all 20,000 monthly
+credits, which silently swapped real prices for SIMULATED ones (that is why a
+whole slate came back as +563/+421/+321 longshots). Three causes, all fixed
+here:
 
-PRESEASON KEYS (Aug 22, 2026): The Odds API keeps NFL preseason under its own
-sport key (`americanfootball_nfl_preseason`); the regular-season key is empty
-in August. Each sport maps to a LIST of keys and events from all of them are
-merged, so preseason games get REAL FanDuel prices.
+1. MARKETS: The Odds API bills PER MARKET PER REGION. We were asking for
+   "h2h,spreads,totals" on every league -- 3 credits a call -- while the
+   engine has no spread model at all and only uses totals for NCAAF. So two
+   thirds of every request was paid for and discarded. Each sport now asks
+   only for what it actually uses (MARKETS_BY_SPORT), cutting most calls to a
+   single credit.
 
-RESPONSE CACHE (Aug 23, 2026): the API quota was burned out mid-month, which
-knocked WNBA and NFL off the report entirely -- with no credits their
-schedules returned nothing, so there were no games and therefore no tabs.
-The biggest waste was RE-RUNS: every manual run re-billed the full slate,
-even when re-running minutes apart just to refresh lineups or republish.
-Raw responses are now cached on disk for config.ODDS_CACHE_MINUTES and reused,
-so repeat runs cost ZERO credits. A quota/auth failure (401) is also detected
-explicitly and logged loudly instead of silently degrading to fake numbers.
+2. CACHE WINDOW: 45 minutes didn't cover the real usage pattern -- re-running
+   to refresh lineups or republish re-billed the entire slate. The window is
+   now 4 hours, which still lets the two intended daily runs (about an hour
+   before first game, and after the last game) each pull fresh prices, while
+   making every extra re-run in between completely free.
+
+3. NO FLOOR: we spent down to zero and only then discovered it. A reserve
+   floor now stops paid calls while credits remain for the important runs, and
+   a 401 is treated as terminal for the run so we don't keep hammering a dead
+   quota.
+
+Every network path still falls back to mock data so a bad response can't crash
+the daily run -- but mock odds are now loudly flagged as unbettable.
 """
 
 import json
@@ -47,6 +55,31 @@ logger = logging.getLogger(__name__)
 
 _CACHE_DIR = Path(config.DATA_STORE_DIR) / "odds_cache"
 
+# Only ask for markets the engine actually consumes. Spreads are never modeled;
+# totals are only projected for NCAAF (see engine/totals.TOTALS_SPORTS).
+MARKETS_BY_SPORT = {
+    "MLB": "h2h",
+    "WNBA": "h2h",
+    "NFL": "h2h",
+    "NCAAF": "h2h,totals",
+    "NCAAB": "h2h",
+    "NHL": "h2h",
+    "NBA": "h2h",
+}
+
+# Cache long enough that only the two intended runs a day pay for odds.
+CACHE_MINUTES = int(getattr(config, "ODDS_CACHE_MINUTES", 240) or 240)
+if CACHE_MINUTES < 240:
+    CACHE_MINUTES = 240
+
+# Stop making paid calls once the remaining balance gets this low, so a runaway
+# day can't consume the credits the rest of the month needs.
+CREDIT_RESERVE = int(getattr(config, "ODDS_CREDIT_RESERVE", 250) or 250)
+
+# Set once per process when the quota is confirmed dead -- prevents dozens of
+# further doomed requests in the same run.
+_QUOTA_EXHAUSTED = False
+
 
 def _cache_path(sport_key):
     _CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -54,19 +87,26 @@ def _cache_path(sport_key):
     return _CACHE_DIR / f"{safe}.json"
 
 
-def _cache_read(sport_key):
-    """Cached events for this key, or None if missing/stale/unreadable."""
+def _cache_read(sport_key, allow_stale=False):
+    """Cached events, or None. allow_stale ignores the age limit -- used when
+    the quota is gone, since yesterday's real prices beat invented ones."""
     p = _cache_path(sport_key)
     if not p.exists():
         return None
     try:
         blob = json.loads(p.read_text())
         age_min = (time.time() - blob.get("cached_at", 0)) / 60.0
-        if age_min > config.ODDS_CACHE_MINUTES:
+        events = blob.get("events", [])
+        if age_min > CACHE_MINUTES and not allow_stale:
             return None
-        logger.info("Odds cache HIT for %s (%.0f min old, %d events) -- no API credits used.",
-                    sport_key, age_min, len(blob.get("events", [])))
-        return blob.get("events", [])
+        if allow_stale and age_min > CACHE_MINUTES:
+            logger.warning("Using STALE cached odds for %s (%.0f min old) because the API quota "
+                           "is exhausted -- verify prices on FanDuel before betting.",
+                           sport_key, age_min)
+        else:
+            logger.info("Odds cache HIT for %s (%.0f min old, %d events) -- 0 credits used.",
+                        sport_key, age_min, len(events))
+        return events
     except Exception:
         return None
 
@@ -81,8 +121,7 @@ def _cache_write(sport_key, events):
 def _normalize_for_sport(raw, sport):
     """Each sport spells team names differently and its abbreviation table
     isn't interchangeable with another's -- dispatch to the right normalizer
-    or a game silently fails to match its real odds event and falls back to
-    simulated numbers."""
+    or a game silently fails to match its odds event and falls back to mock."""
     if sport == "WNBA":
         return normalize_wnba_team(raw)
     if sport == "NFL":
@@ -114,8 +153,8 @@ ODDS_API_SPORT_KEYS = {
 
 
 class MockOddsProvider(OddsProvider):
-    """Deterministic-per-game-per-day synthetic odds so the whole pipeline is
-    runnable with zero setup."""
+    """Deterministic-per-game-per-day synthetic odds so the pipeline is
+    runnable with zero setup. These are NOT real prices -- never bet them."""
 
     def get_odds(self, games):
         out = {}
@@ -145,63 +184,81 @@ class MockOddsProvider(OddsProvider):
 
 
 class TheOddsApiProvider(OddsProvider):
-    """Real odds via The Odds API, FanDuel bookmaker, moneyline+spread+total."""
+    """Real odds via The Odds API, FanDuel bookmaker."""
 
     def __init__(self, api_key=None, bookmaker=None, sport="MLB"):
         self.api_key = api_key or config.ODDS_API_KEY
         self.bookmaker = bookmaker or config.ODDS_API_BOOKMAKER
         self.sport = sport
 
+    def _markets(self):
+        return MARKETS_BY_SPORT.get(self.sport, "h2h")
+
     def _fetch_events(self, sport_key):
         """Events for ONE sport key, cache-first. [] on any problem."""
+        global _QUOTA_EXHAUSTED
+
         cached = _cache_read(sport_key)
         if cached is not None:
             return cached
 
+        if _QUOTA_EXHAUSTED:
+            stale = _cache_read(sport_key, allow_stale=True)
+            return stale if stale is not None else []
+
+        markets = self._markets()
         url = f"{config.ODDS_API_BASE_URL}/sports/{sport_key}/odds"
         params = {
             "apiKey": self.api_key,
             "regions": "us",
-            "markets": "h2h,spreads,totals",
+            "markets": markets,
             "bookmakers": self.bookmaker,
             "oddsFormat": "american",
         }
         try:
             resp = requests.get(url, params=params, timeout=15)
+
             if resp.status_code == 401:
-                # Out of credits, or a bad key. This is the failure that took
-                # WNBA/NFL off the report -- make it impossible to miss.
-                logger.error("ODDS API 401 for %s -- OUT OF CREDITS or invalid key. "
-                             "Check https://the-odds-api.com/account/. Falling back to "
-                             "simulated odds; live prices will be wrong until this clears.",
-                             sport_key)
-                return []
+                _QUOTA_EXHAUSTED = True
+                logger.error("ODDS API 401 on %s -- OUT OF CREDITS or invalid key. No further "
+                             "paid calls this run. Check https://the-odds-api.com/account/. "
+                             "Prices shown are cached or SIMULATED -- do not bet them.", sport_key)
+                stale = _cache_read(sport_key, allow_stale=True)
+                return stale if stale is not None else []
             if resp.status_code == 429:
                 logger.error("ODDS API rate-limited (429) on %s -- backing off this run.", sport_key)
-                return []
+                stale = _cache_read(sport_key, allow_stale=True)
+                return stale if stale is not None else []
             if resp.status_code in (404, 422):
                 logger.debug("Odds API key %s not currently active (%s).", sport_key, resp.status_code)
                 return []
             resp.raise_for_status()
+
             payload = resp.json()
             events = payload if isinstance(payload, list) else []
+
             remaining = resp.headers.get("x-requests-remaining")
             used = resp.headers.get("x-requests-used")
-            if remaining is not None:
-                logger.info("Odds API %s: %d events | credits remaining %s (used %s).",
-                            sport_key, len(events), remaining, used)
-                try:
-                    if int(remaining) < 100:
-                        logger.error("LOW ODDS API CREDITS: only %s left. Cut manual re-runs "
-                                     "or the report will lose live odds and non-MLB sports.", remaining)
-                except (TypeError, ValueError):
-                    pass
+            last_cost = resp.headers.get("x-requests-last")
+            logger.info("Odds API %s [markets=%s]: %d events | cost %s | remaining %s (used %s).",
+                        sport_key, markets, len(events), last_cost or "?", remaining or "?", used or "?")
+            try:
+                if remaining is not None and int(remaining) <= CREDIT_RESERVE:
+                    _QUOTA_EXHAUSTED = True
+                    logger.error("ODDS API CREDIT FLOOR: only %s credits left (reserve %d). "
+                                 "Pausing paid odds calls for the rest of this run so the "
+                                 "remaining balance is saved for pre-game runs.",
+                                 remaining, CREDIT_RESERVE)
+            except (TypeError, ValueError):
+                pass
+
             if events:
                 _cache_write(sport_key, events)
             return events
         except Exception as exc:
             logger.warning("The Odds API request failed for %s (%s).", sport_key, exc)
-            return []
+            stale = _cache_read(sport_key, allow_stale=True)
+            return stale if stale is not None else []
 
     def get_odds(self, games):
         if not self.api_key:
@@ -221,8 +278,8 @@ class TheOddsApiProvider(OddsProvider):
             payload.extend(found)
 
         if not payload:
-            logger.error("No %s events from any Odds API key %s -- falling back to mock odds.",
-                         self.sport, sport_keys)
+            logger.error("No %s events from any Odds API key %s -- SIMULATED odds for this sport. "
+                         "Do not bet these prices.", self.sport, sport_keys)
             return MockOddsProvider().get_odds(games)
 
         by_teams = {}
@@ -236,8 +293,8 @@ class TheOddsApiProvider(OddsProvider):
         for game in games:
             event = _closest_event(by_teams.get((game.home_team, game.away_team), []), game)
             if not event:
-                logger.warning("No live %s odds found for %s @ %s (checked %d events) -- "
-                               "using simulated odds for this game only.",
+                logger.warning("No live %s odds for %s @ %s (checked %d events) -- simulated "
+                               "odds for this game only.",
                                self.sport, game.away_team, game.home_team, len(payload))
                 out[game.game_id] = MockOddsProvider().get_odds([game])[game.game_id]
                 continue
