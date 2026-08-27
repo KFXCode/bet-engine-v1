@@ -52,5 +52,29 @@
     "tickets_pct_home": 50.0,
     "handle_pct_home": 50.0,
     "source": "sportsbettingdime.com"
+  },
+  "nfl-401873298": {
+    "_matchup": "PIT @ BUF",
+    "tickets_pct_home": 50.0,
+    "handle_pct_home": 50.0,
+    "source": "sportsbettingdime.com"
+  },
+  "nfl-401873299": {
+    "_matchup": "NE @ CLE",
+    "tickets_pct_home": 50.0,
+    "handle_pct_home": 50.0,
+    "source": "sportsbettingdime.com"
+  },
+  "nfl-401873641": {
+    "_matchup": "SF @ LV",
+    "tickets_pct_home": 50.0,
+    "handle_pct_home": 50.0,
+    "source": "sportsbettingdime.com"
+  },
+  "nfl-401873300": {
+    "_matchup": "LAR @ LAC",
+    "tickets_pct_home": 50.0,
+    "handle_pct_home": 50.0,
+    "source": "sportsbettingdime.com"
   }
 }
