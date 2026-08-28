@@ -1,45 +1,52 @@
 """
 data/schedule_provider_ncaab.py
 ================================
-Today's NCAA Men's Basketball schedule from ESPN's public scoreboard endpoint
--- free, no key, same "never raises" contract as the other providers.
-Off-season returns [] so the sport stays dormant until the season opens (Nov).
+Today's men's college basketball schedule, via the shared multi-host ESPN
+fetcher.
 
-groups=50 is ESPN's code for Division I. Big weekday/weekend slates can run
-100+ games; the daily 5-pick cap in the strategy engine keeps output selective.
+WHY (Aug 27, 2026): this hit ONE ESPN host directly. GitHub Actions' IPs get
+blocked there, so on the runner it returned nothing and fell through to The
+Odds API -- and with the odds quota exhausted there was no schedule at all, so
+the league silently vanished from the report. data/espn_fetch tries three
+independent ESPN hosts and costs zero Odds API credits, so schedules keep
+working even with no quota.
+
+Off-season this returns [] so NCAAB stays dormant until November with no code
+change needed.
 """
 
 import logging
-import requests
 
 from engine.models import Game
 from data.teams_college import normalize_college_team
+from data.espn_fetch import fetch_scoreboard_events
 
 logger = logging.getLogger(__name__)
 
-ESPN_SCOREBOARD = "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard"
+LEAGUE_PATH = "basketball/mens-college-basketball"
 
 
 def get_todays_ncaab_games(date_str):
-    """date_str: 'YYYY-MM-DD'."""
-    try:
-        resp = requests.get(ESPN_SCOREBOARD,
-                            params={"dates": date_str.replace("-", ""), "groups": "50", "limit": "400"},
-                            timeout=15)
-        resp.raise_for_status()
-        payload = resp.json()
-    except Exception as exc:
-        logger.error("Failed to fetch NCAAB schedule for %s: %s", date_str, exc)
+    """date_str: 'YYYY-MM-DD'. Never raises."""
+    events = fetch_scoreboard_events(
+        LEAGUE_PATH, date_str,
+        season_types=(None, 2, 3),
+        referer="https://www.espn.com/mens-college-basketball/scoreboard",
+    )
+    if not events:
+        logger.info("NCAAB schedule %s: no events from any ESPN host.", date_str)
         return []
 
     games = []
-    for event in payload.get("events", []):
+    for event in events:
         try:
             parsed = _parse_event(event, date_str)
             if parsed:
                 games.append(parsed)
         except Exception as exc:
             logger.warning("Skipping one NCAAB game we couldn't parse: %s", exc)
+
+    logger.info("NCAAB schedule %s: %d game(s).", date_str, len(games))
     return games
 
 
@@ -53,11 +60,18 @@ def _parse_event(event, date_str):
     if not home or not away:
         return None
 
+    home_name = (home.get("team", {}).get("displayName")
+                 or home.get("team", {}).get("shortDisplayName") or "")
+    away_name = (away.get("team", {}).get("displayName")
+                 or away.get("team", {}).get("shortDisplayName") or "")
+    if not home_name or not away_name:
+        return None
+
     return Game(
         game_id=f"ncaab-{event['id']}",
         date=date_str,
-        home_team=normalize_college_team(home.get("team", {}).get("displayName", "")),
-        away_team=normalize_college_team(away.get("team", {}).get("displayName", "")),
+        home_team=normalize_college_team(home_name),
+        away_team=normalize_college_team(away_name),
         game_time_utc=event.get("date"),
         sport="NCAAB",
     )
