@@ -4,29 +4,36 @@ engine/td_props.py
 Anytime-touchdown-scorer props for NFL, the football counterpart to
 engine/hr_props.py.
 
+PRESEASON GATE (Aug 27, 2026): TD props are now SKIPPED for preseason games.
+Two independent reasons, both decisive:
+  1. FanDuel doesn't post anytime-TD markets in preseason at all, so every
+     pick came out priced "odds n/a" -- unbettable by definition.
+  2. Even if a book did post them, the model would be wrong. lambda is built
+     from season TD/game, but preseason starters play a series or two and
+     backups take the goal-line work, so a star's season rate has almost no
+     bearing on who actually scores. Ranking on it is false confidence.
+Games carry is_preseason (set by the schedule provider from ESPN's
+seasontype=1); anything flagged preseason is filtered out here.
+
 WHY POISSON INSTEAD OF A POINTS PILE: scoring a TD is a rare count event, the
 same shape as hitting a home run, so the honest model is
     P(at least one TD) = 1 - exp(-lambda)
 where lambda is the player's expected TDs in THIS game. That gives real
 probabilities we can compare against a sportsbook price -- an elite back at
 lambda 0.8 comes out ~55%, a rotational WR at 0.15 comes out ~14%, which is
-what those props actually pay. Building a 0-100 points pile first and
-back-fitting a probability (the early HR approach) produced numbers that
-looked precise but meant nothing.
+what those props actually pay.
 
 lambda is built from three real inputs:
   1. BASELINE  -- the player's season TD/game (data/nfl_players.get_td_profile;
-     falls back to last completed season in preseason/Week 1).
+     falls back to last completed season early in the year).
   2. GAME ENVIRONMENT -- the player's team IMPLIED TOTAL, derived from the
-     market's game total and spread. This is the single most useful public
-     signal for TD props: a team projected for 28 points scores far more TDs
-     than one projected for 16, and the market tells us that for free.
+     market's game total and spread. A team projected for 28 points scores far
+     more TDs than one projected for 16, and the market tells us that for free.
   3. ROLE -- goal-line backs and target-hog receivers convert opportunity into
-     TDs at different rates, so volume (carries/targets) nudges lambda.
+     TDs at different rates, so volume nudges lambda.
 
-The 0-100 score shown in the report is derived FROM the probability (not the
-other way round), purely so the board can be ranked and tiered consistently
-with the HR board.
+The 0-100 score is derived FROM the probability (not the reverse), purely so
+the board ranks and tiers consistently with the HR board.
 """
 
 import logging
@@ -38,7 +45,6 @@ import config
 
 logger = logging.getLogger("td_props")
 
-# Tunables (config can override any of these without touching this file).
 MAX_PER_DAY = getattr(config, "TD_PROP_MAX_PER_DAY", 3)
 STRONG_SCORE = getattr(config, "TD_PROP_STRONG_SCORE", 70)
 MIN_EV_EDGE = getattr(config, "TD_MIN_EV_EDGE", 0.05)
@@ -66,8 +72,7 @@ def implied_team_totals(odds):
     """(home_total, away_total) from the market's total + spread, or (None, None).
 
     home_spread is negative when home is favored, so the favorite's implied
-    total is total/2 + abs(spread)/2. This is standard, and it is what lets a
-    TD prop know it's in a 49-point shootout vs a 37-point slog."""
+    total is total/2 + abs(spread)/2."""
     total = getattr(odds, "total", None)
     home_spread = getattr(odds, "home_spread", None)
     if total is None:
@@ -103,7 +108,6 @@ def _lambda_for(profile, position, team_implied_total):
 
     lam = base
 
-    # Volume nudge: real opportunity, not just past finishes.
     touches = profile.get("touches") or 0
     per_game_touches = (touches / games) if games else 0
     if position in ("RB", "FB"):
@@ -123,7 +127,6 @@ def _lambda_for(profile, position, team_implied_total):
             lam *= 0.85
             reasoning.append(f"[Low targets -15%] Only {per_game_targets:.1f} targets/gm.")
 
-    # Game environment: the market's own read on how many points this team scores.
     if team_implied_total:
         factor = team_implied_total / LEAGUE_AVG_TEAM_TOTAL
         factor = max(0.70, min(1.35, factor))
@@ -151,14 +154,20 @@ def evaluate_td_candidates(games, rosters_by_team, td_profiles, odds_by_game):
     """rosters_by_team: {team_abbr: [{player_id, name, position}]}
     td_profiles:      {player_id: profile dict from data/nfl_players}
     odds_by_game:     {game_id: MoneylineOdds}
-    Returns the full scored pool, sorted strongest first."""
+    Returns the full scored pool, sorted strongest first. Preseason games are
+    excluded entirely (see the module docstring)."""
     pool = []
     considered = 0
     skipped_no_profile = 0
+    preseason_skipped = 0
 
     for game in games:
         if game.sport != "NFL":
             continue
+        if getattr(game, "is_preseason", False):
+            preseason_skipped += 1
+            continue
+
         odds = odds_by_game.get(game.game_id)
         home_total, away_total = implied_team_totals(odds) if odds else (None, None)
 
@@ -196,6 +205,10 @@ def evaluate_td_candidates(games, rosters_by_team, td_profiles, odds_by_game):
                     "reasoning": reasoning,
                 })
 
+    if preseason_skipped:
+        logger.info("TD-DIAG: skipped %d PRESEASON game(s) -- FanDuel doesn't post anytime-TD "
+                    "markets in preseason, and season TD rates don't predict who scores when "
+                    "starters play two series.", preseason_skipped)
     pool.sort(key=lambda c: c["score"], reverse=True)
     logger.info("TD-DIAG: %d players considered, %d had no TD profile, %d scored into the pool.",
                 considered, skipped_no_profile, len(pool))
