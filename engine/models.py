@@ -28,6 +28,11 @@ class Game:
     pitchers_confirmed: bool = False
     game_number: int = 1
     doubleheader: bool = False
+    # True when ESPN reports this game under seasontype=1 (preseason/exhibition).
+    # Set by the schedule provider. engine/td_props.py uses it to SKIP TD props
+    # entirely: FanDuel posts no anytime-TD market in preseason, and season TD
+    # rates can't predict who scores when starters play two series.
+    is_preseason: bool = False
 
     def dh_label(self):
         return f" (Gm {self.game_number})" if self.doubleheader else ""
@@ -135,17 +140,10 @@ class DailyReport:
     results_recap: dict = field(default_factory=dict)
     history: list = field(default_factory=list)
     daily_parlay: dict = field(default_factory=dict)
-    # Per-sport best parlays: {sport: parlay_dict}. Each sport's own ticket.
     sport_parlays: dict = field(default_factory=dict)
-    # The single cross-sport TOP PARLAY -- best legs from any mix of sports.
     top_parlay: dict = field(default_factory=dict)
-    # The 2 safest ML picks combining to ~2x ("Double Your Money").
     double_parlay: dict = field(default_factory=dict)
-    # Sports that had at least one game today (drives which sections render).
     active_sports: list = field(default_factory=list)
-    # Plain-English notes of any pre-lock pick changes made earlier today.
     pick_changes: list = field(default_factory=list)
-    # NFL anytime-touchdown-scorer props (engine/td_props.py).
     td_props: List[dict] = field(default_factory=list)
-    # Over/Under game-total picks (engine/totals.py). NCAAF by default.
     totals: List[dict] = field(default_factory=list)
