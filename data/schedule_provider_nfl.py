@@ -3,23 +3,24 @@ data/schedule_provider_nfl.py
 ==============================
 Today's NFL schedule, via the shared multi-host ESPN fetcher.
 
-WHY THIS CHANGED (Aug 27, 2026): this provider was still hitting ONE ESPN host
-directly with plain requests. GitHub Actions' datacenter IPs get blocked on
-that host, so on the runner it returned nothing and the code fell through to
-The Odds API -- and with the odds quota exhausted there was no schedule at
-all, so NFL games silently vanished from the report even on a 4-game night.
+TWO THINGS THIS FILE OWNS:
 
-data/espn_fetch.fetch_scoreboard_events tries three independent ESPN hosts
-(site.api, site.web.api, and the CDN core endpoint) and returns the first that
-answers, so a block on one can't hide the slate. It costs zero Odds API
-credits, which also keeps schedules working when the quota is gone.
+1. RESILIENT FETCH. This used to hit ONE ESPN host with plain requests.
+   GitHub Actions' datacenter IPs get blocked there, so on the runner it
+   returned nothing and fell through to The Odds API -- and with the odds
+   quota exhausted there was no schedule at all, so NFL silently vanished from
+   the report even on a 4-game night. data/espn_fetch tries three independent
+   ESPN hosts and costs zero Odds API credits.
 
-It also sweeps season types: NFL PRESEASON lives under seasontype=1 while the
-regular season is 2 and playoffs are 3. Querying only the default missed
-preseason games entirely.
+2. PRESEASON DETECTION. Each game is tagged is_preseason from ESPN's
+   seasontype (1 = preseason). engine/td_props.py uses that flag to skip TD
+   props for those games: FanDuel posts no anytime-TD market in preseason, and
+   season TD rates can't predict who scores when starters play two series.
+   Moneyline still runs normally on preseason games -- only player props are
+   suppressed.
 
-Off-season this returns [] (no games), so NFL stays dormant on the report with
-no code change needed when the season opens.
+ESPN reports seasontype in two places depending on host/shape, so both are
+checked: the event's own `season.type`, and the query we asked for.
 """
 
 import logging
@@ -31,6 +32,7 @@ from data.espn_fetch import fetch_scoreboard_events
 logger = logging.getLogger(__name__)
 
 LEAGUE_PATH = "football/nfl"
+PRESEASON_TYPE = 1
 
 
 def get_todays_nfl_games(date_str):
@@ -53,8 +55,28 @@ def get_todays_nfl_games(date_str):
         except Exception as exc:
             logger.warning("Skipping one NFL game we couldn't parse: %s", exc)
 
-    logger.info("NFL schedule %s: %d game(s).", date_str, len(games))
+    pre = sum(1 for g in games if g.is_preseason)
+    logger.info("NFL schedule %s: %d game(s)%s.", date_str, len(games),
+                f" ({pre} preseason -- TD props suppressed for those)" if pre else "")
     return games
+
+
+def _is_preseason(event):
+    season = event.get("season") or {}
+    try:
+        if int(season.get("type")) == PRESEASON_TYPE:
+            return True
+    except (TypeError, ValueError):
+        pass
+    # Some host shapes put it on the competition instead.
+    for comp in event.get("competitions", []):
+        cs = (comp.get("season") or {})
+        try:
+            if int(cs.get("type")) == PRESEASON_TYPE:
+                return True
+        except (TypeError, ValueError):
+            continue
+    return False
 
 
 def _parse_event(event, date_str):
@@ -81,4 +103,5 @@ def _parse_event(event, date_str):
         away_team=normalize_nfl_team(away_name),
         game_time_utc=event.get("date"),
         sport="NFL",
+        is_preseason=_is_preseason(event),
     )
