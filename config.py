@@ -41,31 +41,23 @@ HR_ODDS_ENABLED = True
 ODDS_API_HR_MARKET = "batter_home_runs"
 
 # ---------------------------------------------------------------------------
-# API CREDIT CONTROL  (Aug 23, 2026)
+# API CREDIT CONTROL
 # ---------------------------------------------------------------------------
-# The Odds API quota was exhausted mid-month, which took WNBA/NFL off the
-# report entirely -- with no credits their schedules returned nothing, so
-# there were no games and therefore no tabs. Two causes, both fixed:
-#   1. Every run queried all 7 sports, including leagues out of season in
-#      August that can only ever return nothing. in_season() gates them.
-#   2. Every manual re-run re-billed the full slate. Odds are now cached for
-#      ODDS_CACHE_MINUTES, so re-runs cost ZERO credits.
 SPORT_SEASON_WINDOWS = {
     "MLB":   ((2, 15), (11, 15)),
     "WNBA":  ((4, 25), (10, 25)),
-    "NFL":   ((7, 20), (2, 20)),    # wraps the new year
-    "NCAAF": ((7, 25), (1, 25)),    # wraps
-    "NCAAB": ((10, 25), (4, 15)),   # wraps
-    "NHL":   ((9, 10), (6, 30)),    # wraps
-    "NBA":   ((9, 25), (6, 30)),    # wraps
+    "NFL":   ((7, 20), (2, 20)),
+    "NCAAF": ((7, 25), (1, 25)),
+    "NCAAB": ((10, 25), (4, 15)),
+    "NHL":   ((9, 10), (6, 30)),
+    "NBA":   ((9, 25), (6, 30)),
 }
 
-ODDS_CACHE_MINUTES = int(os.getenv("ODDS_CACHE_MINUTES", "45"))
+ODDS_CACHE_MINUTES = int(os.getenv("ODDS_CACHE_MINUTES", "240"))
+ODDS_CREDIT_RESERVE = int(os.getenv("ODDS_CREDIT_RESERVE", "250"))
 
 
 def in_season(sport, on_date=None):
-    """True if `sport` can plausibly have games on this date. Unknown sports
-    return True (never silently hide a league we forgot to map)."""
     window = SPORT_SEASON_WINDOWS.get(sport)
     if not window:
         return True
@@ -108,6 +100,23 @@ TARGET_EDGE_MIN = 0.045
 TARGET_EDGE_MAX = 0.05
 
 # ---------------------------------------------------------------------------
+# MONEYLINE PRICE POLICY  (from the Aug 29 grade of 215 graded picks)
+# ---------------------------------------------------------------------------
+# Actual results, flat 1 unit:
+#     big dogs (+150 or longer)  28-30   +44.0u   ROI +75.8%
+#     favorites (-200..-1)       64-38    +7.0u   ROI  +6.8%
+#     heavy favs (-200 or worse) 21-6     +0.1u   ROI  +0.4%
+#     small dogs (+1..+149)      12-16    -2.2u   ROI  -7.8%
+# Heavy favorites win 78% of the time and return essentially NOTHING -- laying
+# -235 to make 100 is break-even at best, and every slot spent there is a slot
+# not spent on the one bucket that actually prints. Small dogs lose outright.
+# So: refuse heavy chalk entirely, and require a bigger modelled edge on small
+# dogs before they're allowed on the board.
+ML_MAX_FAVORITE_PRICE = -200      # refuse anything at -200 or worse
+ML_SMALL_DOG_MIN_EDGE = 0.045     # +1..+149 must clear a higher bar
+ML_BIG_DOG_MIN_ODDS = 150         # the proven bucket
+
+# ---------------------------------------------------------------------------
 # Sports covered
 # ---------------------------------------------------------------------------
 ENABLED_SPORTS = ["MLB", "WNBA", "NFL", "NCAAF", "NCAAB", "NHL", "NBA"]
@@ -128,8 +137,27 @@ FADE_MIN_EDGE = 0.05
 FADE_MAX_PER_DAY = 5
 
 # ---------------------------------------------------------------------------
-# HR Prop workflow
+# HR Prop workflow  (recalibrated Aug 29, 2026 against 131 graded picks)
 # ---------------------------------------------------------------------------
+# THE GRADE: 11-120 overall = 8.4% hit rate. On the 40 picks that had a real
+# recorded price: -18.4 units, ROI -46%. Average price +348 needs ~22% to
+# break even, so this was never close.
+#
+# What the ledger actually showed, by price:
+#     under +300     1-11    8.3%   ROI -75.7%
+#     +300 to +399   3-12   20.0%   ROI -10.3%   <- the only survivable band
+#     +400 and up    1-12    7.7%   ROI -59.6%
+#
+# And 91 of 131 picks had NO price recorded at all -- literally unbettable,
+# yet they consumed board slots every day.
+#
+# THREE CHANGES, all directly from that data:
+#  1. A REAL PRICE IS MANDATORY. No price, no pick.
+#  2. TARGET THE PROVEN BAND. Prices are strongly preferred inside
+#     +300..+399; outside it a pick must be exceptional to appear.
+#  3. HONEST PROBABILITIES. The old curve implied 16-35% for a good score
+#     while reality delivered 8.4%. Calibrated to what actually happens, so
+#     the +EV tag stops lying about value that isn't there.
 HR_PROPS_ENABLED = True
 HR_PROP_MIN_SCORE = 0
 HR_PROP_MAX_PER_DAY = 3
@@ -141,11 +169,22 @@ HR_PROP_TOP_N_POOL = 200
 HR_VALUE_LONGSHOT_SLOTS = 0
 HR_LONGSHOT_MIN_ODDS = 450
 
+# Price policy
+HR_REQUIRE_REAL_ODDS = True
+HR_TARGET_ODDS_MIN = 300
+HR_TARGET_ODDS_MAX = 420
+HR_HARD_ODDS_MIN = 200        # never take shorter than this
+HR_HARD_ODDS_MAX = 650        # never take longer than this
+HR_OFF_BAND_MIN_SCORE = 72    # outside the target band, must be this strong
+
 HR_EV_FILTER_ENABLED = True
 HR_MIN_EV_EDGE = 0.05
+# Calibrated curve: score 50 -> ~6%, 70 -> ~11%, 90 -> ~16%, ceiling 20%.
+# The old settings claimed up to 35%, which is roughly four times the rate
+# these picks have ever actually hit.
 HR_PROB_BASE = 0.06
-HR_PROB_PER_POINT = 0.005
-HR_PROB_MAX = 0.35
+HR_PROB_PER_POINT = 0.0025
+HR_PROB_MAX = 0.20
 HR_PROB_MIN = 0.02
 
 HR_CATEGORY_POINTS = {
@@ -158,6 +197,22 @@ HR_PROP_MIN_CLUSTERS = 3
 HR_WEATHER_ENABLED = True
 
 # ---------------------------------------------------------------------------
+# NFL TD props
+# ---------------------------------------------------------------------------
+TD_PROP_MAX_PER_DAY = 3
+TD_PROP_STRONG_SCORE = 70
+TD_MIN_EV_EDGE = 0.05
+TD_MIN_LAMBDA = 0.06
+
+# ---------------------------------------------------------------------------
+# Totals (NCAAF)
+# ---------------------------------------------------------------------------
+TOTALS_MIN_GAMES = 3
+TOTALS_MIN_EDGE = 0.03
+TOTALS_MAX_PER_DAY = 3
+TOTALS_SPORTS = ["NCAAF"]
+
+# ---------------------------------------------------------------------------
 # Optional parlay
 # ---------------------------------------------------------------------------
 PARLAY_ENABLED = True
@@ -167,10 +222,6 @@ PARLAY_MIN_LEGS = 2
 # ---------------------------------------------------------------------------
 # Grading factor weights (model nudges the market, not replaces it)
 # ---------------------------------------------------------------------------
-# EVERY key here must exist for the scorer that reads it -- engine/
-# grading_factors.py looks them up directly, so a missing key is a hard
-# KeyError that kills the whole run (that is exactly what dropping
-# "football_context" did).
 FACTOR_WEIGHTS = {
     "matchup_pitching": 0.065,
     "public_sharp_split": 0.06,
