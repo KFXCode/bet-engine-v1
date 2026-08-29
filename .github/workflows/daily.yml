@@ -2,13 +2,19 @@ name: Daily MLB Report
 
 on:
   schedule:
-    # TWO runs a day, which is all the system needs:
-    #  1) 09:00 ET pre-game  -- builds and publishes the day's picks.
-    #  2) 02:00 ET overnight -- grades every game that finished, so records
-    #     and history are correct before you wake up.
-    # It used to run every 30 minutes, which is what drained the odds credits.
-    - cron: "0 13 * * *"   # 09:00 ET  (pre-game publish)
-    - cron: "0 6 * * *"    # 02:00 ET  (overnight grading)
+    # HOURLY CHECK, ONE PUBLISH. auto_gate.py finds the earliest game across
+    # EVERY sport today and publishes exactly once, AUTO_RUN_LEAD_MINUTES
+    # before it -- so a noon college football kickoff triggers an 11:00 AM
+    # publish, and an evening-only slate waits until evening. A single 9 AM
+    # cron couldn't do that: on a 1 PM first game the gate correctly said
+    # "not yet" and then nothing checked again all day, so the report never
+    # auto-published and had to be run by hand.
+    #
+    # Skipped checks are effectively free: the gate fetches only the (free)
+    # ESPN/schedule data and exits before any paid Odds API call, and
+    # last_published.txt guarantees at most one publish per day.
+    - cron: "0 11-23,0-3 * * *"   # hourly, 07:00-22:00 ET
+    - cron: "0 6 * * *"           # 02:00 ET overnight grading
   workflow_dispatch: {}
 
 permissions:
@@ -29,7 +35,7 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run pipeline (pre-game publish, overnight grading, or forced manual run)
+      - name: Run pipeline (gated publish, overnight grading, or forced manual run)
         env:
           STATS_MODE: api
           ODDS_MODE: api
@@ -39,17 +45,18 @@ jobs:
           TIMEZONE: America/New_York
           DAILY_RUN_HOUR: "10"
           DAILY_RUN_MINUTE: "0"
+          # Publish this many minutes before the FIRST game of the day,
+          # whichever sport that happens to be.
           AUTO_RUN_LEAD_MINUTES: "60"
         run: |
-          # The 06:00 UTC (02:00 ET) slot is the grading pass: yesterday's
-          # games are final, so grade them for YESTERDAY's date. It does not
-          # try to publish a new slate -- picks are published by the morning
-          # run only, so an overnight run can never overwrite a locked board.
+          # 06:00 UTC (02:00 ET) is the grading pass: yesterday's games are
+          # final, so grade them under YESTERDAY's date. It never publishes a
+          # new slate, so it cannot overwrite a locked board.
           if [ "${{ github.event.schedule }}" = "0 6 * * *" ]; then
             echo "Overnight grading pass -- settling yesterday's finished games."
             python run_daily.py --date "$(TZ=America/New_York date -d 'yesterday' +%F)"
           elif [ "${{ github.event_name }}" = "schedule" ]; then
-            echo "Pre-game scheduled run -- auto-gated publish."
+            echo "Hourly gate check -- publishes only if within the lead window and not already published today."
             python run_daily.py --auto
           else
             echo "Manually triggered -- forcing a fresh run + publish regardless of timing/once-a-day gate."
