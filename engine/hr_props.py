@@ -1,30 +1,34 @@
 """
 engine/hr_props.py
 ===================
-HR Prop Workflow -- runs daily alongside moneyline.
+HR Prop Workflow (runs automatically every day alongside moneyline).
 
-ONE ranked board of 3 picks (locked per day in run_daily). Scoring is
-SPOT-driven, and the biggest single input is RECENT FORM pulled from the MLB
-Stats API game logs (data/recent_form.py) -- the source that loads reliably
-from GitHub Actions, unlike the Baseball Savant barrel scrape.
+ONE ranked board: a single list ranked by SCORE -- the model's read of who is
+most likely to homer today. Plus-money bats compete in the same list; there is
+no separate "longshot" tier. Scoring is spot-driven (recent barrel form,
+opposing pitcher HR/9 and barrels allowed, park) with season HR total as a
+supporting factor, so a hot mid-power bat at +500 in a great matchup can rank
+above a cold chalk slugger.
 
-SCORE RECALIBRATION (Aug 21, 2026): when recent form was added, the component
-bonuses summed to ~134, so every decent bat clipped to 100.0 and the score
-stopped separating anything -- rank #1 and rank #3 both read "100.0 STRONG".
-The scale is now built so the maximum realistic total lands at 100 and only a
-bat that is elite in EVERY layer approaches it:
+PERFORMANCE BENCH (Aug 29, 2026): the board now consults
+data/prop_performance.get_chronic_missers() and drops bats the results have
+already disproven. The short rotation fade wasn't enough -- it only looked
+back 3-7 days, so the same names cycled back in forever. The ledger showed
+Ben Rice 14 picks / 1 hit, Kazuma Okamoto 13 / 0 and Pete Alonso 12 / 0,
+together 29% of every HR pick ever made and a combined 1-for-39 across 47
+different players used. That is a model failure, not variance, and it needs
+long memory to fix: chronic missers are benched for weeks, not days.
 
-    base 35
-    + recent form   up to +22   (the heaviest input)
-    + season power  up to +8
-    + barrel bonus  up to +10   (when Savant loads)
-    + pitcher vuln  up to +10
-    + HR/9 allowed  up to +8
-    + park          up to +7
-    = 100 absolute ceiling
+  1. Barrel Signal (BONUS)     -- batter's barrel%/recent trend WHEN AVAILABLE
+  2. Pitcher Vulnerability     -- opposing SP's barrel%/hard-hit%/HR-9 allowed
+  3. Park + Motivation Overlay -- HR park factor + motivation context
+  4. Public Lean Filter        -- fade extremely public props unless elite
+  5. +EV Edge tag              -- our probability vs the book's implied (a TAG)
+  6. Rotation + Performance    -- fade recent repeats AND chronic missers
 
-A typical decent spot now lands in the 55-70s, a genuinely strong one in the
-75-90s, so the board actually ranks.
+Missing Statcast barrel data no longer drops a bat (barrel is a bonus layer).
+
+DIAGNOSTICS: every batter considered is logged (GitHub Actions log, "HR-DIAG").
 """
 
 import logging
@@ -152,11 +156,26 @@ def _safe_recent_form(batter_profile):
         return None
 
 
+def _chronic_missers():
+    """Long-memory bench list. Empty set on any failure -- never blocks a board."""
+    try:
+        from data.prop_performance import get_chronic_missers
+        return get_chronic_missers("hr_prop")
+    except Exception as exc:
+        logger.warning("Performance bench unavailable (%s) -- rotation fade only.", exc)
+        return set()
+
+
 def finalize_hr_props(pool, max_per_day=None, recent_miss_players=None):
-    """ONE board ranked by SCORE, faded for chronic recent misses, one pick per
-    game, capped at max_per_day. +EV shown as a TAG only. Never empty."""
+    """ONE board ranked by SCORE, with two independent fades:
+       - ROTATION  : picked in the last few days (short memory, passed in)
+       - PERFORMANCE: chronic missers over weeks (long memory, from results)
+    Then one pick per game, capped at max_per_day. +EV is a TAG only.
+    The slate is never empty -- if every bat is faded we still fill it, but
+    the reasoning says exactly why each was flagged."""
     max_per_day = max_per_day or config.HR_PROP_MAX_PER_DAY
-    cold = recent_miss_players or set()
+    rotation_cold = set(recent_miss_players or set())
+    perf_cold = _chronic_missers()
 
     for c in pool:
         odds = c.get("odds_american")
@@ -177,11 +196,23 @@ def finalize_hr_props(pool, max_per_day=None, recent_miss_players=None):
                 f"[Fair price {edge*100:+.1f}%] Model {c['model_prob']*100:.1f}% vs implied {implied*100:.1f}% at {odds:+d} -- a SPOT play.")
 
     ordered = sorted(pool, key=lambda c: c["score"], reverse=True)
-    fresh = [c for c in ordered if _norm_hr(c["player_name"]) not in cold]
-    cold_list = [c for c in ordered if _norm_hr(c["player_name"]) in cold]
-    for c in cold_list:
-        c["reasoning"].append(
-            "[Cooldown] Faded -- picked recently without homering. Only shown if the fresh board can't fill the slate.")
+
+    fresh, benched, recent = [], [], []
+    for c in ordered:
+        key = _norm_hr(c["player_name"])
+        if key in perf_cold:
+            c["reasoning"].append(
+                "[Performance bench] This system has picked him repeatedly and he has not "
+                "delivered -- benched for weeks so the board stops recycling names the "
+                "results have already disproven.")
+            benched.append(c)
+        elif key in rotation_cold:
+            c["reasoning"].append(
+                "[Cooldown] Picked in the last few days without homering -- rotated out to "
+                "keep the board fresh.")
+            recent.append(c)
+        else:
+            fresh.append(c)
 
     final, used_games, deferred = [], set(), []
     for c in fresh:
@@ -193,8 +224,11 @@ def finalize_hr_props(pool, max_per_day=None, recent_miss_players=None):
         used_games.add(c["game_id"])
         if len(final) >= max_per_day:
             break
+
+    # Backfill order: another bat from a used game, then short-cooldown names,
+    # and only as a last resort a chronic misser.
     if len(final) < max_per_day:
-        for c in deferred + cold_list:
+        for c in deferred + recent + benched:
             if c in final:
                 continue
             c["pick_type"] = "core"
@@ -202,8 +236,8 @@ def finalize_hr_props(pool, max_per_day=None, recent_miss_players=None):
             if len(final) >= max_per_day:
                 break
 
-    logger.info("HR-DIAG: one board | cold-faded %d | final %d (cap %d).",
-                len(cold_list), len(final), max_per_day)
+    logger.info("HR-DIAG: pool %d | rotation-faded %d | performance-benched %d | final %d (cap %d).",
+                len(pool), len(recent), len(benched), len(final), max_per_day)
     logger.info("HR-DIAG: FINAL: %s",
                 ", ".join(f"{c['player_name']}({c['team']}) sc{c['score']:.0f}"
                           + (f" EV{c['ev_edge']*100:+.1f}%" if c.get('ev_edge') is not None else " noodds")
