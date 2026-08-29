@@ -2,60 +2,59 @@
 data/prop_performance.py
 =========================
 Long-memory bench list for prop picks: players this system has repeatedly
-picked and who have repeatedly FAILED to deliver.
+picked who have repeatedly FAILED to deliver.
 
-WHY THIS EXISTS (Aug 29, 2026): the rotation fade only looked back 3-7 days,
-so a name could always cycle back in once its cooldown expired -- forever.
-The ledger showed exactly that: Ben Rice 14 picks / 1 hit, Kazuma Okamoto
-13 / 0, Pete Alonso 12 / 0. Those three alone were 29% of every HR pick ever
-made and went a combined 1-for-39, while 47 different players had been picked
-in total. Short-term rotation cannot fix that, because the problem isn't
-"picked too recently" -- it's "the model keeps liking a bat the results have
-already disproven."
+WHY (Aug 29, 2026): short rotation only looked back 3-7 days, so a name could
+always cycle back once its cooldown expired -- forever. The ledger showed
+Ben Rice 14 picks / 1 hit, Kazuma Okamoto 13 / 0, Pete Alonso 12 / 0. Those
+three were 29% of every HR pick ever made and went a combined 1-for-39, out of
+47 different players used. That is a model failure, not variance.
 
-THE RULE: once a player has enough graded picks to judge (MIN_SAMPLE), if his
-hit rate is far below what a HR prop should return, he is benched for a long
-stretch (BENCH_DAYS) instead of a few days. A hard zero-for-N rule catches the
-Okamoto/Alonso case immediately.
+TIGHTENED: the first version needed 4 graded picks and forgot anything older
+than 45 days, which let a chronic misser quietly reset and return. Now:
+  - 0-for-3 is enough to bench (ZERO_FOR_N = 3).
+  - Memory runs SEASON-LONG, so a bad history doesn't age out mid-season.
+  - Whether a price was ever recorded is irrelevant -- a loss is a loss. The
+    result is the only thing that counts here.
 
-This is deliberately CONSERVATIVE about small samples -- going 0-for-2 is
-normal variance for a home run bet and is NOT evidence of anything. It only
-acts once the sample is big enough that continuing to pick the player is a
-model failure rather than bad luck.
+Still conservative where it should be: 0-for-2 is ordinary variance on a home
+run bet and is NOT evidence. The bench only fires once continuing to pick
+someone is a model failure rather than bad luck.
 
-Reads the DB directly (like data/recent_form.py) so callers don't have to
-thread a connection through. Never raises -- returns an empty set on any
-problem, so a bad read can't stop the daily board from being built.
+Reads the DB directly (like data/recent_form.py) so callers don't thread a
+connection through. Never raises -- returns an empty set on any problem, so a
+bad read can't stop the daily board being built.
 """
 
 import logging
 import re
 import sqlite3
 import unicodedata
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import config
 
 logger = logging.getLogger("prop_performance")
 
-# Minimum graded picks before results mean anything at all.
-MIN_SAMPLE = 4
+# Graded picks needed before results mean anything.
+MIN_SAMPLE = 3
 
-# Bench a player whose hit rate is below this once MIN_SAMPLE is reached.
-# A decent anytime-HR bet should cash roughly 12-20% of the time; 10% is the
-# floor where continuing to pick someone is indefensible.
+# Bench anyone below this hit rate once MIN_SAMPLE is reached. A decent
+# anytime-HR bet should cash 12-20%; below 10% is indefensible to keep taking.
 MIN_HIT_RATE = 0.10
 
-# Hard rule: this many graded picks with ZERO hits benches you regardless of
-# rate math. Catches the 13-for-0 and 12-for-0 cases on the spot.
-ZERO_FOR_N = 4
+# Hard rule: this many graded picks with ZERO hits benches you outright.
+ZERO_FOR_N = 3
 
-# How long a chronic misser stays benched. Long enough to actually clear the
-# board, not the 3-7 days that let them cycle straight back in.
-BENCH_DAYS = 45
+# Season-long memory. The old 45-day window let chronic missers reset and
+# come straight back, which is exactly the behaviour being fixed.
+SEASON_START_MONTH_DAY = (3, 1)
 
-# Once benched, they can return after BENCH_DAYS -- but only if the model
-# rates them highly again, and the counter starts over from their next pick.
+
+def _season_start(as_of):
+    m, d = SEASON_START_MONTH_DAY
+    year = as_of.year if (as_of.month, as_of.day) >= (m, d) else as_of.year - 1
+    return f"{year:04d}-{m:02d}-{d:02d}"
 
 
 def _norm(name):
@@ -68,13 +67,9 @@ def _norm(name):
 
 
 def get_chronic_missers(kind="hr_prop", as_of=None):
-    """Normalized names to bench for chronic failure.
-
-    Looks only at picks graded within the BENCH_DAYS window, so the bench
-    expires on its own and a player who genuinely turns a corner can come
-    back rather than being blacklisted for the season."""
+    """Normalized names to bench for chronic failure, season to date."""
     as_of = as_of or datetime.now().date()
-    cutoff = (as_of - timedelta(days=BENCH_DAYS)).strftime("%Y-%m-%d")
+    cutoff = _season_start(as_of)
 
     try:
         conn = sqlite3.connect(str(config.DB_PATH))
@@ -107,8 +102,7 @@ def get_chronic_missers(kind="hr_prop", as_of=None):
             continue
         if w == 0 and n >= ZERO_FOR_N:
             benched.add(key)
-            logger.info("PERF-BENCH: %s is %d-for-%d over the last %d days -- benched.",
-                        display[key], w, n, BENCH_DAYS)
+            logger.info("PERF-BENCH: %s is 0-for-%d this season -- benched.", display[key], n)
             continue
         if (w / n) < MIN_HIT_RATE:
             benched.add(key)
@@ -116,6 +110,6 @@ def get_chronic_missers(kind="hr_prop", as_of=None):
                         display[key], w, n, 100 * w / n, 100 * MIN_HIT_RATE)
 
     if benched:
-        logger.info("PERF-BENCH: %d player(s) benched for chronic misses: %s",
+        logger.info("PERF-BENCH: %d player(s) benched season-to-date: %s",
                     len(benched), ", ".join(sorted(display[k] for k in benched)))
     return benched
