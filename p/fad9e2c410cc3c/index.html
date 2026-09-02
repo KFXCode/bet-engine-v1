@@ -1,0 +1,4507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#14171c">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Cover1 Picks">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<title>Daily Betting Report — 2026-09-02</title>
+<style>
+  :root {
+    --bg: oklch(0.16 0.012 250);
+    --card: oklch(0.21 0.014 250);
+    --card-border: oklch(0.30 0.016 250);
+    --fg: oklch(0.94 0.006 250);
+    --muted: oklch(0.68 0.012 250);
+    --accent: oklch(0.75 0.19 155);
+    --accent-dim: oklch(0.32 0.06 155);
+    --warn: oklch(0.78 0.15 80);
+    --warn-dim: oklch(0.32 0.06 80);
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    padding: max(32px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(60px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+    background: var(--bg); color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .wrap { max-width: 780px; margin: 0 auto; }
+  .header { text-align: center; margin-bottom: 24px; }
+  .header h1 { font-size: 22px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin: 0 0 6px; font-weight: 600; }
+  .header .date { font-size: 34px; font-weight: 700; margin: 0; }
+  .header .updated { font-size: 12px; color: var(--muted); margin: 10px 0 0; display: inline-flex; align-items: center; gap: 6px; }
+  .header .updated .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); display: inline-block; flex-shrink: 0; }
+  .strip { display: flex; justify-content: center; gap: 24px; margin-top: 16px; flex-wrap: wrap; }
+  .strip .item { font-size: 13px; color: var(--muted); }
+  .strip .item b { color: var(--fg); }
+
+  .cosmic { max-width: 520px; margin: 14px auto 0; background: var(--card); border: 1px solid var(--card-border); border-radius: 12px; overflow: hidden; text-align: left; }
+  .cosmic > summary { list-style: none; cursor: pointer; padding: 12px 16px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent); }
+  .cosmic > summary::-webkit-details-marker { display: none; }
+  .cosmic .cx-chev { width: 14px; height: 14px; transition: transform 0.2s; }
+  .cosmic[open] .cx-chev { transform: rotate(180deg); }
+  .cosmic .cx-body { padding: 4px 18px 18px; }
+  .cosmic .cx-row { padding: 12px 0; border-top: 1px solid var(--card-border); }
+  .cosmic .cx-row:first-child { border-top: none; }
+  .cosmic .cx-h { font-size: 13px; font-weight: 700; color: var(--fg); margin-bottom: 3px; }
+  .cosmic .cx-t { font-size: 13px; color: var(--muted); line-height: 1.5; }
+  .cosmic .cx-lean { display: inline-block; margin-top: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 2px 8px; border-radius: 6px; }
+  .cosmic .lean-fav { color: var(--accent); background: var(--accent-dim); }
+  .cosmic .lean-dog { color: var(--warn); background: var(--warn-dim); }
+
+  .warnbox { background: var(--warn-dim); border: 1px solid var(--warn); color: var(--fg);
+             border-radius: 10px; padding: 14px 18px; margin-bottom: 24px; font-size: 14px; }
+  .warnbox ul { margin: 6px 0 0; padding-left: 18px; }
+
+  .changebox { background: var(--card); border: 1px solid var(--accent-dim); color: var(--fg);
+               border-radius: 10px; padding: 14px 18px; margin-bottom: 24px; font-size: 14px; }
+  .changebox .ch-title { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent); margin-bottom: 8px; }
+  .changebox .ch-row { display: flex; gap: 10px; padding: 5px 0; }
+  .changebox .ch-time { color: var(--muted); font-variant-numeric: tabular-nums; flex-shrink: 0; font-size: 12px; padding-top: 1px; }
+  .changebox .ch-text { color: var(--fg); }
+
+  .nobet { background: var(--card); border: 1px solid var(--card-border); border-radius: 16px;
+           padding: 40px; text-align: center; margin-bottom: 24px; }
+  .nobet .big { font-size: 26px; font-weight: 700; color: var(--muted); }
+  .nobet .sub { font-size: 14px; color: var(--muted); margin-top: 8px; }
+
+  .tabs { display: flex; gap: 8px; justify-content: flex-start; margin-bottom: 24px; flex-wrap: wrap; }
+  .tab-btn { cursor: pointer; font: inherit; font-weight: 700; font-size: 13px; padding: 8px 16px;
+             border-radius: 999px; border: 1px solid var(--card-border); background: transparent; color: var(--muted); }
+  .tab-btn.active { border-color: var(--accent); background: var(--accent); color: oklch(0.16 0.01 155); }
+
+  .pick { background: var(--card); border: 1px solid var(--accent-dim); border-radius: 16px;
+          margin-bottom: 14px; position: relative; overflow: hidden; }
+  .pick::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--accent); z-index: 1; }
+  .pick > summary { list-style: none; cursor: pointer; padding: 20px 24px; display: flex;
+                    align-items: center; justify-content: space-between; gap: 12px; }
+  .pick > summary::-webkit-details-marker { display: none; }
+  .pick .s-main { min-width: 0; }
+  .pick .s-team { font-size: 22px; font-weight: 800; line-height: 1.2; }
+  .pick .s-sub { font-size: 13px; color: var(--muted); margin-top: 3px; }
+  .pick .s-right { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
+  .pick .s-edge { text-align: right; }
+  .pick .s-edge .n { font-size: 20px; font-weight: 800; font-family: "SF Mono", "Roboto Mono", monospace; color: var(--accent); }
+  .pick .s-edge .l { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+  .pick .chev { width: 20px; height: 20px; flex-shrink: 0; transition: transform 0.2s; color: var(--muted); }
+  .pick[open] .chev { transform: rotate(180deg); }
+  .pick .body { padding: 0 24px 22px; }
+  .pick .odds { color: var(--muted); font-size: 15px; font-family: "SF Mono", "Roboto Mono", monospace; }
+
+  @keyframes topPulse {
+    0%, 100% { border-color: var(--accent); box-shadow: 0 0 0 0 rgba(50, 210, 122, 0.0); }
+    50% { border-color: oklch(0.82 0.20 150); box-shadow: 0 0 18px 2px rgba(50, 210, 122, 0.55); }
+  }
+  .pick.top-pick { border-width: 2px; animation: topPulse 1.6s ease-in-out infinite; }
+  .pick.top-pick::before { width: 6px; background: oklch(0.82 0.20 150); }
+  .top-badge { display: inline-block; background: var(--accent); color: oklch(0.16 0.01 155);
+               font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em;
+               padding: 3px 9px; border-radius: 999px; margin-bottom: 6px; }
+  .pick.top-prop { border-color: var(--accent); }
+  .pick.top-prop::before { background: oklch(0.82 0.20 150); }
+
+  .metrics { display: flex; gap: 28px; margin: 6px 0 14px; flex-wrap: wrap; }
+  .metric .num { font-size: 20px; font-weight: 700; font-family: "SF Mono", "Roboto Mono", monospace; }
+  .metric .lbl { font-size: 11px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.05em; }
+  .flags { margin-bottom: 10px; }
+  .flag { display: inline-block; background: var(--warn-dim); color: var(--warn); border-radius: 8px;
+          padding: 6px 10px; font-size: 12px; margin: 2px 6px 2px 0; }
+  .why { font-size: 14px; color: var(--muted); }
+  .why-title { color: var(--fg); font-weight: 600; font-size: 13px; margin-bottom: 6px; }
+  .why ul { margin: 0; padding-left: 18px; }
+  .why li { margin-bottom: 6px; }
+
+  .sport-tag { font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-dim);
+               padding: 2px 8px; border-radius: 6px; vertical-align: middle; margin-left: 4px; }
+
+  .section-title { font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted);
+                    font-weight: 700; margin: 32px 0 12px; display: flex; align-items: center; justify-content: space-between; }
+  .expand-all { font-size: 11px; color: var(--accent); cursor: pointer; text-transform: none; letter-spacing: 0; font-weight: 600; }
+
+  .parlay { background: var(--card); border: 1px dashed var(--accent); border-radius: 16px; padding: 22px; margin-bottom: 20px; }
+  .parlay .legs { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
+  .parlay .odds { font-family: "SF Mono", "Roboto Mono", monospace; color: var(--accent); }
+  .parlay .note { color: var(--muted); font-size: 13px; margin-top: 8px; }
+  .double { background: var(--card); border: 2px solid var(--accent); border-radius: 16px; padding: 22px; margin-bottom: 20px; }
+  .double .dh { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent); margin-bottom: 8px; }
+
+  .dropped { font-size: 13px; color: var(--muted); background: var(--card); border: 1px solid var(--card-border);
+             border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; }
+
+  .rec { background: var(--card); border: 1px solid var(--card-border); border-radius: 16px;
+         overflow: hidden; margin-top: 8px; margin-bottom: 24px; }
+  .rec > summary { list-style: none; cursor: pointer; padding: 18px 22px; display: flex;
+                   align-items: center; justify-content: space-between; gap: 12px; }
+  .rec > summary::-webkit-details-marker { display: none; }
+  .rec .r-title { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent); }
+  .rec .r-sum { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+  .rec .r-stat { text-align: right; }
+  .rec .r-stat .v { font-size: 17px; font-weight: 800; font-family: "SF Mono", "Roboto Mono", monospace; }
+  .rec .r-stat .k { font-size: 9px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-top: 1px; }
+  .rec .chev { width: 20px; height: 20px; flex-shrink: 0; transition: transform 0.2s; color: var(--muted); }
+  .rec[open] .chev { transform: rotate(180deg); }
+  .rec .r-body { padding: 0 22px 20px; }
+  .rec-day { border-top: 1px solid var(--card-border); padding: 14px 0 4px; }
+  .rec-day .d-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+  .rec-day .d-date { font-size: 13px; font-weight: 800; color: var(--fg); font-variant-numeric: tabular-nums; }
+  .rec-day .d-rec { font-size: 12px; color: var(--muted); }
+  .rec-day .d-rec b { color: var(--fg); font-family: "SF Mono", "Roboto Mono", monospace; }
+  .rec-row { display: flex; align-items: center; gap: 11px; padding: 4px 0; }
+  .rec-row .mk { font-size: 18px; line-height: 1; flex-shrink: 0; }
+  .rec-row .lb { font-size: 14px; font-weight: 600; color: var(--fg); }
+
+  .leg-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .leg-row .n { color: var(--accent); font-weight: 800; font-size: 13px; }
+  .leg-row .lbl { color: var(--fg); font-size: 15px; font-weight: 600; }
+  .kind-tag { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; border: 1px solid var(--card-border); border-radius: 6px; padding: 1px 6px; }
+
+  a { color: var(--accent); }
+  a:hover { color: var(--fg); }
+
+  @media (max-width: 480px) {
+    .header .date { font-size: 28px; }
+    .pick > summary { padding: 16px 18px; }
+    .pick .body { padding: 0 18px 18px; }
+    .pick .s-team { font-size: 19px; }
+    .metrics { gap: 14px 22px; }
+    .rec > summary { padding: 15px 16px; }
+    .rec .r-body { padding: 0 16px 16px; }
+    .rec .r-sum { gap: 12px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <h1>Daily Betting Report</h1>
+    <p class="date">2026-09-02</p>
+    <p class="updated"><span class="dot"></span>Updated Sep 2, 2026 - 12:20 PM EDT</p>
+    <div class="strip">
+      <div class="item">Slate: <b>61 games</b></div>
+      <div class="item">Moon: <b>Waning Gibbous</b> in <b>Taurus</b></div>
+      <div class="item">Numerology: <b>3</b></div>
+    </div>
+
+    
+    
+    
+    
+    
+    <details class="cosmic">
+      <summary>Why today's moon &amp; numbers matter <svg class="cx-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg></summary>
+      <div class="cx-body">
+        <div class="cx-row">
+          <div class="cx-h">🌙 Waning Gibbous &middot; 70% lit</div>
+          <div class="cx-t">Release and letdown after the peak. Hot win-streak teams are prime fade spots here.</div>
+          
+          <span class="cx-lean lean-dog">Leans underdog</span>
+          <div class="cx-t" style="margin-top:8px; color:var(--warn);"><b>Fade phase active:</b> lunar weight is DOUBLED today (0.06, same as the public/sharp factor), so hyped and tired favorites get pushed down and value sides get pushed up.</div>
+        </div>
+        <div class="cx-row">
+          <div class="cx-h">♒ Moon in Taurus</div>
+          <div class="cx-t">The sign the Moon is transiting colors the daily tone.</div>
+          
+          <span class="cx-lean" style="color:var(--muted); background:rgba(255,255,255,0.06);">Neutral</span>
+        </div>
+        <div class="cx-row">
+          <div class="cx-h">🔢 Numerology 3</div>
+          <div class="cx-t">Expression &amp; luck -- creative, favorable vibes.</div>
+        </div>
+        <div class="cx-row">
+          <div class="cx-t" style="font-size:12px;">These are weighted <b style="color:var(--fg);">nudges</b> -- they tip close calls, and on fade phases they carry real weight, but they never override talent, pitching, and the money/sharp read.</div>
+        </div>
+      </div>
+    </details>
+  </div>
+
+  
+  <div class="warnbox">
+    <b>Data quality warnings</b>
+    <ul>
+      <li>1 MLB game(s) have no probable pitcher posted by MLB yet -- pitching-matchup grading and HR props are skipped for those until confirmed: STL@LAD</li><li>46 game(s) are showing SIMULATED odds, not real FanDuel prices. This usually means The Odds API is out of credits or rate-limited -- check the-odds-api.com/account. Do NOT bet these prices until it clears.</li>
+    </ul>
+  </div>
+  
+
+  
+
+  
+
+  
+  
+  
+  
+  
+  
+
+  <div class="tabs">
+    
+    <button class="tab-btn" data-target="view-MLB" onclick="showView(this)">MLB</button>
+    
+    <button class="tab-btn" data-target="view-WNBA" onclick="showView(this)">WNBA</button>
+    
+    <button class="tab-btn" data-target="view-NFL" onclick="showView(this)">NFL</button>
+    
+    <button class="tab-btn" data-target="view-NCAAF" onclick="showView(this)">NCAAF</button>
+    
+    <button class="tab-btn" data-target="view-top" onclick="showView(this)">TOP PARLAY</button>
+  </div>
+
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  <div class="view-panel" id="view-MLB" style="display:none;">
+
+    <div class="section-title"><span>MLB &middot; Today's Moneyline Picks</span><span class="expand-all" onclick="toggleAll(this)">Expand all</span></div>
+    
+      
+      
+      <details class="pick top-pick" open>
+        <summary>
+          <div class="s-main">
+            <div class="top-badge">★ Top MLB ML Today</div>
+            <div class="s-team">SD <span class="sport-tag">MLB</span> ML</div>
+            <div class="s-sub">Rank #1 &middot; Confidence 10/10 &middot; <span class="odds">-164</span></div>
+          </div>
+          <div class="s-right">
+            <div class="s-edge"><div class="n">8.8%</div><div class="l">Edge</div></div>
+            <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+        </summary>
+        <div class="body">
+          <div class="metrics">
+            <div class="metric"><div class="num">68.5%</div><div class="lbl">Model win%</div></div>
+            <div class="metric"><div class="num">59.7%</div><div class="lbl">Market win%</div></div>
+          </div>
+          <div class="flags">
+            
+            
+          </div>
+          <div class="why">
+            <div class="why-title">Why this clears every layer:</div>
+            <ul>
+              <li>EDGE SOURCE: data factors +8.5%, astrology/numerology +0.3% (of the 8.8% total edge). A healthy pick is driven mostly by DATA -- if astro is carrying it, treat it as thin.</li><li>Pythagorean win%: CIN 0.419 vs SD 0.511 (SD the deeper team)</li><li>Starter ERA: CIN Brandon Williamson 6.11 vs SD Casey Mize 3.45 -> edge to SD's starter</li><li>team OPS: CIN 0.701 vs SD 0.702; HR/9 allowed: CIN SP 1.29 vs SD SP 0.91; K%: CIN SP 14.8 vs SD SP 21.5</li><li>games back: CIN 20.0 vs SD 9.5; streak: CIN +1 vs SD -1</li><li>Date reduces to 3 -> favorite lean</li><li>Not a football game -- factor not applicable.</li><li>Bullpen load (last 3d): CIN 3g/0 extra-inn (fatigue 1.00) vs SD 3g/1 extra-inn (fatigue 1.00) -> fresher pen: even</li><li>Tickets 50% CIN / Handle 50% CIN -> no split</li><li>park run factor 110; rest: CIN 1d, SD 1d</li><li>Waning Gibbous (70% illuminated), Moon in Taurus (earth sign) -> underdog lean  [FADE PHASE: Waning Gibbous -- lunar weight doubled to 0.060 (same as the public/sharp factor). Public confidence runs high tonight, so hyped/tired favorites get pushed down and the value side gets pushed up.]</li><li>— Counter-signals we weighed (leaned toward the other side but didn't outweigh the pick):</li><li>Underdog value on CIN: CIN is a home dog at +138 (+120-or-longer home dogs are historically underpriced)</li>
+            </ul>
+          </div>
+        </div>
+      </details>
+      
+      
+      <details class="pick">
+        <summary>
+          <div class="s-main">
+            
+            <div class="s-team">ARI <span class="sport-tag">MLB</span> ML</div>
+            <div class="s-sub">Rank #2 &middot; Confidence 10/10 &middot; <span class="odds">+110</span></div>
+          </div>
+          <div class="s-right">
+            <div class="s-edge"><div class="n">8.1%</div><div class="l">Edge</div></div>
+            <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+        </summary>
+        <div class="body">
+          <div class="metrics">
+            <div class="metric"><div class="num">53.9%</div><div class="lbl">Model win%</div></div>
+            <div class="metric"><div class="num">45.7%</div><div class="lbl">Market win%</div></div>
+          </div>
+          <div class="flags">
+            
+            
+          </div>
+          <div class="why">
+            <div class="why-title">Why this clears every layer:</div>
+            <ul>
+              <li>EDGE SOURCE: data factors +8.4%, astrology/numerology -0.3% (of the 8.1% total edge). A healthy pick is driven mostly by DATA -- if astro is carrying it, treat it as thin.</li><li>Starter ERA: ARI Taylor Clarke 2.60 vs PHI Andrew Painter 5.95 -> edge to ARI's starter</li><li>team OPS: ARI 0.712 vs PHI 0.716; HR/9 allowed: ARI SP 0.87 vs PHI SP 1.56; K%: ARI SP 15.5 vs PHI SP 19.7</li><li>Underdog value on ARI: ARI is a home dog at +110; ARI's run differential (0.499) nearly matches the favorite (0.528)</li><li>Bullpen load (last 3d): ARI 2g/0 extra-inn (fatigue 0.67) vs PHI 3g/0 extra-inn (fatigue 1.00) -> fresher pen: ARI</li><li>Not a football game -- factor not applicable.</li><li>Tickets 50% ARI / Handle 50% ARI -> no split</li><li>park run factor 97; rest: ARI 1d, PHI 1d</li><li>Waning Gibbous (70% illuminated), Moon in Taurus (earth sign) -> underdog lean  [FADE PHASE: Waning Gibbous -- lunar weight doubled to 0.060 (same as the public/sharp factor). Public confidence runs high tonight, so hyped/tired favorites get pushed down and the value side gets pushed up.]</li><li>— Counter-signals we weighed (leaned toward the other side but didn't outweigh the pick):</li><li>Pythagorean win%: ARI 0.499 vs PHI 0.528 (PHI the deeper team)</li><li>games back: ARI 10.0 vs PHI 3.0; streak: ARI -3 vs PHI +6</li><li>Date reduces to 3 -> favorite lean</li>
+            </ul>
+          </div>
+        </div>
+      </details>
+      
+      
+      <details class="pick">
+        <summary>
+          <div class="s-main">
+            
+            <div class="s-team">DET <span class="sport-tag">MLB</span> ML</div>
+            <div class="s-sub">Rank #3 &middot; Confidence 10/10 &middot; <span class="odds">-104</span></div>
+          </div>
+          <div class="s-right">
+            <div class="s-edge"><div class="n">7.6%</div><div class="l">Edge</div></div>
+            <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+        </summary>
+        <div class="body">
+          <div class="metrics">
+            <div class="metric"><div class="num">56.7%</div><div class="lbl">Model win%</div></div>
+            <div class="metric"><div class="num">49.1%</div><div class="lbl">Market win%</div></div>
+          </div>
+          <div class="flags">
+            
+            
+          </div>
+          <div class="why">
+            <div class="why-title">Why this clears every layer:</div>
+            <ul>
+              <li>EDGE SOURCE: data factors +7.9%, astrology/numerology -0.3% (of the 7.6% total edge). A healthy pick is driven mostly by DATA -- if astro is carrying it, treat it as thin.</li><li>Pythagorean win%: MIN 0.477 vs DET 0.533 (DET the deeper team)</li><li>Starter ERA: MIN Dean Kremer 5.60 vs DET Drew Anderson 3.87 -> edge to DET's starter</li><li>team OPS: MIN 0.730 vs DET 0.710; HR/9 allowed: MIN SP 2.17 vs DET SP 1.36; K%: MIN SP 23.5 vs DET SP 26.0</li><li>Underdog value on DET: DET's run differential (0.533) nearly matches the favorite (0.477)</li><li>Not a football game -- factor not applicable.</li><li>Bullpen load (last 3d): MIN 3g/0 extra-inn (fatigue 1.00) vs DET 3g/0 extra-inn (fatigue 1.00) -> fresher pen: even</li><li>Tickets 50% MIN / Handle 50% MIN -> no split</li><li>park run factor 100; rest: MIN 1d, DET 1d</li><li>Waning Gibbous (70% illuminated), Moon in Taurus (earth sign) -> underdog lean  [FADE PHASE: Waning Gibbous -- lunar weight doubled to 0.060 (same as the public/sharp factor). Public confidence runs high tonight, so hyped/tired favorites get pushed down and the value side gets pushed up.]</li><li>— Counter-signals we weighed (leaned toward the other side but didn't outweigh the pick):</li><li>games back: MIN 6.5 vs DET 10.0; streak: MIN +3 vs DET -3</li><li>Date reduces to 3 -> favorite lean</li>
+            </ul>
+          </div>
+        </div>
+      </details>
+      
+      
+      <details class="pick">
+        <summary>
+          <div class="s-main">
+            
+            <div class="s-team">MIL <span class="sport-tag">MLB</span> ML</div>
+            <div class="s-sub">Rank #4 &middot; Confidence 9/10 &middot; <span class="odds">-162</span></div>
+          </div>
+          <div class="s-right">
+            <div class="s-edge"><div class="n">7.4%</div><div class="l">Edge</div></div>
+            <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+        </summary>
+        <div class="body">
+          <div class="metrics">
+            <div class="metric"><div class="num">66.7%</div><div class="lbl">Model win%</div></div>
+            <div class="metric"><div class="num">59.3%</div><div class="lbl">Market win%</div></div>
+          </div>
+          <div class="flags">
+            
+            
+          </div>
+          <div class="why">
+            <div class="why-title">Why this clears every layer:</div>
+            <ul>
+              <li>EDGE SOURCE: data factors +7.1%, astrology/numerology +0.3% (of the 7.4% total edge). A healthy pick is driven mostly by DATA -- if astro is carrying it, treat it as thin.</li><li>Pythagorean win%: CHC 0.591 vs MIL 0.624 (MIL the deeper team)</li><li>Starter ERA: CHC David Peterson 5.11 vs MIL Jacob Misiorowski 1.73 -> edge to MIL's starter</li><li>team OPS: CHC 0.773 vs MIL 0.738; HR/9 allowed: CHC SP 0.95 vs MIL SP 0.77; K%: CHC SP 19.6 vs MIL SP 38.9</li><li>games back: CHC 8.0 vs MIL 0.0; streak: CHC -1 vs MIL +1</li><li>Date reduces to 3 -> favorite lean</li><li>Not a football game -- factor not applicable.</li><li>Bullpen load (last 3d): CHC 3g/0 extra-inn (fatigue 1.00) vs MIL 3g/0 extra-inn (fatigue 1.00) -> fresher pen: even</li><li>Tickets 50% CHC / Handle 50% CHC -> no split</li><li>park run factor 103; rest: CHC 1d, MIL 1d</li><li>Waning Gibbous (70% illuminated), Moon in Taurus (earth sign) -> underdog lean  [FADE PHASE: Waning Gibbous -- lunar weight doubled to 0.060 (same as the public/sharp factor). Public confidence runs high tonight, so hyped/tired favorites get pushed down and the value side gets pushed up.]</li><li>— Counter-signals we weighed (leaned toward the other side but didn't outweigh the pick):</li><li>Underdog value on CHC: CHC is a home dog at +136 (+120-or-longer home dogs are historically underpriced)</li>
+            </ul>
+          </div>
+        </div>
+      </details>
+      
+      
+      <details class="pick">
+        <summary>
+          <div class="s-main">
+            
+            <div class="s-team">TB <span class="sport-tag">MLB</span> ML</div>
+            <div class="s-sub">Rank #5 &middot; Confidence 7/10 &middot; <span class="odds">-178</span></div>
+          </div>
+          <div class="s-right">
+            <div class="s-edge"><div class="n">4.9%</div><div class="l">Edge</div></div>
+            <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+        </summary>
+        <div class="body">
+          <div class="metrics">
+            <div class="metric"><div class="num">66.5%</div><div class="lbl">Model win%</div></div>
+            <div class="metric"><div class="num">61.5%</div><div class="lbl">Market win%</div></div>
+          </div>
+          <div class="flags">
+            
+            
+          </div>
+          <div class="why">
+            <div class="why-title">Why this clears every layer:</div>
+            <ul>
+              <li>EDGE SOURCE: data factors +4.6%, astrology/numerology +0.3% (of the 4.9% total edge). A healthy pick is driven mostly by DATA -- if astro is carrying it, treat it as thin.</li><li>Pythagorean win%: TB 0.544 vs NYM 0.457 (TB the deeper team)</li><li>team OPS: TB 0.733 vs NYM 0.693</li><li>games back: TB 0.0 vs NYM 20.0; streak: TB +1 vs NYM -1</li><li>Date reduces to 3 -> favorite lean</li><li>Probable starters' ERA unavailable -- neutral until confirmed.</li><li>Not a football game -- factor not applicable.</li><li>No live underdog value today -- no home-dog price, public fade, or competitive-dog signal.</li><li>Bullpen load (last 3d): TB 3g/1 extra-inn (fatigue 1.00) vs NYM 3g/0 extra-inn (fatigue 1.00) -> fresher pen: even</li><li>Tickets 50% TB / Handle 50% TB -> no split</li><li>park run factor 91; rest: TB 1d, NYM 1d</li><li>Waning Gibbous (70% illuminated), Moon in Taurus (earth sign) -> underdog lean  [FADE PHASE: Waning Gibbous -- lunar weight doubled to 0.060 (same as the public/sharp factor). Public confidence runs high tonight, so hyped/tired favorites get pushed down and the value side gets pushed up.]</li>
+            </ul>
+          </div>
+        </div>
+      </details>
+      
+    
+
+    
+
+    
+    <div class="section-title"><span>HR Props</span><span class="expand-all" onclick="toggleAll(this)">Expand all</span></div>
+    
+      
+      
+      <details class="pick top-prop">
+        <summary>
+          <div class="s-main">
+            <div class="top-badge">★ Top MLB Prop Today</div>
+            <div class="s-team">Coby Mayo <span style="font-size:14px; color:var(--muted); font-weight:600;">HR</span></div>
+            <div class="s-sub">Rank #1 &middot; BAL vs Tomoyuki Sugano &middot; <span class="odds">+255</span></div>
+          </div>
+          <div class="s-right">
+            <div class="s-edge"><div class="n" style="color:var(--accent);">86.0</div><div class="l" style="color:var(--accent); font-weight:800;">STRONG</div></div>
+            <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+        </summary>
+        <div class="body">
+          <div class="why">
+            <div class="why-title">Full breakdown &mdash; why this HR was chosen:</div>
+            <ul>
+              <li>Base 35. Scale is built so 100 is the absolute ceiling -- a 55-70 is a decent spot, 75-90 is genuinely strong. Recent form is the heaviest input.</li><li>[Recent Form +22.0/22] Last 13 G: 4 HR, ISO 0.304, 7.7% HR/PA -> hot_score 1.00.</li><li>[Season Power +4/8] 19 HR -- legit power.</li><li>[Barrel +10/10] ELITE 12.9% barrels.</li><li>[HR Rate Allowed +8/8] Tomoyuki Sugano 1.94 HR/9 -- serves them up.</li><li>[Park +7/7] HR factor 116 -- strong hitter's park.</li><li>[Overlay] Hitter-friendly conditions today.</li><li>FINAL HR SCORE: 86.0/100.</li><li>NOTE: starting lineup not posted yet -- confirm this player is actually in today's lineup before betting.</li><li>NOTE: opposing starter (Tomoyuki Sugano) is MLB's listed probable but NOT yet confirmed -- double-check before betting, and re-run closer to first pitch.</li><li>[Fair price -13.2%] Model 15.0% vs implied 28.2% at +255 -- a SPOT play.</li>
+            </ul>
+          </div>
+        </div>
+      </details>
+      
+      
+      <details class="pick">
+        <summary>
+          <div class="s-main">
+            
+            <div class="s-team">Sal Stewart <span style="font-size:14px; color:var(--muted); font-weight:600;">HR</span></div>
+            <div class="s-sub">Rank #2 &middot; CIN vs Casey Mize &middot; <span class="odds">+350</span></div>
+          </div>
+          <div class="s-right">
+            <div class="s-edge"><div class="n" style="color:var(--accent);">82.0</div><div class="l" style="color:var(--accent); font-weight:800;">STRONG</div></div>
+            <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+        </summary>
+        <div class="body">
+          <div class="why">
+            <div class="why-title">Full breakdown &mdash; why this HR was chosen:</div>
+            <ul>
+              <li>Base 35. Scale is built so 100 is the absolute ceiling -- a 55-70 is a decent spot, 75-90 is genuinely strong. Recent form is the heaviest input.</li><li>[Recent Form +22.0/22] Last 16 G: 5 HR, ISO 0.258, 7.0% HR/PA -> hot_score 1.00.</li><li>[Season Power +8/8] 31 HR -- elite volume.</li><li>[Barrel +10/10] ELITE 13.1% barrels.</li><li>[Park +7/7] HR factor 123 -- strong hitter's park.</li><li>[Overlay] Hitter-friendly conditions today.</li><li>FINAL HR SCORE: 82.0/100.</li><li>[Fair price -8.2%] Model 14.0% vs implied 22.2% at +350 -- a SPOT play.</li>
+            </ul>
+          </div>
+        </div>
+      </details>
+      
+      
+      <details class="pick">
+        <summary>
+          <div class="s-main">
+            
+            <div class="s-team">Kody Clemens <span style="font-size:14px; color:var(--muted); font-weight:600;">HR</span></div>
+            <div class="s-sub">Rank #3 &middot; MIN vs Drew Anderson &middot; <span class="odds">+400</span></div>
+          </div>
+          <div class="s-right">
+            <div class="s-edge"><div class="n" style="color:var(--accent);">76.0</div><div class="l" style="color:var(--accent); font-weight:800;">STRONG</div></div>
+            <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+        </summary>
+        <div class="body">
+          <div class="why">
+            <div class="why-title">Full breakdown &mdash; why this HR was chosen:</div>
+            <ul>
+              <li>Base 35. Scale is built so 100 is the absolute ceiling -- a 55-70 is a decent spot, 75-90 is genuinely strong. Recent form is the heaviest input.</li><li>[Recent Form +21.0/22] Last 14 G: 3 HR, ISO 0.245, 5.5% HR/PA -> hot_score 0.95.</li><li>[Season Power +6/8] 24 HR -- middle-order slugger.</li><li>[Barrel +10/10] ELITE 12.3% barrels.</li><li>[HR Rate Allowed +4/8] Drew Anderson 1.36 HR/9 -- homer-prone.</li><li>FINAL HR SCORE: 76.0/100.</li><li>NOTE: starting lineup not posted yet -- confirm this player is actually in today's lineup before betting.</li><li>NOTE: opposing starter (Drew Anderson) is MLB's listed probable but NOT yet confirmed -- double-check before betting, and re-run closer to first pitch.</li><li>[Fair price -7.5%] Model 12.5% vs implied 20.0% at +400 -- a SPOT play.</li>
+            </ul>
+          </div>
+        </div>
+      </details>
+      
+    
+    
+
+    
+
+    <div class="section-title"><span>MLB &middot; Best Parlay</span></div>
+    
+    
+    <div class="parlay">
+      <div class="legs">4-Leg MLB Parlay</div>
+      <div class="odds">Combined: +972 &middot; 14.0% est. win probability</div>
+      <div style="margin-top:14px;">
+        
+        <div class="leg-row"><span class="n">Leg 1</span><span class="lbl">SD ML (-164)</span><span class="kind-tag">ML</span></div>
+        
+        <div class="leg-row"><span class="n">Leg 2</span><span class="lbl">ARI ML (+110)</span><span class="kind-tag">ML</span></div>
+        
+        <div class="leg-row"><span class="n">Leg 3</span><span class="lbl">DET ML (-104)</span><span class="kind-tag">ML</span></div>
+        
+        <div class="leg-row"><span class="n">Leg 4</span><span class="lbl">MIL ML (-162)</span><span class="kind-tag">ML</span></div>
+        
+      </div>
+      <div class="note">Flat 1 unit. Built only from MLB legs the system graded today.</div>
+    </div>
+    
+
+    <details class="rec">
+      <summary>
+        <span class="r-title">MLB Record &amp; History</span>
+        <span class="r-sum">
+          <span class="r-stat"><span class="v">117-79</span><div class="k">Moneyline</div></span>
+          <span class="r-stat"><span class="v">17-121</span><div class="k">Props/Totals</div></span>
+          <span class="r-stat"><span class="v" style="color:var(--warn);">40%</span><div class="k">Win rate</div></span>
+          <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+        </span>
+      </summary>
+      <div class="r-body">
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-09-01</span>
+              <span class="d-rec">ML <b>2-3</b> &middot; Props/Totals <b>1-2</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">CWS ML (-112)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">NYY ML (-188)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">BAL ML (-146)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">DET ML (-106)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">KC ML (-108)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">Jordan Walker to hit a HR (+305)</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Colson Montgomery to hit a HR (+330)</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Pete Crow-Armstrong to hit a HR (+265)</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> CWS ML (-112) + NYY ML (-188) + Jordan Walker HR (+305) + BAL ML (-146)</div>
+              <div style="font-size:12px; color:var(--muted);"><b style="color:var(--accent);">Double Your Money:</b> NYY ML (-188) + BAL ML (-146)</div>
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-31</span>
+              <span class="d-rec">ML <b>4-1</b> &middot; Props/Totals <b>0-3</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">WSH ML (+247)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">TB ML (+155)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">BOS ML (+339)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">TEX ML (+229)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">LAA ML (+145)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Fernando Tatis Jr. to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Heriberto Hernández to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Brian Serven to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> TB ML (+155) + BOS ML (+339) + TEX ML (+229) + LAA ML (+145)</div>
+              <div style="font-size:12px; color:var(--muted);"><b style="color:var(--accent);">Double Your Money:</b> TB ML (+155) + LAA ML (+145)</div>
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-30</span>
+              <span class="d-rec">ML <b>3-2</b> &middot; Props/Totals <b>0-3</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">SEA ML (+185)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">CLE ML (+196)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">NYM ML (+143)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">LAD ML (+172)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">TB ML (+353)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Cal Raleigh to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Wilyer Abreu to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Colton Cowser to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> SEA ML (+185) + CLE ML (+196) + NYM ML (+143) + LAD ML (+172)</div>
+              <div style="font-size:12px; color:var(--muted);"><b style="color:var(--accent);">Double Your Money:</b> NYM ML (+143) + LAD ML (+172)</div>
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-29</span>
+              <span class="d-rec">ML <b>4-1</b> &middot; Props/Totals <b>0-3</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">PHI ML (-273)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">BAL ML (+137)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">ATL ML (-143)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">LAD ML (+283)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">KC ML (+191)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Kazuma Okamoto to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Christian Encarnacion-Strand to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Miguel Vargas to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> PHI ML (-273) + BAL ML (+137) + ATL ML (-143) + LAD ML (+283) + USC Trojans ML (+146) + North Dakota State Bison ML (+236) + TCU Horned Frogs ML (-235) + Hawaii Rainbow Warriors ML (+141)</div>
+              <div style="font-size:12px; color:var(--muted);"><b style="color:var(--accent);">Double Your Money:</b> PHI ML (-273) + TCU Horned Frogs ML (-235)</div>
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-28</span>
+              <span class="d-rec">ML <b>2-3</b> &middot; Props/Totals <b>0-3</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">PIT ML (-145)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">SF ML (+185)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">LAD ML (+391)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">LAA ML (+217)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">BAL ML (+354)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Coby Mayo to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Ben Rice to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Pete Crow-Armstrong to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> SF ML (+185) + LAD ML (+391) + LAA ML (+217) + BAL ML (+354) + HOU ML (+164) + NYG ML (+228) + DAL ML (+145) + MIA ML (+428)</div>
+              <div style="font-size:12px; color:var(--muted);"><b style="color:var(--accent);">Double Your Money:</b> JAX ML (-402) + PIT ML (-145)</div>
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-27</span>
+              <span class="d-rec">ML <b>4-1</b> &middot; Props/Totals <b>0-3</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">SF ML (-152)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">KC ML (+182)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">MIL ML (-364)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">WSH ML (-318)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">NYY ML (-422)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Yordan Alvarez to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Bobby Witt Jr. to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Andrés Chaparro to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> MIL ML (-364) + WSH ML (-318) + NYY ML (-422) + SF ML (-152) + PHX ML (+184) + NY ML (+373)</div>
+              <div style="font-size:12px; color:var(--muted);"><b style="color:var(--accent);">Double Your Money:</b> NYY ML (-422) + SF ML (-152)</div>
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-26</span>
+              <span class="d-rec">ML <b>3-2</b> &middot; Props/Totals <b>2-1</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">HOU ML (+321)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">COL ML (+197)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">CLE ML (+563)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">SF ML (+174)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">CWS ML (+421)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">Hunter Goodman to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">Matt Olson to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Jake Burger to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> CLE ML (+563) + SF ML (+174) + CWS ML (+421) + HOU ML (+321) + SEA ML (+315) + GSV ML (+268)</div>
+              <div style="font-size:12px; color:var(--muted);"><b style="color:var(--accent);">Double Your Money:</b> SF ML (+174) + COL ML (+197)</div>
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-25</span>
+              <span class="d-rec">ML <b>2-3</b> &middot; Props/Totals <b>0-3</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">CHC ML (-354)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">LAD ML (+147)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">KC ML (-282)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">MIL ML (+133)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">BOS ML (+290)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Jac Caglianone to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Miguel Vargas to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Brian Serven to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> LAD ML (+147) + KC ML (-282) + MIL ML (+133) + CHC ML (-354) + PHX ML (+205) + CON ML (+140) + DAL ML (+178)</div>
+              <div style="font-size:12px; color:var(--muted);"><b style="color:var(--accent);">Double Your Money:</b> CHC ML (-354) + KC ML (-282)</div>
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-24</span>
+              <span class="d-rec">ML <b>4-1</b> &middot; Props/Totals <b>0-2</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">TB ML (-157)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">WSH ML (-165)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">MIN ML (+154)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">CLE ML (+161)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">CIN ML (-143)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Munetaka Murakami to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Abimelec Ortiz to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> WSH ML (-165) + MIN ML (+154) + CLE ML (+161) + CIN ML (-143)</div>
+              <div style="font-size:12px; color:var(--muted);"><b style="color:var(--accent);">Double Your Money:</b> WSH ML (-165) + TB ML (-157)</div>
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-23</span>
+              <span class="d-rec">ML <b>4-1</b> &middot; Props/Totals <b>0-3</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">TOR ML (+120)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">OAK ML (+162)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">TB ML (+100)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">CLE ML (-156)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">CWS ML (-104)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Pete Alonso to hit a HR (+280)</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Jo Adell to hit a HR (+265)</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Jake Bauers to hit a HR (+500)</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> OAK ML (+162) + TB ML (+100) + Pete Alonso HR (+280) + Jo Adell HR (+265)</div>
+              <div style="font-size:12px; color:var(--muted);"><b style="color:var(--accent);">Double Your Money:</b> CLE ML (-156) + CWS ML (-104)</div>
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-22</span>
+              <span class="d-rec">ML <b>2-3</b> &middot; Props/Totals <b>0-3</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">TEX ML (-158)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">CHC ML (+104)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">NYM ML (+102)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">TOR ML (-104)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">DET ML (-104)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Max Muncy to hit a HR (+320)</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Matt Olson to hit a HR (+255)</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Corey Seager to hit a HR (+320)</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> CHC ML (+104) + NYM ML (+102) + TOR ML (-104) + Max Muncy HR (+320) + BAL ML (+128) + ATL ML (+162) + LAR ML (+108) + MIA ML (+152)</div>
+              <div style="font-size:12px; color:var(--muted);"><b style="color:var(--accent);">Double Your Money:</b> TEX ML (-158) + TOR ML (-104)</div>
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-21</span>
+              <span class="d-rec">ML <b>4-1</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">PHI ML (-250)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">ARI ML (-140)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">NYY ML (-198)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">DET ML (-108)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">LAD ML (-225)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> ARI ML (-140) + NYY ML (-198) + DET ML (-108) + Pete Alonso HR (+305)</div>
+              
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-20</span>
+              <span class="d-rec">ML <b>3-1</b> &middot; Props/Totals <b>1-2</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">STL ML (-108)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">KC ML (-128)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">WSH ML (+152)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">CLE ML (-205)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">Jordan Walker to hit a HR (+390)</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Christian Walker to hit a HR (+425)</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Munetaka Murakami to hit a HR (+265)</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> Jordan Walker HR (+390) + KC ML (-128) + Christian Walker HR (+425) + Munetaka Murakami HR (+265)</div>
+              
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-19</span>
+              <span class="d-rec">ML <b>5-0</b> &middot; Props/Totals <b>1-2</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">HOU ML (-148)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">NYY ML (-116)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">TB ML (-198)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">PIT ML (-154)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">CIN ML (-142)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Heriberto Hernández to hit a HR (+370)</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Elly De La Cruz to hit a HR (+305)</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">Mickey Moniak to hit a HR (+350)</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> TB ML (-198) + PIT ML (-154) + Heriberto Hernández HR (+370) + Elly De La Cruz HR (+305) + GSV ML (+120) + WAS ML (-590)</div>
+              
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-18</span>
+              <span class="d-rec">ML <b>4-1</b> &middot; Props/Totals <b>1-2</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">LAD ML (-190)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">CLE ML (-184)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">MIL ML (-164)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">NYY ML (-108)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">CWS ML (+156)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">Shohei Ohtani to hit a HR (+192)</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Mike Trout to hit a HR (+320)</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Sal Stewart to hit a HR (+330)</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> Shohei Ohtani HR (+192) + Mike Trout HR (+320) + CLE ML (-184) + MIL ML (-164)</div>
+              
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-17</span>
+              <span class="d-rec">ML <b>4-1</b> &middot; Props/Totals <b>0-3</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">BOS ML (-130)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">PHI ML (-245)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">KC ML (-178)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">ATL ML (-122)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">CHC ML (-156)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Matt Olson to hit a HR (+225)</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Jac Caglianone to hit a HR (+390)</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Colson Montgomery to hit a HR (+370)</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> BOS ML (-130) + PHI ML (-245) + KC ML (-178) + Matt Olson HR (+225)</div>
+              
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-16</span>
+              <span class="d-rec">ML <b>3-2</b> &middot; Props/Totals <b>1-2</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">STL ML (+162)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">MIA ML (-118)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">NYM ML (-164)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">TEX ML (-130)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">MIN ML (-102)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">Max Muncy to hit a HR (+305)</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Corey Seager to hit a HR (+305)</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Byron Buxton to hit a HR (+390)</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> MIA ML (-118) + Max Muncy HR (+305) + NYM ML (-164) + Corey Seager HR (+305)</div>
+              
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-15</span>
+              <span class="d-rec">ML <b>3-2</b> &middot; Props/Totals <b>0-3</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">KC ML (+134)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">SF ML (-160)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">NYY ML (-172)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">BOS ML (-120)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">MIL ML (-128)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Heriberto Hernández to hit a HR (+330)</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Corbin Carroll to hit a HR (+400)</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Dominic Canzone to hit a HR (+390)</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> KC ML (+134) + SF ML (-160) + NYY ML (-172) + Heriberto Hernández HR (+330)</div>
+              
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-14</span>
+              <span class="d-rec">ML <b>2-3</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">WSH ML (+106)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">CHC ML (-180)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">DET ML (-126)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">ATL ML (-184)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">LAD ML (-172)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> WSH ML (+106) + CHC ML (-180) + DET ML (-126) + ATL ML (-184)</div>
+              
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-13</span>
+              <span class="d-rec">ML <b>3-2</b> &middot; Props/Totals <b>0-3</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">BOS ML (-140)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">MIN ML (-108)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">NYY ML (-156)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">LAA ML (+138)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">MIL ML (+128)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Willson Contreras to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Jackson Chourio to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Royce Lewis to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> BOS ML (-140) + MIN ML (-108) + NYY ML (-156) + LAA ML (+138) + CON ML (+390) + WAS ML (+194)</div>
+              
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-12</span>
+              <span class="d-rec">ML <b>2-3</b> &middot; Props/Totals <b>0-3</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">ARI ML (-166)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">TB ML (-220)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">PIT ML (-102)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">HOU ML (-140)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">BAL ML (-104)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Junior Caminero to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Jac Caglianone to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Hunter Goodman to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> TB ML (-220) + ARI ML (-166) + PIT ML (-102) + HOU ML (-140)</div>
+              
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-11</span>
+              <span class="d-rec">ML <b>1-4</b> &middot; Props/Totals <b>1-2</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">TEX ML (-148)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">MIL ML (-126)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">CWS ML (-154)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">HOU ML (-180)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">TB ML (-172)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Max Muncy to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">Pete Crow-Armstrong to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Jonathan Aranda to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> TEX ML (-148) + MIL ML (-126) + CWS ML (-154) + HOU ML (-180) + WAS ML (+220) + NY ML (+122)</div>
+              
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-10</span>
+              <span class="d-rec">ML <b>2-3</b> &middot; Props/Totals <b>0-3</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">BAL ML (-106)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">ARI ML (-194)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">LAD ML (-270)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">BOS ML (-158)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">STL ML (+108)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Willson Contreras to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Shohei Ohtani to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Tyler Soderstrom to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> LAD ML (-270) + BOS ML (-158) + STL ML (+108) + BAL ML (-106)</div>
+              
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-09</span>
+              <span class="d-rec">ML <b>4-1</b> &middot; Props/Totals <b>1-2</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">CWS ML (+116)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">KC ML (+142)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">MIA ML (-138)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">MIL ML (-245)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">DET ML (-116)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">Kyle Schwarber to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Luis García Jr. to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Corey Seager to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> MIA ML (-138) + MIL ML (-245) + DET ML (-116) + KC ML (+142)</div>
+              
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-08</span>
+              <span class="d-rec">ML <b>1-4</b> &middot; Props/Totals <b>1-2</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">CHC ML (-158)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">PHI ML (-158)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">BOS ML (-250)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">STL ML (-148)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">LAD ML (-184)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Matt Olson to hit a HR (+290)</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Bryan De La Cruz to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">Ben Rice to hit a HR (+425)</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> CHC ML (-158) + PHI ML (-158) + Matt Olson HR (+290) + BOS ML (-250) + CHI ML (+194) + LAS ML (+154)</div>
+              
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-07</span>
+              <span class="d-rec">ML <b>3-2</b> &middot; Props/Totals <b>0-24</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Ben Rice to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Kazuma Okamoto to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Luis García Jr. to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Pete Alonso to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Ben Rice to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Kazuma Okamoto to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Pete Alonso to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Ben Rice to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Kazuma Okamoto to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Max Muncy to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Pete Alonso to hit a HR (+400)</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Ben Rice to hit a HR (+290)</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Pete Alonso to hit a HR (+400)</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Ben Rice to hit a HR (+290)</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Kazuma Okamoto to hit a HR (+440)</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Pete Alonso to hit a HR (+400)</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Ben Rice to hit a HR (+290)</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Kazuma Okamoto to hit a HR (+440)</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Pete Alonso to hit a HR (+400)</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Ben Rice to hit a HR (+290)</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Kazuma Okamoto to hit a HR (+450)</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">KC ML (+150)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">NYY ML (-122)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">MIL ML (-168)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">STL ML (-164)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">TB ML (+102)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Pete Alonso to hit a HR (+400)</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Ben Rice to hit a HR (+290)</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Kazuma Okamoto to hit a HR (+450)</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> MIL ML (-168) + STL ML (-164) + Pete Alonso HR (+400) + Ben Rice HR (+290)</div>
+              
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-06</span>
+              <span class="d-rec">ML <b>2-3</b> &middot; Props/Totals <b>1-2</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">BAL ML (+155)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">BOS ML (+120)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">CIN ML (-562)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">TOR ML (+316)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">SEA ML (+226)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Kyle Schwarber to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Pete Alonso to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">Sal Stewart to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> BAL ML (+155) + BOS ML (+120) + CIN ML (-562) + TOR ML (+316)</div>
+              
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-05</span>
+              <span class="d-rec">ML <b>3-2</b> &middot; Props/Totals <b>0-6</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Junior Caminero to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Hunter Goodman to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Kazuma Okamoto to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">MIL ML (+293)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">HOU ML (+353)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">TB ML (-173)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">SD ML (-271)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">KC ML (+183)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Yordan Alvarez to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Junior Caminero to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Kazuma Okamoto to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> HOU ML (+353) + TB ML (-173) + SD ML (-271) + KC ML (+183)</div>
+              
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-04</span>
+              <span class="d-rec">ML <b>3-2</b> &middot; Props/Totals <b>0-3</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">SF ML (-155)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">PHI ML (+213)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">BAL ML (+291)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">ATL ML (+285)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">ARI ML (-505)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Pete Alonso to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Ben Rice to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Yordan Alvarez to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> PHI ML (+213) + BAL ML (+291) + ATL ML (+285) + ARI ML (-505)</div>
+              
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-03</span>
+              <span class="d-rec">ML <b>2-3</b> &middot; Props/Totals <b>0-3</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">TB ML (+190)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">NYY ML (-270)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">WSH ML (+469)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">TOR ML (-375)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">LAD ML (+384)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">James Wood to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Yordan Alvarez to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Ben Rice to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> TB ML (+190) + NYY ML (-270) + WSH ML (+469) + TOR ML (-375)</div>
+              
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-02</span>
+              <span class="d-rec">ML <b>3-2</b> &middot; Props/Totals <b>0-3</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">KC ML (+403)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">MIL ML (+312)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">STL ML (+548)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">BOS ML (+348)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">CIN ML (+315)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Kazuma Okamoto to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Jordan Walker to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Kyle Schwarber to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> KC ML (+403) + MIL ML (+312) + STL ML (+548) + BOS ML (+348)</div>
+              
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-01</span>
+              <span class="d-rec">ML <b>2-3</b> &middot; Props/Totals <b>0-3</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">DET ML (+180)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">ATL ML (-508)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">NYY ML (+271)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">CLE ML (-184)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">TEX ML (+154)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Kazuma Okamoto to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Jordan Walker to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Brandon Lowe to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> DET ML (+180) + ATL ML (-508) + NYY ML (+271) + CLE ML (-184)</div>
+              
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-07-31</span>
+              <span class="d-rec">ML <b>2-3</b> &middot; Props/Totals <b>0-4</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Ben Rice to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">MIL ML (-156)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">SD ML (-138)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">SEA ML (-166)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">WSH ML (+106)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">CLE ML (-138)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Hunter Goodman to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Ben Rice to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">James Wood to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> MIL ML (-156) + SD ML (-138) + SEA ML (-166) + WSH ML (+106)</div>
+              
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-07-30</span>
+              <span class="d-rec">ML <b>3-2</b> &middot; Props/Totals <b>0-3</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">TB ML (-178)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">ATL ML (-154)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">CWS ML (-116)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">PIT ML (-112)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">MIA ML (+110)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Munetaka Murakami to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">James Wood to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Drake Baldwin to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> PIT ML (-112) + TB ML (-178) + ATL ML (-154) + CWS ML (-116)</div>
+              
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-07-29</span>
+              <span class="d-rec">ML <b>4-0</b> &middot; Props/Totals <b>0-3</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">TOR ML</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">TB ML</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">ATL (Gm 2) ML</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">BOS ML</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Max Muncy to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Kazuma Okamoto to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">James Wood to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> TOR ML + TB ML + ATL (Gm 2) ML + BOS ML</div>
+              
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-07-28</span>
+              <span class="d-rec">ML <b>4-1</b> &middot; Props/Totals <b>1-2</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">SD ML (-200)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">DET ML (-144)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">MIA ML (-110)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">CIN ML (-162)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">MIL ML (-148)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Sal Stewart to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">James Wood to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">Sal Stewart to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> SD ML (-200) + DET ML (-144) + MIA ML (-110) + CIN ML (-162)</div>
+              
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-07-27</span>
+              <span class="d-rec">ML <b>2-3</b> &middot; Props/Totals <b>0-3</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">BOS ML (-178)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">WSH ML (-122)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">LAA ML (+100)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">NYY ML (-146)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">CIN ML (-168)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Dominic Canzone to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Luke Raley to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Elly De La Cruz to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> BOS ML (-178) + WSH ML (-122) + LAA ML (+100) + NYY ML (-146)</div>
+              
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-07-26</span>
+              <span class="d-rec">ML <b>4-1</b> &middot; Props/Totals <b>2-1</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">BOS ML (-112)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">MIL ML (-238)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">CWS ML (+109)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">MIN ML</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">ARI ML (+102)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">Pete Alonso to hit a HR (+280)</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">Dominic Canzone to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Brandon Nimmo to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> BOS ML (-112) + ARI ML (+102) + MIL ML (-238) + CWS ML (+109)</div>
+              
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-07-25</span>
+              <span class="d-rec">ML <b>4-1</b> &middot; Props/Totals <b>0-3</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">ARI ML</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">WSH ML (-134)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">STL ML (-112)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">TB ML (-120)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">MIA ML (-142)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Bryan De La Cruz to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Christian Encarnacion-Strand to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Dominic Canzone to hit a HR</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> TB ML (-120) + STL ML (-112) + WSH ML (-134) + ARI ML</div>
+              
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-07-24</span>
+              <span class="d-rec">ML <b>1-2</b> &middot; Props/Totals <b>3-0</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">ARI ML (-124)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">MIL ML (-122)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">MIN ML (-144)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">Christian Encarnacion-Strand to hit a HR (+450)</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">Drake Baldwin to hit a HR (+422)</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">Matt Olson to hit a HR (+310)</span>
+              <span class="kind-tag">HR</span>
+            </div>
+            
+            
+          </div>
+          
+        
+      </div>
+    </details>
+
+  </div>
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  <div class="view-panel" id="view-WNBA" style="display:none;">
+
+    <div class="section-title"><span>WNBA &middot; Today's Moneyline Picks</span></div>
+    
+      <div class="dropped">No WNBA games on today's schedule. Past results are in the record below.</div>
+    
+
+    
+
+    
+
+    
+
+    <div class="section-title"><span>WNBA &middot; Best Parlay</span></div>
+    
+    
+    <div class="dropped">No WNBA parlay today &mdash; fewer than 2 WNBA legs cleared the confidence bar.</div>
+    
+
+    <details class="rec">
+      <summary>
+        <span class="r-title">WNBA Record &amp; History</span>
+        <span class="r-sum">
+          <span class="r-stat"><span class="v">10-12</span><div class="k">Moneyline</div></span>
+          <span class="r-stat"><span class="v">0-0</span><div class="k">Props/Totals</div></span>
+          <span class="r-stat"><span class="v" style="color:var(--warn);">45%</span><div class="k">Win rate</div></span>
+          <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+        </span>
+      </summary>
+      <div class="r-body">
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-30</span>
+              <span class="d-rec">ML <b>1-0</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">DAL ML (+216)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> SEA ML (+185) + CLE ML (+196) + NYM ML (+143) + LAD ML (+172)</div>
+              <div style="font-size:12px; color:var(--muted);"><b style="color:var(--accent);">Double Your Money:</b> NYM ML (+143) + LAD ML (+172)</div>
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-27</span>
+              <span class="d-rec">ML <b>0-2</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">PHX ML (+184)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">NY ML (+373)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> MIL ML (-364) + WSH ML (-318) + NYY ML (-422) + SF ML (-152) + PHX ML (+184) + NY ML (+373)</div>
+              <div style="font-size:12px; color:var(--muted);"><b style="color:var(--accent);">Double Your Money:</b> NYY ML (-422) + SF ML (-152)</div>
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-26</span>
+              <span class="d-rec">ML <b>2-0</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">SEA ML (+315)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">GSV ML (+268)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> CLE ML (+563) + SF ML (+174) + CWS ML (+421) + HOU ML (+321) + SEA ML (+315) + GSV ML (+268)</div>
+              <div style="font-size:12px; color:var(--muted);"><b style="color:var(--accent);">Double Your Money:</b> SF ML (+174) + COL ML (+197)</div>
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-25</span>
+              <span class="d-rec">ML <b>2-1</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">PHX ML (+205)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">CON ML (+140)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">DAL ML (+178)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> LAD ML (+147) + KC ML (-282) + MIL ML (+133) + CHC ML (-354) + PHX ML (+205) + CON ML (+140) + DAL ML (+178)</div>
+              <div style="font-size:12px; color:var(--muted);"><b style="color:var(--accent);">Double Your Money:</b> CHC ML (-354) + KC ML (-282)</div>
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-24</span>
+              <span class="d-rec">ML <b>1-0</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">ATL ML (+201)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> WSH ML (-165) + MIN ML (+154) + CLE ML (+161) + CIN ML (-143)</div>
+              <div style="font-size:12px; color:var(--muted);"><b style="color:var(--accent);">Double Your Money:</b> WSH ML (-165) + TB ML (-157)</div>
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-23</span>
+              <span class="d-rec">ML <b>0-1</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">CHI ML (+128)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> OAK ML (+162) + TB ML (+100) + Pete Alonso HR (+280) + Jo Adell HR (+265)</div>
+              <div style="font-size:12px; color:var(--muted);"><b style="color:var(--accent);">Double Your Money:</b> CLE ML (-156) + CWS ML (-104)</div>
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-19</span>
+              <span class="d-rec">ML <b>1-1</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">GSV ML (+120)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">WAS ML (-590)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> TB ML (-198) + PIT ML (-154) + Heriberto Hernández HR (+370) + Elly De La Cruz HR (+305) + GSV ML (+120) + WAS ML (-590)</div>
+              
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-16</span>
+              <span class="d-rec">ML <b>0-1</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">SEA ML (+116)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> MIA ML (-118) + Max Muncy HR (+305) + NYM ML (-164) + Corey Seager HR (+305)</div>
+              
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-13</span>
+              <span class="d-rec">ML <b>0-2</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">CON ML (+390)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">WAS ML (+194)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> BOS ML (-140) + MIN ML (-108) + NYY ML (-156) + LAA ML (+138) + CON ML (+390) + WAS ML (+194)</div>
+              
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-12</span>
+              <span class="d-rec">ML <b>1-0</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">GSV ML (-420)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> TB ML (-220) + ARI ML (-166) + PIT ML (-102) + HOU ML (-140)</div>
+              
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-11</span>
+              <span class="d-rec">ML <b>0-2</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">WAS ML (+220)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">NY ML (+122)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> TEX ML (-148) + MIL ML (-126) + CWS ML (-154) + HOU ML (-180) + WAS ML (+220) + NY ML (+122)</div>
+              
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-10</span>
+              <span class="d-rec">ML <b>1-0</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">ATL ML (-950)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> LAD ML (-270) + BOS ML (-158) + STL ML (+108) + BAL ML (-106)</div>
+              
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-09</span>
+              <span class="d-rec">ML <b>1-0</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">WAS ML (-118)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> MIA ML (-138) + MIL ML (-245) + DET ML (-116) + KC ML (+142)</div>
+              
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-08</span>
+              <span class="d-rec">ML <b>0-2</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">CHI ML (+194)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">LAS ML (+154)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> CHC ML (-158) + PHI ML (-158) + Matt Olson HR (+290) + BOS ML (-250) + CHI ML (+194) + LAS ML (+154)</div>
+              
+            </div>
+            
+          </div>
+          
+        
+      </div>
+    </details>
+
+  </div>
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  <div class="view-panel" id="view-NFL" style="display:none;">
+
+    <div class="section-title"><span>NFL &middot; Today's Moneyline Picks</span></div>
+    
+      <div class="dropped">No NFL games on today's schedule. Past results are in the record below.</div>
+    
+
+    
+
+    
+
+    
+    <div class="section-title"><span>Anytime TD Props</span></div>
+    
+      <div class="dropped">No NFL games today &mdash; TD props return with the next slate.</div>
+    
+    
+
+    <div class="section-title"><span>NFL &middot; Best Parlay</span></div>
+    
+    
+    <div class="dropped">No NFL parlay today &mdash; fewer than 2 NFL legs cleared the confidence bar.</div>
+    
+
+    <details class="rec">
+      <summary>
+        <span class="r-title">NFL Record &amp; History</span>
+        <span class="r-sum">
+          <span class="r-stat"><span class="v">5-6</span><div class="k">Moneyline</div></span>
+          <span class="r-stat"><span class="v">0-3</span><div class="k">Props/Totals</div></span>
+          <span class="r-stat"><span class="v" style="color:var(--warn);">36%</span><div class="k">Win rate</div></span>
+          <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+        </span>
+      </summary>
+      <div class="r-body">
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-28</span>
+              <span class="d-rec">ML <b>2-3</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">HOU ML (+164)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">NYG ML (+228)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">DAL ML (+145)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">MIA ML (+428)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">JAX ML (-402)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> SF ML (+185) + LAD ML (+391) + LAA ML (+217) + BAL ML (+354) + HOU ML (+164) + NYG ML (+228) + DAL ML (+145) + MIA ML (+428)</div>
+              <div style="font-size:12px; color:var(--muted);"><b style="color:var(--accent);">Double Your Money:</b> JAX ML (-402) + PIT ML (-145)</div>
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-27</span>
+              <span class="d-rec">ML <b>0-0</b> &middot; Props/Totals <b>0-3</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Christian McCaffrey anytime TD</span>
+              <span class="kind-tag">TD</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">James Cook III anytime TD</span>
+              <span class="kind-tag">TD</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Kyren Williams anytime TD</span>
+              <span class="kind-tag">TD</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> MIL ML (-364) + WSH ML (-318) + NYY ML (-422) + SF ML (-152) + PHX ML (+184) + NY ML (+373)</div>
+              <div style="font-size:12px; color:var(--muted);"><b style="color:var(--accent);">Double Your Money:</b> NYY ML (-422) + SF ML (-152)</div>
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-23</span>
+              <span class="d-rec">ML <b>0-1</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">SEA ML (+160)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> OAK ML (+162) + TB ML (+100) + Pete Alonso HR (+280) + Jo Adell HR (+265)</div>
+              <div style="font-size:12px; color:var(--muted);"><b style="color:var(--accent);">Double Your Money:</b> CLE ML (-156) + CWS ML (-104)</div>
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-08-22</span>
+              <span class="d-rec">ML <b>3-2</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">BAL ML (+128)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">ATL ML (+162)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">LAR ML (+108)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">MIA ML (+152)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">KC ML (+180)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> CHC ML (+104) + NYM ML (+102) + TOR ML (-104) + Max Muncy HR (+320) + BAL ML (+128) + ATL ML (+162) + LAR ML (+108) + MIA ML (+152)</div>
+              <div style="font-size:12px; color:var(--muted);"><b style="color:var(--accent);">Double Your Money:</b> TEX ML (-158) + TOR ML (-104)</div>
+            </div>
+            
+          </div>
+          
+        
+      </div>
+    </details>
+
+  </div>
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  <div class="view-panel" id="view-NCAAF" style="display:none;">
+
+    <div class="section-title"><span>NCAAF &middot; Today's Moneyline Picks</span></div>
+    
+      <div class="dropped">No NCAAF moneyline play cleared a real edge today.</div>
+    
+
+    
+
+    
+
+    
+
+    <div class="section-title"><span>NCAAF &middot; Best Parlay</span></div>
+    
+    
+    <div class="dropped">No NCAAF parlay today &mdash; fewer than 2 NCAAF legs cleared the confidence bar.</div>
+    
+
+    <details class="rec">
+      <summary>
+        <span class="r-title">NCAAF Record &amp; History</span>
+        <span class="r-sum">
+          <span class="r-stat"><span class="v">0-0</span><div class="k">Moneyline</div></span>
+          <span class="r-stat"><span class="v">0-0</span><div class="k">Props/Totals</div></span>
+          <span class="r-stat"><span class="v" style="color:var(--fg);">--</span><div class="k">Win rate</div></span>
+          <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+        </span>
+      </summary>
+      <div class="r-body">
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+          <div style="color:var(--muted); font-size:13px; padding:12px 0;">No graded NCAAF picks yet. Results appear here once games go final.</div>
+        
+      </div>
+    </details>
+
+  </div>
+  
+
+  <div class="view-panel" id="view-top" style="display:none;">
+    
+    <div class="section-title"><span>Double Your Money &middot; 2 ML picks</span></div>
+    <div class="double">
+      <div class="dh">💵 ~2x payout &middot; combined +151</div>
+      <div style="margin-top:6px;">
+        
+        <div class="leg-row"><span class="n">Leg 1</span><span class="lbl">SD ML (-164)</span><span class="kind-tag">MLB</span></div>
+        
+        <div class="leg-row"><span class="n">Leg 2</span><span class="lbl">TB ML (-178)</span><span class="kind-tag">MLB</span></div>
+        
+      </div>
+      <div class="note" style="color:var(--muted); font-size:13px; margin-top:8px;">The two safest ML picks across all sports that combine to roughly double a 1-unit stake. Flat 1 unit.</div>
+    </div>
+    
+
+    <div class="section-title"><span>Top Parlay of the Day &middot; all sports combined</span></div>
+    
+    <div class="parlay">
+      <div class="legs">4-Leg Top Parlay</div>
+      <div class="odds">Combined: +972 &middot; 14.0% est. win probability</div>
+      <div style="margin-top:14px;">
+        
+        <div class="leg-row"><span class="n">Leg 1</span><span class="lbl">SD ML (-164)</span><span class="kind-tag">ML</span></div>
+        
+        <div class="leg-row"><span class="n">Leg 2</span><span class="lbl">ARI ML (+110)</span><span class="kind-tag">ML</span></div>
+        
+        <div class="leg-row"><span class="n">Leg 3</span><span class="lbl">DET ML (-104)</span><span class="kind-tag">ML</span></div>
+        
+        <div class="leg-row"><span class="n">Leg 4</span><span class="lbl">MIL ML (-162)</span><span class="kind-tag">ML</span></div>
+        
+      </div>
+      <div class="note">Flat 1 unit. The single strongest ticket across every active sport &mdash; any mix of leagues and props the system rates highest today.</div>
+    </div>
+    
+  </div>
+
+  <script>
+    function showView(btn) {
+      var panels = document.querySelectorAll('.view-panel');
+      for (var i = 0; i < panels.length; i++) panels[i].style.display = 'none';
+      var target = document.getElementById(btn.dataset.target);
+      if (target) target.style.display = 'block';
+      var btns = document.querySelectorAll('.tab-btn');
+      for (var j = 0; j < btns.length; j++) btns[j].classList.remove('active');
+      btn.classList.add('active');
+    }
+    function toggleAll(link) {
+      var section = link.closest('.section-title');
+      var picks = [];
+      var el = section.nextElementSibling;
+      while (el && !el.classList.contains('section-title')) {
+        if (el.tagName === 'DETAILS' && el.classList.contains('pick')) picks.push(el);
+        el = el.nextElementSibling;
+      }
+      var anyClosed = picks.some(function (p) { return !p.open; });
+      picks.forEach(function (p) { p.open = anyClosed; });
+      link.textContent = anyClosed ? 'Collapse all' : 'Expand all';
+    }
+    window.addEventListener('DOMContentLoaded', function () {
+      var first = document.querySelector('.tab-btn');
+      if (first) showView(first);
+    });
+  </script>
+</div>
+</body>
+</html>
