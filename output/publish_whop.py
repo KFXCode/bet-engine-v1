@@ -3,25 +3,31 @@ output/publish_whop.py
 =======================
 Posts the day's picks straight into your Whop community as a forum post.
 
-WHY THIS EXISTS: the picks were published to GitHub Pages, which is PUBLIC
-hosting -- anyone holding the URL could read them whether they paid or not,
-and a screenshotted link kept working forever. Rotating the URL weekly only
-shrinks that window; it never closes it. Posting into Whop removes the link
-from the equation entirely: the content lives behind Whop's own membership
-wall, so when a subscription lapses, access ends with it. There is no URL left
-to leak.
+WHY: the picks were on GitHub Pages, which is PUBLIC -- anyone holding the URL
+could read them whether they paid or not, and a screenshotted link kept working
+forever. Rotating the URL weekly only shrinks that window, never closes it.
+Posting into Whop removes the link from the equation: content lives behind
+Whop's membership wall, so access ends when a subscription does.
 
-Auth: a COMPANY API KEY from your Whop dashboard (Settings -> API keys), sent
-as `Authorization: Bearer <key>`. Set two repo secrets:
+FORMATTING NOTES (this is the whole point of the file): a forum post is read
+on a phone, in a feed, next to everything else in someone's day. So the layout
+is built to be SCANNED, not studied:
+  - The bet itself is the first thing on the line, in bold, with its price.
+  - The single number that matters (edge / model %) sits right after it.
+  - Reasoning is capped at two lines per pick. The engine generates six or
+    more; dumping all of them turns the post into a wall nobody finishes.
+  - Sections only appear when they have content -- no "No picks today" filler
+    for sports that simply aren't playing.
+  - Parlays come last, because they're optional add-ons to straight plays.
+
+Auth: a COMPANY API KEY (Whop dashboard -> Settings -> API keys), sent as
+`Authorization: Bearer <key>`. Two repo secrets:
 
     WHOP_API_KEY        biz-scoped API key
     WHOP_EXPERIENCE_ID  the forum experience to post into (exp_xxxxx)
 
-If either is missing this module quietly does nothing, so the pipeline keeps
-working exactly as before until you're ready to switch over.
-
-Safety: posting is best-effort and never raises. A Whop outage must not break
-the daily run -- picks are still written to disk and (optionally) Pages.
+Missing either one makes this a no-op, so nothing changes until you're ready.
+Posting never raises: a Whop outage must not break the daily run.
 """
 
 import logging
@@ -34,104 +40,153 @@ logger = logging.getLogger("publish_whop")
 API_URL = "https://api.whop.com/api/v1/forum-posts"
 TIMEOUT = 20
 
+# Two lines of "why" per pick. Enough to justify the bet, short enough to read.
+MAX_REASONS = 2
+
+SPORT_ICON = {
+    "MLB": "⚾", "NFL": "🏈", "NCAAF": "🏈", "NBA": "🏀",
+    "NCAAB": "🏀", "NHL": "🏒", "WNBA": "🏀",
+}
+
 
 def _american(v):
     return f"{v:+d}" if isinstance(v, int) else "n/a"
 
 
-def _fmt_plays(plays, sport):
-    rows = [p for p in plays if getattr(p, "sport", None) == sport]
+def _reasons(items):
+    """Trim the engine's full reasoning list to the few that read well, and
+    drop the internal bookkeeping lines that mean nothing to a member."""
+    out = []
+    for r in (items or []):
+        text = str(r).strip()
+        if not text:
+            continue
+        low = text.lower()
+        if low.startswith(("final ", "base ", "starting score")):
+            continue
+        if "score:" in low and "/100" in low:
+            continue
+        out.append(text)
+        if len(out) >= MAX_REASONS:
+            break
+    return out
+
+
+def _pick_block(headline, reasons):
+    lines = [headline]
+    for r in reasons:
+        lines.append(f"  ↳ {r}")
+    lines.append("")
+    return lines
+
+
+def _moneyline_section(plays, sport):
+    rows = sorted([p for p in plays if getattr(p, "sport", None) == sport],
+                  key=lambda p: p.edge_pct, reverse=True)
     if not rows:
         return []
-    rows.sort(key=lambda p: p.edge_pct, reverse=True)
-    out = [f"**{sport} — Moneyline**", ""]
+    icon = SPORT_ICON.get(sport, "•")
+    out = [f"### {icon} {sport} — Moneyline", ""]
     for i, p in enumerate(rows, 1):
-        conf = max(1, min(10, round(p.edge_pct * 100) + 2))
-        star = " ⭐" if i == 1 else ""
-        out.append(f"{i}. **{p.team} ML {_american(p.odds_american)}**{star} — "
-                   f"{p.edge_pct * 100:.1f}% edge · confidence {conf}/10")
-        for reason in (p.reasoning or [])[:3]:
-            out.append(f"   - {reason}")
-        out.append("")
+        tag = " · **TOP PLAY**" if i == 1 else ""
+        out.extend(_pick_block(
+            f"**{p.team} ML {_american(p.odds_american)}** — {p.edge_pct * 100:.1f}% edge{tag}",
+            _reasons(p.reasoning)))
     return out
 
 
-def _fmt_props(props, heading, line_fn):
+def _td_section(props):
     if not props:
         return []
-    out = [f"**{heading}**", ""]
+    out = ["### 🏈 NFL — Anytime Touchdown", ""]
     for i, c in enumerate(props, 1):
-        star = " ⭐" if i == 1 else ""
-        out.append(f"{i}. {line_fn(c)}{star}")
-        for reason in (c.get("reasoning") or [])[:3]:
-            out.append(f"   - {reason}")
-        out.append("")
+        tag = " · **TOP PROP**" if i == 1 else ""
+        out.extend(_pick_block(
+            f"**{c['player_name']} anytime TD {_american(c.get('odds_american'))}** — "
+            f"{c['model_prob'] * 100:.0f}% model{tag}",
+            _reasons(c.get("reasoning"))))
+        out.insert(len(out) - 1 - len(_reasons(c.get("reasoning"))),
+                   f"  _{c['position']} · {c['team']} vs {c['opponent']}_")
     return out
 
 
-def _fmt_parlay(parlay, heading):
+def _totals_section(totals):
+    if not totals:
+        return []
+    out = ["### 📊 Totals", ""]
+    for c in totals:
+        out.extend(_pick_block(
+            f"**{c['side'].title()} {c['line']:.1f} — {c['matchup']}** — "
+            f"{c['edge_pct'] * 100:.1f}% edge",
+            [f"Projected {c['projected']:.1f} vs a {c['line']:.1f} line."]))
+    return out
+
+
+def _parlay_section(parlay, title, note):
     if not parlay or not parlay.get("legs"):
         return []
-    out = [f"**{heading}** — combined {_american(parlay.get('combined_odds_american'))}", ""]
-    for i, leg in enumerate(parlay["legs"], 1):
-        out.append(f"{i}. {leg.get('label')}")
-    out.append("")
+    out = [f"### {title} — {_american(parlay.get('combined_odds_american'))}", ""]
+    for leg in parlay["legs"]:
+        out.append(f"- {leg.get('label')}")
+    out.extend(["", f"_{note}_", ""])
     return out
 
 
 def build_markdown(report):
     """Turn a DailyReport into the Markdown body of the Whop post."""
+    plays = report.plays or []
+    td_props = getattr(report, "td_props", []) or []
+    totals = getattr(report, "totals", []) or []
+    has_picks = bool(plays or td_props or totals)
+
     lines = []
 
-    cel = report.celestial or {}
-    num = report.numerology or {}
-    lines.append(f"*{report.slate_size} game(s) on the slate · Moon: {cel.get('phase', '?')} "
-                 f"in {cel.get('sign', '?')} · Numerology {num.get('number', '?')}*")
-    lines.append("")
-
-    if report.data_warnings:
-        lines.append("> **Heads up**")
-        for w in report.data_warnings[:4]:
-            lines.append(f"> - {w}")
+    if not has_picks:
+        lines.append("**No qualifying plays today.**")
+        lines.append("")
+        lines.append("Nothing on the slate cleared a real edge. Standing down is the system "
+                     "working as designed — no filler bets.")
+        lines.append("")
+    else:
+        total = len(plays) + len(td_props) + len(totals)
+        lines.append(f"**{total} play{'s' if total != 1 else ''} today** · "
+                     f"{report.slate_size} game{'s' if report.slate_size != 1 else ''} analyzed · "
+                     f"flat 1 unit each")
         lines.append("")
 
-    for sport in (report.active_sports or []):
-        lines.extend(_fmt_plays(report.plays or [], sport))
+        for sport in (report.active_sports or []):
+            lines.extend(_moneyline_section(plays, sport))
+        lines.extend(_td_section(td_props))
+        lines.extend(_totals_section(totals))
 
-    lines.extend(_fmt_props(
-        getattr(report, "td_props", []) or [], "NFL — Anytime TD",
-        lambda c: (f"**{c['player_name']} ({c['position']}, {c['team']}) anytime TD "
-                   f"{_american(c.get('odds_american'))}** — {c['model_prob'] * 100:.0f}% model")))
-
-    lines.extend(_fmt_props(
-        getattr(report, "totals", []) or [], "Totals",
-        lambda c: (f"**{c['side'].title()} {c['line']:.1f} — {c['matchup']}** "
-                   f"({c['edge_pct'] * 100:.1f}% edge, projected {c['projected']:.1f})")))
-
-    lines.extend(_fmt_parlay(getattr(report, "double_parlay", {}), "💵 Double Your Money"))
-    lines.extend(_fmt_parlay(getattr(report, "top_parlay", {}), "🎯 Top Parlay"))
+        lines.extend(_parlay_section(
+            getattr(report, "double_parlay", {}), "💵 Double Your Money",
+            "The two safest plays on the board, combined for roughly a 2x return."))
+        lines.extend(_parlay_section(
+            getattr(report, "top_parlay", {}), "🎯 Top Parlay",
+            "Optional. Every leg is already a straight play above — parlay only if you want the swing."))
 
     bank = report.bankroll_summary or {}
     if bank:
         lines.append("---")
-        lines.append(f"**Record to date** — Moneyline {bank.get('wins', 0)}-{bank.get('losses', 0)}"
-                     f" · Props {bank.get('hr_wins', 0)}-{bank.get('hr_losses', 0)}")
+        lines.append(f"📈 **Record** — Moneyline `{bank.get('wins', 0)}-{bank.get('losses', 0)}` · "
+                     f"Props `{bank.get('hr_wins', 0)}-{bank.get('hr_losses', 0)}`")
         lines.append("")
 
-    lines.append("*Flat 1 unit per play. For entertainment and informational purposes only. "
-                 "Sports betting involves risk; past performance does not guarantee future "
-                 "results. You are responsible for your own wagering decisions.*")
-
-    if not (report.plays or getattr(report, "td_props", []) or getattr(report, "totals", [])):
-        lines.insert(0, "**No qualifying plays today.** Nothing cleared a real edge — "
-                        "standing down is the system working as designed.\n")
+    cel = report.celestial or {}
+    lines.append(f"_{cel.get('phase', '')} in {cel.get('sign', '')} · "
+                 f"numerology {(report.numerology or {}).get('number', '')}_")
+    lines.append("")
+    lines.append("_For entertainment and informational purposes only. Sports betting involves "
+                 "risk; past performance does not guarantee future results. You are responsible "
+                 "for your own wagering decisions._")
 
     return "\n".join(lines)
 
 
 def publish_to_whop(report):
-    """Post today's picks into the Whop forum. Returns a small status dict and
-    never raises -- a Whop failure must not break the daily run."""
+    """Post today's picks into the Whop forum. Returns a status dict and never
+    raises -- a Whop failure must not break the daily run."""
     api_key = os.getenv("WHOP_API_KEY", "").strip()
     experience_id = os.getenv("WHOP_EXPERIENCE_ID", "").strip()
 
@@ -143,7 +198,7 @@ def publish_to_whop(report):
         "experience_id": experience_id,
         "title": f"Daily Picks — {report.date}",
         "content": build_markdown(report),
-        "is_mention": True,   # notify members that the board is live
+        "is_mention": True,   # notify members the board is live
     }
 
     try:
