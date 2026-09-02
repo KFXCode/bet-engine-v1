@@ -37,6 +37,8 @@ jobs:
           STATS_MODE: api
           ODDS_MODE: api
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+          WHOP_API_KEY: ${{ secrets.WHOP_API_KEY }}
+          WHOP_EXPERIENCE_ID: ${{ secrets.WHOP_EXPERIENCE_ID }}
           PUBLIC_BETTING_MODE: manual
           PUBLIC_BETTING_URL: ""
           TIMEZONE: America/New_York
