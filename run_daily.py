@@ -58,6 +58,7 @@ from output.terminal_report import print_daily_report
 from output.html_report import render_daily_report
 from output.history_log import log_recommendations, bankroll_summary, get_pick_changes
 from output.publish_github_pages import publish_latest_report
+from output.publish_whop import publish_to_whop
 
 from backtest.grader import grade_pending
 
@@ -666,9 +667,17 @@ def _emit(report):
     print_daily_report(report)
     path, html = render_daily_report(report)
     logger.info("HTML report written to %s", path)
+
     publish_result = publish_latest_report(html)
     if publish_result.get("published"):
         logger.info("Live at %s", publish_result["url"])
+
+    # Post the picks into Whop, where access is tied to an active membership.
+    # No-ops until WHOP_API_KEY / WHOP_EXPERIENCE_ID are set, so nothing
+    # changes until you're ready to switch over.
+    whop_result = publish_to_whop(report)
+    if whop_result.get("published"):
+        logger.info("Posted to Whop forum (post %s).", whop_result.get("post_id"))
 
 
 if __name__ == "__main__":
