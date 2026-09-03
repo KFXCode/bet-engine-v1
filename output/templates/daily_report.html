@@ -370,38 +370,6 @@
       {% endfor %}
     {% endif %}
 
-    {% if sport == 'MLB' %}
-    <div class="section-title"><span>HR Props</span>{% if hr_props %}<span class="expand-all" onclick="toggleAll(this)">Expand all</span>{% endif %}</div>
-    {% if hr_props %}
-      {% for prop in hr_props %}
-      {% set strong = prop.score >= 70 %}
-      <details class="pick{% if loop.first %} top-prop{% endif %}">
-        <summary>
-          <div class="s-main">
-            {% if loop.first %}<div class="top-badge">★ Top MLB Prop Today</div>{% endif %}
-            <div class="s-team">{{ prop.player_name }} <span style="font-size:14px; color:var(--muted); font-weight:600;">HR</span></div>
-            <div class="s-sub">Rank #{{ loop.index }} &middot; {{ prop.team }} vs {{ prop.opponent_pitcher }}{% if prop.odds_american is not none %} &middot; <span class="odds">{{ '%+d' | format(prop.odds_american) }}</span>{% else %} &middot; odds n/a{% endif %}</div>
-          </div>
-          <div class="s-right">
-            <div class="s-edge"><div class="n" style="color:{{ 'var(--accent)' if strong else 'var(--warn)' }};">{{ '%.1f' | format(prop.score) }}</div><div class="l" style="color:{{ 'var(--accent)' if strong else 'var(--warn)' }}; font-weight:800;">{{ 'STRONG' if strong else 'WATCH' }}</div></div>
-            <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
-          </div>
-        </summary>
-        <div class="body">
-          <div class="why">
-            <div class="why-title">Full breakdown &mdash; why this HR was chosen:</div>
-            <ul>
-              {% for reason in prop.reasoning %}<li>{{ reason }}</li>{% endfor %}
-            </ul>
-          </div>
-        </div>
-      </details>
-      {% endfor %}
-    {% else %}
-      <div class="dropped">No HR prop candidates cleared today's strongest-signals bar.</div>
-    {% endif %}
-    {% endif %}
-
     {% if sport == 'NFL' %}
     <div class="section-title"><span>Anytime TD Props</span>{% if td_props %}<span class="expand-all" onclick="toggleAll(this)">Expand all</span>{% endif %}</div>
     {% if td_props %}
@@ -447,7 +415,7 @@
       <div class="odds">Combined: {{ '%+d' | format(par.combined_odds_american) }} &middot; {{ '%.1f' | format(par.combined_prob * 100) }}% est. win probability</div>
       <div style="margin-top:14px;">
         {% for leg in par.legs %}
-        <div class="leg-row"><span class="n">Leg {{ loop.index }}</span><span class="lbl">{{ leg.label }}</span><span class="kind-tag">{{ 'HR' if leg.kind == 'hr_prop' else 'ML' }}</span></div>
+        <div class="leg-row"><span class="n">Leg {{ loop.index }}</span><span class="lbl">{{ leg.label }}</span><span class="kind-tag">{% if leg.kind == 'td_prop' %}TD{% elif leg.kind == 'total' %}O/U{% else %}ML{% endif %}</span></div>
         {% endfor %}
       </div>
       <div class="note">Flat 1 unit. Built only from {{ sport }} legs the system graded today.</div>
@@ -461,7 +429,7 @@
         <span class="r-title">{{ sport }} Record &amp; History</span>
         <span class="r-sum">
           <span class="r-stat"><span class="v">{{ mlw }}-{{ mll }}</span><div class="k">Moneyline</div></span>
-          <span class="r-stat"><span class="v">{{ prw }}-{{ prl }}</span><div class="k">Props/Totals</div></span>
+          {% if prw or prl %}<span class="r-stat"><span class="v">{{ prw }}-{{ prl }}</span><div class="k">Props/Totals</div></span>{% endif %}
           <span class="r-stat"><span class="v" style="color:{% if tw > tl %}var(--accent){% elif tl > tw %}var(--warn){% else %}var(--fg){% endif %};">{% if (tw + tl) %}{{ ((100 * tw) / (tw + tl))|round(0)|int }}%{% else %}--{% endif %}</span><div class="k">Win rate</div></span>
           <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
         </span>
@@ -487,7 +455,7 @@
             <div class="rec-row">
               <span class="mk" style="color:{{ '#2fd07a' if item.status == 'won' else ('#e5484d' if item.status == 'lost' else 'var(--muted)') }};">{% if item.status == 'won' %}&#10003;{% elif item.status == 'lost' %}&#10007;{% else %}&ndash;{% endif %}</span>
               <span class="lb">{{ item.label }}</span>
-              <span class="kind-tag">{% if item.kind == 'hr_prop' %}HR{% elif item.kind == 'td_prop' %}TD{% elif item.kind == 'total' %}O/U{% else %}ML{% endif %}</span>
+              <span class="kind-tag">{% if item.kind == 'td_prop' %}TD{% elif item.kind == 'total' %}O/U{% else %}ML{% endif %}</span>
             </div>
             {% endfor %}
             {% if d[2] or d[3] %}
@@ -528,7 +496,7 @@
       <div class="odds">Combined: {{ '%+d' | format(top_parlay.combined_odds_american) }} &middot; {{ '%.1f' | format(top_parlay.combined_prob * 100) }}% est. win probability</div>
       <div style="margin-top:14px;">
         {% for leg in top_parlay.legs %}
-        <div class="leg-row"><span class="n">Leg {{ loop.index }}</span><span class="lbl">{{ leg.label }}</span><span class="kind-tag">{{ 'HR' if leg.kind == 'hr_prop' else 'ML' }}</span></div>
+        <div class="leg-row"><span class="n">Leg {{ loop.index }}</span><span class="lbl">{{ leg.label }}</span><span class="kind-tag">{% if leg.kind == 'td_prop' %}TD{% elif leg.kind == 'total' %}O/U{% else %}ML{% endif %}</span></div>
         {% endfor %}
       </div>
       <div class="note">Flat 1 unit. The single strongest ticket across every active sport &mdash; any mix of leagues and props the system rates highest today.</div>
