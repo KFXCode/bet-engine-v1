@@ -9,15 +9,18 @@ forever. Rotating the URL weekly only shrinks that window, never closes it.
 Posting into Whop removes the link from the equation: content lives behind
 Whop's membership wall, so access ends when a subscription does.
 
-FORMATTING NOTES (this is the whole point of the file): a forum post is read
-on a phone, in a feed, next to everything else in someone's day. So the layout
-is built to be SCANNED, not studied:
+MLB IS MONEYLINE-ONLY (Sep 3, 2026). HR props are retired, so nothing here
+renders or tallies them. NFL anytime-TD props and NCAAF totals are unaffected.
+
+FORMATTING NOTES (the whole point of this file): a forum post is read on a
+phone, in a feed, next to everything else in someone's day. So the layout is
+built to be SCANNED, not studied:
   - The bet itself is the first thing on the line, in bold, with its price.
   - The single number that matters (edge / model %) sits right after it.
   - Reasoning is capped at two lines per pick. The engine generates six or
     more; dumping all of them turns the post into a wall nobody finishes.
-  - Sections only appear when they have content -- no "No picks today" filler
-    for sports that simply aren't playing.
+  - Sections only appear when they have content -- no "none today" filler for
+    sports that simply aren't playing.
   - Parlays come last, because they're optional add-ons to straight plays.
 
 Auth: a COMPANY API KEY (Whop dashboard -> Settings -> API keys), sent as
@@ -26,8 +29,8 @@ Auth: a COMPANY API KEY (Whop dashboard -> Settings -> API keys), sent as
     WHOP_API_KEY        biz-scoped API key
     WHOP_EXPERIENCE_ID  the forum experience to post into (exp_xxxxx)
 
-Missing either one makes this a no-op, so nothing changes until you're ready.
-Posting never raises: a Whop outage must not break the daily run.
+Missing either one makes this a no-op. Posting never raises: a Whop outage
+must not break the daily run.
 """
 
 import logging
@@ -72,8 +75,10 @@ def _reasons(items):
     return out
 
 
-def _pick_block(headline, reasons):
+def _pick_block(headline, reasons, sub=None):
     lines = [headline]
+    if sub:
+        lines.append(f"  _{sub}_")
     for r in reasons:
         lines.append(f"  ↳ {r}")
     lines.append("")
@@ -104,9 +109,8 @@ def _td_section(props):
         out.extend(_pick_block(
             f"**{c['player_name']} anytime TD {_american(c.get('odds_american'))}** — "
             f"{c['model_prob'] * 100:.0f}% model{tag}",
-            _reasons(c.get("reasoning"))))
-        out.insert(len(out) - 1 - len(_reasons(c.get("reasoning"))),
-                   f"  _{c['position']} · {c['team']} vs {c['opponent']}_")
+            _reasons(c.get("reasoning")),
+            sub=f"{c['position']} · {c['team']} vs {c['opponent']}"))
     return out
 
 
@@ -167,10 +171,9 @@ def build_markdown(report):
             "Optional. Every leg is already a straight play above — parlay only if you want the swing."))
 
     bank = report.bankroll_summary or {}
-    if bank:
+    if bank.get("wins") or bank.get("losses"):
         lines.append("---")
-        lines.append(f"📈 **Record** — Moneyline `{bank.get('wins', 0)}-{bank.get('losses', 0)}` · "
-                     f"Props `{bank.get('hr_wins', 0)}-{bank.get('hr_losses', 0)}`")
+        lines.append(f"📈 **Moneyline record** — `{bank.get('wins', 0)}-{bank.get('losses', 0)}`")
         lines.append("")
 
     cel = report.celestial or {}
