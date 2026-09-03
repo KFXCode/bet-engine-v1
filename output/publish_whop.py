@@ -4,10 +4,19 @@ output/publish_whop.py
 Posts the day's picks straight into your Whop community as a forum post.
 
 WHY: the picks were on GitHub Pages, which is PUBLIC -- anyone holding the URL
-could read them whether they paid or not, and a screenshotted link kept working
-forever. Rotating the URL weekly only shrinks that window, never closes it.
-Posting into Whop removes the link from the equation: content lives behind
-Whop's membership wall, so access ends when a subscription does.
+could read them whether they paid or not. Posting into Whop puts the content
+behind the membership wall, so access ends when a subscription does.
+
+ENDPOINT (fixed Sep 3, 2026): the correct path is `/forum_posts` with an
+UNDERSCORE, on base https://api.whop.com/api/v1. This file originally used
+`/forum-posts` with a hyphen, which 404s -- the run reported success, the log
+line said the post failed, and nothing ever appeared in the feed. Verified
+against the published OpenAPI spec: POST /forum_posts, body requires
+experience_id, optional content (Markdown), title, is_mention.
+
+The API key must carry the `forum:post:create` permission, and experience_id
+must be the FORUM experience you want to post in (the Picks Feed app), not the
+whop or product id.
 
 MLB IS MONEYLINE-ONLY (Sep 3, 2026). HR props are retired, so nothing here
 renders or tallies them. NFL anytime-TD props and NCAAF totals are unaffected.
@@ -19,14 +28,11 @@ built to be SCANNED, not studied:
   - The single number that matters (edge / model %) sits right after it.
   - Reasoning is capped at two lines per pick. The engine generates six or
     more; dumping all of them turns the post into a wall nobody finishes.
-  - Sections only appear when they have content -- no "none today" filler for
-    sports that simply aren't playing.
+  - Sections only appear when they have content -- no "none today" filler.
   - Parlays come last, because they're optional add-ons to straight plays.
 
-Auth: a COMPANY API KEY (Whop dashboard -> Settings -> API keys), sent as
-`Authorization: Bearer <key>`. Two repo secrets:
-
-    WHOP_API_KEY        biz-scoped API key
+Two repo secrets:
+    WHOP_API_KEY        account API key with forum:post:create
     WHOP_EXPERIENCE_ID  the forum experience to post into (exp_xxxxx)
 
 Missing either one makes this a no-op. Posting never raises: a Whop outage
@@ -40,7 +46,7 @@ import requests
 
 logger = logging.getLogger("publish_whop")
 
-API_URL = "https://api.whop.com/api/v1/forum-posts"
+API_URL = "https://api.whop.com/api/v1/forum_posts"
 TIMEOUT = 20
 
 # Two lines of "why" per pick. Enough to justify the bet, short enough to read.
@@ -204,6 +210,7 @@ def publish_to_whop(report):
         "is_mention": True,   # notify members the board is live
     }
 
+    logger.info("Whop: posting to %s (experience %s).", API_URL, experience_id)
     try:
         resp = requests.post(
             API_URL,
@@ -211,10 +218,18 @@ def publish_to_whop(report):
                      "Content-Type": "application/json"},
             json=body, timeout=TIMEOUT)
         if resp.status_code >= 400:
-            logger.error("Whop post failed (%s): %s", resp.status_code, resp.text[:300])
+            # Print the API's own message -- it names the exact problem
+            # (bad experience id, missing forum:post:create scope, etc.).
+            logger.error("Whop post FAILED (HTTP %s): %s", resp.status_code, resp.text[:500])
+            if resp.status_code == 401:
+                logger.error("  -> 401 means the WHOP_API_KEY secret is wrong or revoked.")
+            elif resp.status_code == 403:
+                logger.error("  -> 403 means the key lacks the 'forum:post:create' permission.")
+            elif resp.status_code == 404:
+                logger.error("  -> 404 means WHOP_EXPERIENCE_ID isn't a forum experience you own.")
             return {"published": False, "reason": f"http_{resp.status_code}"}
         post_id = (resp.json() or {}).get("id")
-        logger.info("Published picks to Whop forum (post %s).", post_id)
+        logger.info("Whop post SUCCEEDED -- picks are live in the forum (post %s).", post_id)
         return {"published": True, "post_id": post_id}
     except Exception as exc:
         logger.error("Whop post error: %s", exc)
