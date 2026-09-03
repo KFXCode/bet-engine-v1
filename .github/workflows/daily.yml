@@ -1,3 +1,149 @@
+name: Daily MLB Report
+
+on:
+  schedule:
+    # HOURLY CHECK, ONE PUBLISH. auto_gate.py finds the earliest game across
+    # EVERY sport today and publishes exactly once, AUTO_RUN_LEAD_MINUTES
+    # before it -- so a noon college football kickoff triggers an 11:00 AM
+    # publish, and an evening-only slate waits until evening.
+    #
+    # Skipped checks are effectively free: the gate fetches only the (free)
+    # ESPN/schedule data and exits before any paid Odds API call, and
+    # last_published.txt guarantees at most one publish per day.
+    - cron: "0 11-23,0-3 * * *"   # hourly, 07:00-22:00 ET
+    - cron: "0 6 * * *"           # 02:00 ET overnight grading
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  daily-report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run pipeline (gated publish, overnight grading, or forced manual run)
+        env:
+          STATS_MODE: api
+          ODDS_MODE: api
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+          WHOP_API_KEY: ${{ secrets.WHOP_API_KEY }}
+          WHOP_EXPERIENCE_ID: ${{ secrets.WHOP_EXPERIENCE_ID }}
+          PUBLIC_BETTING_MODE: manual
+          PUBLIC_BETTING_URL: ""
+          TIMEZONE: America/New_York
+          DAILY_RUN_HOUR: "10"
+          DAILY_RUN_MINUTE: "0"
+          # Publish this many minutes before the FIRST game of the day,
+          # whichever sport that happens to be.
+          AUTO_RUN_LEAD_MINUTES: "60"
+        run: |
+          # 06:00 UTC (02:00 ET) is the grading pass: yesterday's games are
+          # final, so grade them under YESTERDAY's date. It never publishes a
+          # new slate, so it cannot overwrite a locked board.
+          if [ "${{ github.event.schedule }}" = "0 6 * * *" ]; then
+            echo "Overnight grading pass -- settling yesterday's finished games."
+            python run_daily.py --date "$(TZ=America/New_York date -d 'yesterday' +%F)"
+          elif [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "Hourly gate check -- publishes only if within the lead window and not already published today."
+            python run_daily.py --auto
+          else
+            echo "Manually triggered -- forcing a fresh run + publish regardless of timing/once-a-day gate."
+            python run_daily.py
+          fi
+
+      # ------------------------------------------------------------------
+      # WEEKLY ROTATING ACCESS LINK
+      # The report is published to  /p/<token>/  instead of the repo root.
+      # <token> = sha256(LINK_SALT + ISO week), so it is:
+      #   - stable for the whole week (the link you hand out keeps working),
+      #   - unguessable without the salt,
+      #   - completely different next Monday.
+      # Last week's folder is DELETED on rotation, so a link held by someone
+      # who cancelled stops working -- that is the whole point.
+      # The root index.html becomes a small "get the current link from your
+      # membership" stub so the bare Pages URL is never the live report.
+      # ------------------------------------------------------------------
+      - name: Build rotating access path
+        id: rotate
+        env:
+          LINK_SALT: ${{ secrets.LINK_SALT }}
+        run: |
+          if [ -z "$LINK_SALT" ]; then
+            echo "::error::LINK_SALT secret is not set -- add it in Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+          # %G%V = ISO year + ISO week, so the token flips every Monday.
+          WEEK="$(date -u +%G%V)"
+          TOKEN="$(printf '%s' "${LINK_SALT}-${WEEK}" | sha256sum | cut -c1-14)"
+          echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
+          echo "week=$WEEK" >> "$GITHUB_OUTPUT"
+
+          if [ -f data_store/reports/latest.html ]; then
+            # Drop every previous week's folder, then publish this week's.
+            rm -rf p
+            mkdir -p "p/$TOKEN"
+            cp data_store/reports/latest.html "p/$TOKEN/index.html"
+          fi
+
+          # Root stub: no picks, just a pointer. Anyone with the old bare URL
+          # lands here instead of on the live board.
+          cat > index.html <<'STUB'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <meta name="robots" content="noindex, nofollow">
+          <title>Cover1Picks — Members Access</title>
+          <style>
+            html,body{margin:0;padding:0;background:#08090A;}
+            body{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;
+                 font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;color:#F6F6F4;}
+            .card{max-width:440px;text-align:center;}
+            .dot{width:8px;height:8px;border-radius:50%;background:#93E88C;display:inline-block;margin-right:8px;}
+            h1{font-size:26px;font-weight:800;letter-spacing:-0.02em;margin:18px 0 12px;}
+            p{font-size:15px;line-height:1.65;color:#A2A5AC;margin:0 0 10px;}
+            .tag{font-size:11px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#8E9199;}
+          </style>
+          </head>
+          <body>
+            <div class="card">
+              <div class="tag"><span class="dot"></span>Cover1Picks</div>
+              <h1>Your access link has rotated</h1>
+              <p>For member security, the picks link changes every week.</p>
+              <p>Open your Cover1Picks membership to get this week's current link.</p>
+            </div>
+          </body>
+          </html>
+          STUB
+
+      - name: Publish report + save history back to the repo
+        run: |
+          git config user.name "mlb-picks-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A index.html p 2>/dev/null || true
+          git add -f data_store/betting_engine.db 2>/dev/null || true
+          git add -f data_store/last_published.txt 2>/dev/null || true
+          git add -f manual_inputs/*.json 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "Nothing new to publish this check."
+          else
+            git commit -m "Automated daily update ($(date -u +'%Y-%m-%d %H:%M UTC'))"
+            git pull --rebase origin "${GITHUB_REF_NAME}" || true
+            git push
+          fi
+
       - name: Show this week's member link
         run: |
           LINK="https://kfxcode.github.io/mlb-picks/p/${{ steps.rotate.outputs.token }}/"
@@ -13,4 +159,4 @@
             echo "The daily picks also post automatically into your Whop forum, so"
             echo "this link is the optional full board -- not the only way in."
           } >> "$GITHUB_STEP_SUMMARY"
-          echo "MEMBER LINK: $
+          echo "MEMBER LINK: $LINK"
