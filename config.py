@@ -37,7 +37,9 @@ ODDS_API_KEY = os.getenv("ODDS_API_KEY", "")
 ODDS_API_BOOKMAKER = "fanduel"
 ODDS_API_BASE_URL = "https://api.the-odds-api.com/v4"
 
-HR_ODDS_ENABLED = True
+# HR odds fetching is off with HR props retired -- leaving it on would keep
+# spending paid player-prop credits on a market we no longer publish.
+HR_ODDS_ENABLED = False
 ODDS_API_HR_MARKET = "batter_home_runs"
 
 # ---------------------------------------------------------------------------
@@ -137,28 +139,22 @@ FADE_MIN_EDGE = 0.05
 FADE_MAX_PER_DAY = 5
 
 # ---------------------------------------------------------------------------
-# HR Prop workflow  (recalibrated Aug 29, 2026 against 131 graded picks)
+# HR PROPS -- RETIRED Sep 3, 2026
 # ---------------------------------------------------------------------------
-# THE GRADE: 11-120 overall = 8.4% hit rate. On the 40 picks that had a real
-# recorded price: -18.4 units, ROI -46%. Average price +348 needs ~22% to
-# break even, so this was never close.
+# MLB is moneyline-only now. The decision came straight off the ledger: 131
+# graded HR picks went 11-120 (8.4%), and on the 40 that had a real recorded
+# price that was -18.4 units at ROI -46%. An average price of +348 needs about
+# 22% to break even, so the market was never mispriced in our favor -- the
+# model was simply wrong about how often these hit, by a factor of roughly
+# four. Recalibrating the curve made the +EV tag honest but didn't create an
+# edge that wasn't there.
 #
-# What the ledger actually showed, by price:
-#     under +300     1-11    8.3%   ROI -75.7%
-#     +300 to +399   3-12   20.0%   ROI -10.3%   <- the only survivable band
-#     +400 and up    1-12    7.7%   ROI -59.6%
+# Player props for the OTHER sports are unaffected: NFL anytime-TD props and
+# NCAAF totals both stay live with their own models below.
 #
-# And 91 of 131 picks had NO price recorded at all -- literally unbettable,
-# yet they consumed board slots every day.
-#
-# THREE CHANGES, all directly from that data:
-#  1. A REAL PRICE IS MANDATORY. No price, no pick.
-#  2. TARGET THE PROVEN BAND. Prices are strongly preferred inside
-#     +300..+399; outside it a pick must be exceptional to appear.
-#  3. HONEST PROBABILITIES. The old curve implied 16-35% for a good score
-#     while reality delivered 8.4%. Calibrated to what actually happens, so
-#     the +EV tag stops lying about value that isn't there.
-HR_PROPS_ENABLED = True
+# The settings are kept (not deleted) so the workflow can be switched back on
+# in one line if HR props are ever revisited with a different approach.
+HR_PROPS_ENABLED = False
 HR_PROP_MIN_SCORE = 0
 HR_PROP_MAX_PER_DAY = 3
 HR_PROP_ROSTER_LIMIT = 9
@@ -169,19 +165,15 @@ HR_PROP_TOP_N_POOL = 200
 HR_VALUE_LONGSHOT_SLOTS = 0
 HR_LONGSHOT_MIN_ODDS = 450
 
-# Price policy
 HR_REQUIRE_REAL_ODDS = True
 HR_TARGET_ODDS_MIN = 300
 HR_TARGET_ODDS_MAX = 420
-HR_HARD_ODDS_MIN = 200        # never take shorter than this
-HR_HARD_ODDS_MAX = 650        # never take longer than this
-HR_OFF_BAND_MIN_SCORE = 72    # outside the target band, must be this strong
+HR_HARD_ODDS_MIN = 200
+HR_HARD_ODDS_MAX = 650
+HR_OFF_BAND_MIN_SCORE = 72
 
 HR_EV_FILTER_ENABLED = True
 HR_MIN_EV_EDGE = 0.05
-# Calibrated curve: score 50 -> ~6%, 70 -> ~11%, 90 -> ~16%, ceiling 20%.
-# The old settings claimed up to 35%, which is roughly four times the rate
-# these picks have ever actually hit.
 HR_PROB_BASE = 0.06
 HR_PROB_PER_POINT = 0.0025
 HR_PROB_MAX = 0.20
@@ -197,7 +189,7 @@ HR_PROP_MIN_CLUSTERS = 3
 HR_WEATHER_ENABLED = True
 
 # ---------------------------------------------------------------------------
-# NFL TD props
+# NFL TD props  (still live)
 # ---------------------------------------------------------------------------
 TD_PROP_MAX_PER_DAY = 3
 TD_PROP_STRONG_SCORE = 70
@@ -205,7 +197,7 @@ TD_MIN_EV_EDGE = 0.05
 TD_MIN_LAMBDA = 0.06
 
 # ---------------------------------------------------------------------------
-# Totals (NCAAF)
+# Totals (NCAAF)  (still live)
 # ---------------------------------------------------------------------------
 TOTALS_MIN_GAMES = 3
 TOTALS_MIN_EDGE = 0.03
