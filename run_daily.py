@@ -1,6 +1,13 @@
 #!/usr/bin/env python3
 """
 run_daily.py -- the one command you run each day.
+
+MLB IS MONEYLINE-ONLY as of Sep 3, 2026. HR props are retired (see the note in
+config.py: 11-120, ROI -46% over 131 graded picks). Everything HR-related is
+stripped from generation, from history, and from the records -- keeping the old
+losses in the ledger would drag a discontinued bet type through every number
+the report shows. Player props for the other sports are untouched: NFL
+anytime-TD and NCAAF totals both stay live.
 """
 
 import argparse
@@ -22,14 +29,12 @@ from data.odds_api_schedule import schedule_from_odds_api
 from data.odds_providers import get_odds_provider
 from data.public_betting_provider import get_public_betting_provider
 from data.stats_provider import get_stats_provider
-from data.situational import park_and_situational_summary, ensure_injury_template, team_situational_summary
+from data.situational import park_and_situational_summary, ensure_injury_template
 from data.standings import get_all_team_records
 from data.standings_wnba import get_all_wnba_records
 from data.standings_espn import get_all_records_for_sport
 from data.standings_scores import get_records as get_scores_records
-from data.rosters import get_team_batters
-from data.lineups import get_confirmed_lineup, get_confirmed_pitcher
-from data.hr_odds import fetch_hr_odds
+from data.lineups import get_confirmed_pitcher
 from data.nfl_players import get_skill_players, get_td_profile
 from data.td_odds import fetch_td_odds
 import re as _re
@@ -48,7 +53,6 @@ from data.numerology import numerology_signal_for, reduce_date
 
 from engine.scoring import evaluate_game
 from engine.strategy_rules import select_daily_plays, select_fade_teams, get_parlay_pool
-from engine.hr_props import evaluate_hr_prop_candidates, finalize_hr_props
 from engine.td_props import evaluate_td_candidates, finalize_td_props
 from engine.totals import evaluate_totals, label_for as total_label
 from engine.parlay import maybe_build_parlay, build_daily_parlay, build_double_parlay
@@ -75,6 +79,9 @@ SPORT_ORDER = ["MLB", "WNBA", "NFL", "NCAAF", "NCAAB", "NHL", "NBA"]
 RECORD_SPORTS = {"MLB", "WNBA", "NFL", "NCAAF", "NCAAB", "NHL", "NBA"}
 SCORES_RECORD_SPORTS = {"WNBA", "NFL", "NCAAF", "NCAAB", "NHL", "NBA"}
 
+# Bet kinds that no longer belong anywhere in the report or the records.
+RETIRED_KINDS = {"hr_prop"}
+
 _ESPN_SCHEDULE_PROVIDERS = {
     "NFL": get_todays_nfl_games,
     "NCAAF": get_todays_ncaaf_games,
@@ -82,10 +89,6 @@ _ESPN_SCHEDULE_PROVIDERS = {
     "NHL": get_todays_nhl_games,
     "NBA": get_todays_nba_games,
 }
-
-HR_ROTATION_LOOKBACK_DAYS = 7
-HR_ROTATION_MAX_APPEARANCES = 2
-HR_HARD_BENCH_DAYS = 3
 
 TD_ROTATION_LOOKBACK_DAYS = 14
 TD_HARD_BENCH_DAYS = 7
@@ -118,7 +121,8 @@ def _active_sports_today(run_date):
 
 
 def _recent_prop_players(db, run_date, kind, lookback_days, bench_days, max_appearances=None):
-    """Normalized player names to fade for rotation, shared by HR and TD props."""
+    """Normalized player names to fade for rotation, so the same handful of
+    names doesn't repeat on the board week after week."""
     appearances = {}
     recent = set()
     for i in range(1, lookback_days + 1):
@@ -202,7 +206,7 @@ def _row_to_odds(row):
 
 def _build_td_props(db, games, odds_by_game, date_str, run_date, data_warnings):
     """NFL anytime-TD props: skill rosters -> season TD profiles -> Poisson
-    model -> priced board, locked per day like HR props."""
+    model -> priced board, locked per day."""
     nfl_games = [g for g in games if g.sport == "NFL"]
     if not nfl_games:
         return []
@@ -281,7 +285,7 @@ def main(argv=None):
     parser.add_argument("--date", default=None, help="Run as if it were this date (YYYY-MM-DD).")
     parser.add_argument("--skip-grading", action="store_true", help="Skip grading yesterday's picks first.")
     parser.add_argument("--auto", action="store_true",
-                         help="Scheduled mode: only publish once, ~1 hour before first pitch.")
+                         help="Scheduled mode: only publish once, ~1 hour before the first game.")
     args = parser.parse_args(argv)
 
     run_date = (datetime.strptime(args.date, "%Y-%m-%d").date() if args.date
@@ -304,8 +308,8 @@ def main(argv=None):
 
     if not args.skip_grading:
         result = grade_pending(db)
-        for key, label in (("graded", "moneyline pick(s)"), ("hr_graded", "HR prop(s)"),
-                           ("td_graded", "TD prop(s)"), ("totals_graded", "total(s)")):
+        for key, label in (("graded", "moneyline pick(s)"), ("td_graded", "TD prop(s)"),
+                           ("totals_graded", "total(s)")):
             if result.get(key):
                 logger.info("Graded %s %s from prior days.", result[key], label)
 
@@ -338,7 +342,7 @@ def main(argv=None):
     if missing_pitchers:
         data_warnings.append(
             f"{len(missing_pitchers)} MLB game(s) have no probable pitcher posted by MLB yet -- "
-            f"pitching-matchup grading and HR props are skipped for those until confirmed: "
+            f"pitching-matchup grading is skipped for those until confirmed: "
             + ", ".join(f"{g.away_team}@{g.home_team}" for g in missing_pitchers[:6])
             + (f" +{len(missing_pitchers) - 6} more" if len(missing_pitchers) > 6 else "")
         )
@@ -392,6 +396,21 @@ def main(argv=None):
     if not team_records:
         data_warnings.append("Standings unavailable today -- talent gap & motivation factors are running blind.")
 
+    # Confirmed MLB starters override MLB's listed probables, which go stale.
+    for game in games:
+        if game.sport != "MLB":
+            continue
+        home_conf = get_confirmed_pitcher(game.game_id, "home")
+        away_conf = get_confirmed_pitcher(game.game_id, "away")
+        if home_conf and game.home_pitcher and home_conf != game.home_pitcher.name:
+            logger.info("Confirmed home starter %s overrides stale probable %s (game %s)",
+                        home_conf, game.home_pitcher.name, game.game_id)
+        if home_conf:
+            game.home_pitcher = ProbablePitcher(name=home_conf, player_id=None)
+        if away_conf:
+            game.away_pitcher = ProbablePitcher(name=away_conf, player_id=None)
+        game.pitchers_confirmed = bool(home_conf and away_conf)
+
     evaluations = []
     for game in games:
         odds = odds_by_game.get(game.game_id)
@@ -418,64 +437,6 @@ def main(argv=None):
     plays, dropped_notes = select_daily_plays(evaluations, db, public_splits, date_str)
     fade_teams = select_fade_teams(evaluations)
 
-    rosters = {}
-    situational_by_team = {}
-    lineup_source = {}
-    for game in games:
-        if game.sport != "MLB":
-            continue
-        home_conf = get_confirmed_pitcher(game.game_id, "home")
-        away_conf = get_confirmed_pitcher(game.game_id, "away")
-        if home_conf and game.home_pitcher and home_conf != game.home_pitcher.name:
-            logger.info("Confirmed home starter %s overrides stale probable %s (game %s)",
-                        home_conf, game.home_pitcher.name, game.game_id)
-        if home_conf:
-            game.home_pitcher = ProbablePitcher(name=home_conf, player_id=None)
-        if away_conf:
-            game.away_pitcher = ProbablePitcher(name=away_conf, player_id=None)
-        game.pitchers_confirmed = bool(home_conf and away_conf)
-
-        for team, side in ((game.home_team, "home"), (game.away_team, "away")):
-            if team in rosters:
-                continue
-            confirmed = get_confirmed_lineup(game.game_id, side)
-            if confirmed:
-                rosters[team] = confirmed
-                lineup_source[team] = "confirmed"
-            else:
-                rosters[team] = get_team_batters(team)
-                lineup_source[team] = "roster"
-            situational_by_team[team] = team_situational_summary(team, date_str)
-
-    if lineup_source and all(v == "roster" for v in lineup_source.values()):
-        data_warnings.append(
-            "Starting lineups haven't posted yet -- HR picks are drawn from active rosters "
-            "(may include players who end up benched). Re-run closer to first pitch for confirmed lineups."
-        )
-
-    hr_props = []
-    if config.HR_PROPS_ENABLED:
-        mlb_games = [g for g in games if g.sport == "MLB"]
-        hr_pool = evaluate_hr_prop_candidates(mlb_games, rosters, stats_provider, {},
-                                              situational_by_team, lineup_source)
-        hr_odds = fetch_hr_odds(hr_pool, games)
-        for prop in hr_pool:
-            key = (prop.get("game_id"), _norm_player(prop["player_name"]))
-            price = hr_odds.get(key)
-            if price:
-                prop["odds_american"] = price["odds"]
-                prop["odds_book"] = price["book"]
-            else:
-                prop["odds_american"] = None
-                prop["odds_book"] = None
-
-        recent_missers = _recent_prop_players(db, run_date, "hr_prop",
-                                              HR_ROTATION_LOOKBACK_DAYS, HR_HARD_BENCH_DAYS,
-                                              max_appearances=HR_ROTATION_MAX_APPEARANCES)
-        fresh_board = finalize_hr_props(hr_pool, recent_miss_players=recent_missers)
-        locked = _locked_props(db, date_str, hr_pool, "hr_prop")
-        hr_props = (locked[:config.HR_PROP_MAX_PER_DAY] if locked is not None else fresh_board)
-
     td_props = _build_td_props(db, games, odds_by_game, date_str, run_date, data_warnings)
     totals = evaluate_totals(games, odds_by_game, team_records)
 
@@ -488,25 +449,24 @@ def main(argv=None):
     active_sports = [s for s in SPORT_ORDER if any(g.sport == s for g in games)]
     for sport in active_sports:
         sp_plays = [p for p in plays if p.sport == sport]
-        sp_hr = hr_props if sport == "MLB" else []
-        par = build_daily_parlay(sp_plays, sp_hr)
+        par = build_daily_parlay(sp_plays, [])
         if par:
             sport_parlays[sport] = par
-    top_parlay = build_daily_parlay(plays, hr_props)
+    top_parlay = build_daily_parlay(plays, [])
     double_parlay = build_double_parlay(plays)
 
-    first_pitches = [g.game_time_utc for g in games if g.game_time_utc]
-    earliest_first_pitch = min(first_pitches) if first_pitches else None
+    first_starts = [g.game_time_utc for g in games if g.game_time_utc]
+    earliest_start = min(first_starts) if first_starts else None
 
-    log_recommendations(db, date_str, plays, hr_props, top_parlay,
+    log_recommendations(db, date_str, plays, [], top_parlay,
                         sport_parlays=sport_parlays, double_parlay=double_parlay,
-                        first_pitch_utc=earliest_first_pitch)
+                        first_pitch_utc=earliest_start)
     _log_props(db, date_str, td_props, "td_prop", "NFL", "player_name")
     _log_props(db, date_str, totals, "total", "NCAAF", "matchup", label_fn=total_label)
 
     history = _build_history(db, date_str)
     report = DailyReport(
-        date=date_str, slate_size=len(games), plays=plays, fade_teams=fade_teams, hr_props=hr_props, parlay=parlay,
+        date=date_str, slate_size=len(games), plays=plays, fade_teams=fade_teams, hr_props=[], parlay=parlay,
         dropped_notes=dropped_notes, celestial=_celestial_dict(run_date),
         numerology=_numerology_dict(run_date), bankroll_summary=bankroll_summary(db, history),
         data_warnings=data_warnings, results_recap=_build_results_recap(db, date_str),
@@ -522,11 +482,30 @@ def main(argv=None):
         auto_gate.mark_published(date_str)
 
 
+def _label_for(row):
+    """History label for a stored recommendation, or None if the kind is
+    retired or not something we display."""
+    kind = row["kind"]
+    if kind in RETIRED_KINDS:
+        return None
+    odds = row["odds_american"]
+    if kind == "moneyline":
+        return f"{row['team']} ML ({odds:+d})" if odds is not None else f"{row['team']} ML"
+    if kind == "td_prop":
+        return (f"{row['side_or_player']} anytime TD ({odds:+d})" if odds is not None
+                else f"{row['side_or_player']} anytime TD")
+    if kind == "total":
+        return row["side_or_player"]
+    return None
+
+
 def _build_history(db, today_str):
     """Past graded slates, newest first -- STRICTLY days before today_str.
-    Each day carries: picks (tagged with their SPORT so WNBA/NFL/NCAAF results
-    are visible, not just MLB), that day's Best Parlay, and the Double Your
-    Money ticket."""
+
+    HR props are filtered out entirely (RETIRED_KINDS). They were 11-120, and
+    leaving them in would keep a discontinued bet type dragging down every
+    record on the page. The seed days below are moneyline-only for the same
+    reason."""
     seed = [
         {"date": "2026-07-30",
          "parlay": ["PIT ML (-112)", "TB ML (-178)", "ATL ML (-154)", "CWS ML (-116)"],
@@ -537,9 +516,6 @@ def _build_history(db, today_str):
             {"label": "CWS ML (-116)", "status": "won", "kind": "moneyline", "sport": "MLB"},
             {"label": "PIT ML (-112)", "status": "lost", "kind": "moneyline", "sport": "MLB"},
             {"label": "MIA ML (+110)", "status": "lost", "kind": "moneyline", "sport": "MLB"},
-            {"label": "Munetaka Murakami to hit a HR", "status": "lost", "kind": "hr_prop", "sport": "MLB"},
-            {"label": "James Wood to hit a HR", "status": "lost", "kind": "hr_prop", "sport": "MLB"},
-            {"label": "Drake Baldwin to hit a HR", "status": "lost", "kind": "hr_prop", "sport": "MLB"},
         ]},
         {"date": "2026-07-29",
          "parlay": ["TOR ML", "TB ML", "ATL (Gm 2) ML", "BOS ML"],
@@ -549,9 +525,6 @@ def _build_history(db, today_str):
             {"label": "TB ML", "status": "won", "kind": "moneyline", "sport": "MLB"},
             {"label": "ATL (Gm 2) ML", "status": "won", "kind": "moneyline", "sport": "MLB"},
             {"label": "BOS ML", "status": "won", "kind": "moneyline", "sport": "MLB"},
-            {"label": "Max Muncy to hit a HR", "status": "lost", "kind": "hr_prop", "sport": "MLB"},
-            {"label": "Kazuma Okamoto to hit a HR", "status": "lost", "kind": "hr_prop", "sport": "MLB"},
-            {"label": "James Wood to hit a HR", "status": "lost", "kind": "hr_prop", "sport": "MLB"},
         ]},
         {"date": "2026-07-26",
          "parlay": ["BOS ML (-112)", "ARI ML (+102)", "MIL ML (-238)", "CWS ML (+109)"],
@@ -562,9 +535,6 @@ def _build_history(db, today_str):
             {"label": "CWS ML (+109)", "status": "won", "kind": "moneyline", "sport": "MLB"},
             {"label": "MIN ML", "status": "won", "kind": "moneyline", "sport": "MLB"},
             {"label": "ARI ML (+102)", "status": "lost", "kind": "moneyline", "sport": "MLB"},
-            {"label": "Pete Alonso to hit a HR (+280)", "status": "won", "kind": "hr_prop", "sport": "MLB"},
-            {"label": "Dominic Canzone to hit a HR", "status": "won", "kind": "hr_prop", "sport": "MLB"},
-            {"label": "Brandon Nimmo to hit a HR", "status": "lost", "kind": "hr_prop", "sport": "MLB"},
         ]},
         {"date": "2026-07-25",
          "parlay": ["TB ML (-120)", "STL ML (-112)", "WSH ML (-134)", "ARI ML"],
@@ -575,9 +545,6 @@ def _build_history(db, today_str):
             {"label": "STL ML (-112)", "status": "won", "kind": "moneyline", "sport": "MLB"},
             {"label": "TB ML (-120)", "status": "won", "kind": "moneyline", "sport": "MLB"},
             {"label": "MIA ML (-142)", "status": "lost", "kind": "moneyline", "sport": "MLB"},
-            {"label": "Bryan De La Cruz to hit a HR", "status": "lost", "kind": "hr_prop", "sport": "MLB"},
-            {"label": "Christian Encarnacion-Strand to hit a HR", "status": "lost", "kind": "hr_prop", "sport": "MLB"},
-            {"label": "Dominic Canzone to hit a HR", "status": "lost", "kind": "hr_prop", "sport": "MLB"},
         ]},
         {"date": "2026-07-24",
          "parlay": [],
@@ -586,35 +553,22 @@ def _build_history(db, today_str):
             {"label": "ARI ML (-124)", "status": "won", "kind": "moneyline", "sport": "MLB"},
             {"label": "MIL ML (-122)", "status": "lost", "kind": "moneyline", "sport": "MLB"},
             {"label": "MIN ML (-144)", "status": "lost", "kind": "moneyline", "sport": "MLB"},
-            {"label": "Christian Encarnacion-Strand to hit a HR (+450)", "status": "won", "kind": "hr_prop", "sport": "MLB"},
-            {"label": "Drake Baldwin to hit a HR (+422)", "status": "won", "kind": "hr_prop", "sport": "MLB"},
-            {"label": "Matt Olson to hit a HR (+310)", "status": "won", "kind": "hr_prop", "sport": "MLB"},
         ]},
     ]
     by_date = {}
     order = []
     for r in db.get_graded_history(after=LEDGER_CUTOFF):
         d = r["date"]
-        if d >= today_str:
+        if d >= today_str or d in SEED_OVERRIDE_DATES:
             continue
-        if d in SEED_OVERRIDE_DATES:
+        label = _label_for(r)
+        if label is None:
             continue
         if d not in by_date:
             by_date[d] = []
             order.append(d)
-        sport = r.get("sport") or "MLB"
-        odds = r["odds_american"]
-        if r["kind"] == "moneyline":
-            label = f"{r['team']} ML ({odds:+d})" if odds is not None else f"{r['team']} ML"
-        elif r["kind"] == "hr_prop":
-            label = f"{r['side_or_player']} to hit a HR ({odds:+d})" if odds is not None else f"{r['side_or_player']} to hit a HR"
-        elif r["kind"] == "td_prop":
-            label = f"{r['side_or_player']} anytime TD ({odds:+d})" if odds is not None else f"{r['side_or_player']} anytime TD"
-        elif r["kind"] == "total":
-            label = r["side_or_player"]
-        else:
-            continue
-        by_date[d].append({"label": label, "status": r["status"], "kind": r["kind"], "sport": sport})
+        by_date[d].append({"label": label, "status": r["status"], "kind": r["kind"],
+                            "sport": r.get("sport") or "MLB"})
     db_days = []
     for d in order:
         parlay_rows = db.get_recommendations_for_date(d, kind="parlay_leg")
@@ -638,16 +592,8 @@ def _build_results_recap(db, date_str):
     for r in db.get_recommendations_for_date(recap_date):
         if r["status"] not in ("won", "lost", "push"):
             continue
-        odds = r["odds_american"]
-        if r["kind"] == "moneyline":
-            label = f"{r['team']} ML ({odds:+d})" if odds is not None else f"{r['team']} ML"
-        elif r["kind"] == "hr_prop":
-            label = f"{r['side_or_player']} to hit a HR ({odds:+d})" if odds is not None else f"{r['side_or_player']} to hit a HR"
-        elif r["kind"] == "td_prop":
-            label = f"{r['side_or_player']} anytime TD ({odds:+d})" if odds is not None else f"{r['side_or_player']} anytime TD"
-        elif r["kind"] == "total":
-            label = r["side_or_player"]
-        else:
+        label = _label_for(r)
+        if label is None:
             continue
         items.append({"label": label, "status": r["status"], "kind": r["kind"],
                       "sport": r.get("sport") or "MLB"})
@@ -673,8 +619,6 @@ def _emit(report):
         logger.info("Live at %s", publish_result["url"])
 
     # Post the picks into Whop, where access is tied to an active membership.
-    # No-ops until WHOP_API_KEY / WHOP_EXPERIENCE_ID are set, so nothing
-    # changes until you're ready to switch over.
     whop_result = publish_to_whop(report)
     if whop_result.get("published"):
         logger.info("Posted to Whop forum (post %s).", whop_result.get("post_id"))
