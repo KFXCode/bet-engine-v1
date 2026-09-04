@@ -1,25 +1,33 @@
 """
 data/nfl_players.py
 ====================
-Skill-position rosters + season TD production for NFL touchdown props, from
+Skill-position rosters and SEASON STAT PROFILES for NFL player props, from
 free ESPN endpoints (verified working from the runner):
 
-    roster   -> /sports/football/nfl/teams/{espn_id}/roster
-    stats    -> /common/v3/sports/football/nfl/athletes/{id}/stats
+    roster -> /sports/football/nfl/teams/{espn_id}/roster
+    stats  -> /common/v3/sports/football/nfl/athletes/{id}/stats
 
-Only skill positions can realistically score, so we filter to RB/WR/TE/QB and
-ignore the rest of the roster -- that keeps the candidate pool at ~20 players
-per team instead of 90, which matters because each player costs one stats call.
+Originally this pulled touchdowns only. It now returns a FULL per-game profile
+-- passing / rushing / receiving yards, attempts, completions, receptions,
+targets -- because the prop board covers passing yards, rushing yards,
+receiving yards, receptions and QB pass TDs, and every one of those models
+needs a per-game rate plus the volume behind it.
 
-IMPORTANT about seasons: ESPN returns a player's stat rows for MANY seasons and
-NOT in a guaranteed order (spot checks came back with 2017 first for one player
-and 2021 first for another). Never trust statistics[0] -- we scan every row and
-keep the newest season. And in early season / preseason the current year has no
-data at all, so we fall back to the most recent completed season as the
-baseline. Without that fallback every Week 1 TD prop would score off zeros.
+WHY PER-GAME RATES AND NOT TOTALS: a prop is a single-game question. A back
+with 900 rush yards means nothing until you know whether that came in 6 games
+or 16. Every field below is stored as both the season total and the per-game
+average, and models should read the per-game number.
+
+TWO ESPN QUIRKS THIS HANDLES:
+  1. Stat rows come back for MANY seasons and NOT in a guaranteed order (spot
+     checks returned 2017 first for one player, 2021 for another). Never trust
+     statistics[0] -- we scan every row and keep the newest season.
+  2. Early in a season the current year has no data at all, so we fall back to
+     the most recent completed season. Without that, every Week 1 prop would
+     be modelled off zeros.
 
 Everything is cached 24h in the shared stats_cache table, and every failure is
-swallowed (returns empty) so the daily run always produces a report.
+swallowed (returns None/empty) so the daily run always produces a report.
 """
 
 import json
@@ -171,14 +179,21 @@ def _num(v):
         return 0.0
 
 
-def get_td_profile(player_id, name=None):
-    """Season TD production for a player:
-        {season, games, rush_td, rec_td, total_td, td_per_game, touches, targets}
-    Uses the newest season with data; in preseason / Week 1 that is last
-    season, which is the right baseline rather than scoring off zeros."""
+def get_player_profile(player_id, name=None):
+    """Full season profile for a skill player, with per-game rates.
+
+    Returns None when the player has no usable stat history at all.
+    {
+      season, games,
+      pass_yds, pass_att, pass_cmp, pass_td,   + *_pg per-game versions
+      rush_yds, rush_att, rush_td,             + *_pg
+      rec_yds, rec, targets, rec_td,           + *_pg
+      total_td, td_per_game, touches
+    }
+    """
     if not player_id:
         return None
-    key = f"nfl_td:{player_id}"
+    key = f"nfl_profile:{player_id}"
     cached = _cache_get(key)
     if cached is not None:
         return cached
@@ -188,44 +203,88 @@ def get_td_profile(player_id, name=None):
         return None
 
     cats = {c.get("name"): c for c in (payload.get("categories") or [])}
-    rush_td = rec_td = games = touches = targets = 0.0
+    prof = {
+        "season": None, "games": 0,
+        "pass_yds": 0.0, "pass_att": 0.0, "pass_cmp": 0.0, "pass_td": 0.0,
+        "rush_yds": 0.0, "rush_att": 0.0, "rush_td": 0.0,
+        "rec_yds": 0.0, "rec": 0.0, "targets": 0.0, "rec_td": 0.0,
+    }
     season_used = None
+    games = 0.0
 
-    for cat_name, td_key, touch_key in (("rushing", "TD", "CAR"), ("receiving", "TD", "REC")):
-        cat = cats.get(cat_name)
-        if not cat:
-            continue
+    # PASSING
+    cat = cats.get("passing")
+    if cat:
         row, year = _newest_season_row(cat)
-        if not row:
-            continue
-        vals = _labelled(cat, row)
-        td = _num(vals.get(td_key))
-        gp = _num(vals.get("GP"))
-        if cat_name == "rushing":
-            rush_td = td
-            touches += _num(vals.get(touch_key))
-        else:
-            rec_td = td
-            touches += _num(vals.get(touch_key))
-            targets = _num(vals.get("TGTS"))
-        games = max(games, gp)
-        if season_used is None or (year and year > season_used):
-            season_used = year
+        if row:
+            v = _labelled(cat, row)
+            prof["pass_yds"] = _num(v.get("YDS"))
+            prof["pass_att"] = _num(v.get("ATT"))
+            prof["pass_cmp"] = _num(v.get("CMP"))
+            prof["pass_td"] = _num(v.get("TD"))
+            games = max(games, _num(v.get("GP")))
+            season_used = year if season_used is None or (year and year > season_used) else season_used
 
-    total_td = rush_td + rec_td
-    if games <= 0 and total_td <= 0:
+    # RUSHING
+    cat = cats.get("rushing")
+    if cat:
+        row, year = _newest_season_row(cat)
+        if row:
+            v = _labelled(cat, row)
+            prof["rush_yds"] = _num(v.get("YDS"))
+            prof["rush_att"] = _num(v.get("CAR")) or _num(v.get("ATT"))
+            prof["rush_td"] = _num(v.get("TD"))
+            games = max(games, _num(v.get("GP")))
+            season_used = year if season_used is None or (year and year > season_used) else season_used
+
+    # RECEIVING
+    cat = cats.get("receiving")
+    if cat:
+        row, year = _newest_season_row(cat)
+        if row:
+            v = _labelled(cat, row)
+            prof["rec_yds"] = _num(v.get("YDS"))
+            prof["rec"] = _num(v.get("REC"))
+            prof["targets"] = _num(v.get("TGTS")) or _num(v.get("TGT"))
+            prof["rec_td"] = _num(v.get("TD"))
+            games = max(games, _num(v.get("GP")))
+            season_used = year if season_used is None or (year and year > season_used) else season_used
+
+    total_td = prof["rush_td"] + prof["rec_td"]
+    if games <= 0 and total_td <= 0 and prof["pass_yds"] <= 0:
         _cache_set(key, None)
         return None
 
-    profile = {
-        "season": season_used,
-        "games": int(games),
-        "rush_td": int(rush_td),
-        "rec_td": int(rec_td),
-        "total_td": int(total_td),
-        "td_per_game": round(total_td / games, 3) if games else 0.0,
-        "touches": int(touches),
-        "targets": int(targets),
+    prof["season"] = season_used
+    prof["games"] = int(games)
+    prof["total_td"] = int(total_td)
+    prof["touches"] = int(prof["rush_att"] + prof["rec"])
+
+    # Per-game rates -- what every prop model actually reads.
+    g = games if games > 0 else 1.0
+    for base in ("pass_yds", "pass_att", "pass_cmp", "pass_td",
+                 "rush_yds", "rush_att", "rush_td",
+                 "rec_yds", "rec", "targets", "rec_td"):
+        prof[f"{base}_pg"] = round(prof[base] / g, 3)
+    prof["td_per_game"] = round(total_td / g, 3)
+
+    _cache_set(key, prof)
+    return prof
+
+
+def get_td_profile(player_id, name=None):
+    """Back-compat shim for engine/td_props.py, which only needs the TD view.
+    Kept so the TD model didn't have to change when the profile got wider."""
+    prof = get_player_profile(player_id, name)
+    if not prof:
+        return None
+    return {
+        "season": prof["season"],
+        "games": prof["games"],
+        "rush_td": int(prof["rush_td"]),
+        "rec_td": int(prof["rec_td"]),
+        "total_td": prof["total_td"],
+        "td_per_game": prof["td_per_game"],
+        "touches": prof["touches"],
+        "targets": int(prof["targets"]),
     }
-    _cache_set(key, profile)
-    return profile
