@@ -158,8 +158,6 @@ FADE_MAX_PER_DAY = 5
 # four. Recalibrating the curve made the +EV tag honest but didn't create an
 # edge that wasn't there.
 #
-# NFL anytime-TD props and NCAAF totals stay live with their own models below.
-#
 # The settings are kept (not deleted) so the workflow can be switched back on
 # in one line if HR props are ever revisited with a different approach.
 HR_PROPS_ENABLED = False
@@ -197,15 +195,67 @@ HR_PROP_MIN_CLUSTERS = 3
 HR_WEATHER_ENABLED = True
 
 # ---------------------------------------------------------------------------
-# NFL TD props  (still live)
+# NFL ANYTIME-TD PROPS  (board 1 of 2)
 # ---------------------------------------------------------------------------
-TD_PROP_MAX_PER_DAY = 3
+# Raised from 3 to 10 (Sep 4, 2026). This is its OWN board, separate from the
+# yardage/reception props below -- the two are never mixed or ranked against
+# each other, because a TD prop and a receiving-yards prop aren't comparable
+# bets and shouldn't compete for the same slots.
+#
+# 10 is a CAP, not a quota. The board posts as many props as genuinely clear
+# the edge bar and stops there; a thin slate publishes 4 and that is the
+# correct outcome. Padding to a round number is exactly what killed the HR
+# board -- volume outran real edge and the marginal picks did the damage.
+TD_PROP_MAX_PER_DAY = 10
 TD_PROP_STRONG_SCORE = 70
 TD_MIN_EV_EDGE = 0.05
 TD_MIN_LAMBDA = 0.06
 
 # ---------------------------------------------------------------------------
-# Totals (NCAAF)  (still live)
+# NFL PLAYER PROPS -- yards / receptions / pass TDs  (board 2 of 2)
+# ---------------------------------------------------------------------------
+# Five markets, both sides, ranked purely on modelled edge regardless of
+# whether the player is a star or a backup (your call: "whatever has the
+# biggest edge"). Same cap-not-quota rule as the TD board.
+PLAYER_PROPS_ENABLED = True
+PLAYER_PROP_MAX_PER_DAY = 10
+PLAYER_PROP_MIN_EDGE = 0.05        # modelled probability minus the book's
+
+# The Odds API market keys. Each one is billed PER EVENT, so this list is
+# deliberately short -- exactly the five you asked for, nothing speculative.
+PLAYER_PROP_MARKETS = [
+    "player_pass_yds",
+    "player_rush_yds",
+    "player_reception_yds",
+    "player_receptions",
+    "player_pass_tds",
+]
+
+# A player needs this many games of history before the model will price him.
+# Below it the per-game average is noise, not a projection.
+PLAYER_PROP_MIN_GAMES = 3
+
+# Spread of real single-game outcomes around the projection, per market. These
+# are what convert "we project 68 yards vs a 62.5 line" into an actual
+# probability -- without them a 5-yard gap looks like a lock instead of the
+# coin-flip it usually is. Receiving yards scatter hardest (one broken tackle
+# swings a whole game); receptions are the tightest because volume is stable.
+PLAYER_PROP_SIGMA = {
+    "player_pass_yds": 62.0,
+    "player_rush_yds": 28.0,
+    "player_reception_yds": 30.0,
+    "player_receptions": 1.9,
+    "player_pass_tds": 1.05,
+}
+
+# UNDERS ARE SKIPPED FOR INJURY-QUESTIONABLE PLAYERS (your call). If a
+# questionable player is scratched, most books VOID the bet but some grade it
+# UNDER -- so an under on a player who might not dress is a bet whose rules
+# change depending on the book. Overs are unaffected: a scratch just voids.
+PLAYER_PROP_SKIP_UNDER_IF_QUESTIONABLE = True
+
+# ---------------------------------------------------------------------------
+# Totals (NCAAF)
 # ---------------------------------------------------------------------------
 TOTALS_MIN_GAMES = 3
 TOTALS_MIN_EDGE = 0.03
