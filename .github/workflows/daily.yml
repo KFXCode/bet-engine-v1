@@ -73,70 +73,33 @@ jobs:
           fi
 
       # ------------------------------------------------------------------
-      # WEEKLY ROTATING ACCESS LINK
-      # The report is published to  /p/<token>/  instead of the repo root.
-      # <token> = sha256(LINK_SALT + ISO week), so it is:
-      #   - stable for the whole week (the link you hand out keeps working),
-      #   - unguessable without the salt,
-      #   - completely different next Monday.
-      # Last week's folder is DELETED on rotation, so a link held by someone
-      # who cancelled stops working -- that is the whole point.
-      # The root index.html becomes a small "get the current link from your
-      # membership" stub so the bare Pages URL is never the live report.
+      # PERMANENT MEMBER LINK (Sep 4, 2026)
+      # The report publishes to the repo ROOT, so the address never changes:
+      #     https://kfxcode.github.io/mlb-picks/
+      #
+      # This replaces the weekly /p/<token>/ rotation. Rotation was there to
+      # stop a screenshotted URL working forever, but it never actually did
+      # that -- within any given week a leaked link works for anyone -- and it
+      # cost a manual Whop update every Monday plus a dead link for paying
+      # members in between. Whop's own membership wall is the real access
+      # control; this link is just where members go.
+      #
+      # Any leftover /p/ folders from the rotation era are removed once, so
+      # old tokenised URLs stop resolving.
       # ------------------------------------------------------------------
-      - name: Build rotating access path
-        id: rotate
-        env:
-          LINK_SALT: ${{ secrets.LINK_SALT }}
+      - name: Publish report to the permanent link
         run: |
-          if [ -z "$LINK_SALT" ]; then
-            echo "::error::LINK_SALT secret is not set -- add it in Settings > Secrets and variables > Actions."
-            exit 1
-          fi
-          # %G%V = ISO year + ISO week, so the token flips every Monday.
-          WEEK="$(date -u +%G%V)"
-          TOKEN="$(printf '%s' "${LINK_SALT}-${WEEK}" | sha256sum | cut -c1-14)"
-          echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
-          echo "week=$WEEK" >> "$GITHUB_OUTPUT"
-
           if [ -f data_store/reports/latest.html ]; then
-            # Drop every previous week's folder, then publish this week's.
-            rm -rf p
-            mkdir -p "p/$TOKEN"
-            cp data_store/reports/latest.html "p/$TOKEN/index.html"
+            cp data_store/reports/latest.html index.html
+            echo "Report copied to the permanent root link."
+          else
+            echo "No report generated this run -- leaving the existing index.html in place."
           fi
-
-          # Root stub: no picks, just a pointer. Anyone with the old bare URL
-          # lands here instead of on the live board.
-          cat > index.html <<'STUB'
-          <!DOCTYPE html>
-          <html lang="en">
-          <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1">
-          <meta name="robots" content="noindex, nofollow">
-          <title>Cover1Picks — Members Access</title>
-          <style>
-            html,body{margin:0;padding:0;background:#08090A;}
-            body{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;
-                 font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;color:#F6F6F4;}
-            .card{max-width:440px;text-align:center;}
-            .dot{width:8px;height:8px;border-radius:50%;background:#93E88C;display:inline-block;margin-right:8px;}
-            h1{font-size:26px;font-weight:800;letter-spacing:-0.02em;margin:18px 0 12px;}
-            p{font-size:15px;line-height:1.65;color:#A2A5AC;margin:0 0 10px;}
-            .tag{font-size:11px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#8E9199;}
-          </style>
-          </head>
-          <body>
-            <div class="card">
-              <div class="tag"><span class="dot"></span>Cover1Picks</div>
-              <h1>Your access link has rotated</h1>
-              <p>For member security, the picks link changes every week.</p>
-              <p>Open your Cover1Picks membership to get this week's current link.</p>
-            </div>
-          </body>
-          </html>
-          STUB
+          # One-time cleanup of the old rotating folders.
+          if [ -d p ]; then
+            rm -rf p
+            echo "Removed leftover rotating /p/ folders."
+          fi
 
       - name: Publish report + save history back to the repo
         run: |
@@ -154,17 +117,16 @@ jobs:
             git push
           fi
 
-      - name: Show this week's member link
+      - name: Show the member link
         run: |
-          LINK="https://kfxcode.github.io/mlb-picks/p/${{ steps.rotate.outputs.token }}/"
+          LINK="https://kfxcode.github.io/mlb-picks/"
           {
-            echo "## This week's Cover1Picks member link"
+            echo "## Cover1Picks member link"
             echo ""
             echo "**$LINK**"
             echo ""
-            echo "ISO week \`${{ steps.rotate.outputs.week }}\`. Paste this into your WHOP"
-            echo "product content (the Link app) so only active members can open it."
-            echo "It stops working when the token rotates next Monday."
+            echo "This link is PERMANENT -- it no longer rotates, so it only has to be"
+            echo "pasted into your Whop product content once."
             echo ""
             echo "Whop auto-posting is OFF -- you post the picks to the community"
             echo "yourself. This link is how members reach the full board."
