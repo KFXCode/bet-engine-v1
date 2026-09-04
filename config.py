@@ -47,7 +47,6 @@ ODDS_API_HR_MARKET = "batter_home_runs"
 # ---------------------------------------------------------------------------
 SPORT_SEASON_WINDOWS = {
     "MLB":   ((2, 15), (11, 15)),
-    "WNBA":  ((4, 25), (10, 25)),
     "NFL":   ((7, 20), (2, 20)),
     "NCAAF": ((7, 25), (1, 25)),
     "NCAAB": ((10, 25), (4, 15)),
@@ -87,7 +86,7 @@ FLAT_STAKE_UNITS = 1.0
 # ---------------------------------------------------------------------------
 MIN_EDGE = 0.02
 MIN_EDGE_BY_SPORT = {
-    "MLB": 0.02, "WNBA": 0.015, "NBA": 0.015, "NHL": 0.015,
+    "MLB": 0.02, "NBA": 0.015, "NHL": 0.015,
     "NFL": 0.015, "NCAAF": 0.015, "NCAAB": 0.015,
 }
 
@@ -121,7 +120,17 @@ ML_BIG_DOG_MIN_ODDS = 150         # the proven bucket
 # ---------------------------------------------------------------------------
 # Sports covered
 # ---------------------------------------------------------------------------
-ENABLED_SPORTS = ["MLB", "WNBA", "NFL", "NCAAF", "NCAAB", "NHL", "NBA"]
+# WNBA RETIRED Sep 4, 2026. It finished 10-12 on moneyline -- a losing record
+# on a real sample, with no bet type of its own to justify the API calls and
+# the extra schedule/standings/abbreviation surface it dragged along (it was
+# the source of most of the team-name settle bugs: WSH/GS/LV all collide with
+# other leagues). Dropping it removes those calls entirely and narrows the
+# system to the sports that are actually carrying it.
+#
+# The WNBA modules (schedule provider, standings, team map) are intentionally
+# LEFT IN THE REPO rather than deleted -- nothing imports them once the sport
+# is off this list, and keeping them means re-enabling is a one-word change.
+ENABLED_SPORTS = ["MLB", "NFL", "NCAAF", "NCAAB", "NHL", "NBA"]
 
 DIVERSIFICATION_LOOKBACK_DAYS = 3
 DIVERSIFICATION_EXTRA_EDGE = 0.03
@@ -149,8 +158,7 @@ FADE_MAX_PER_DAY = 5
 # four. Recalibrating the curve made the +EV tag honest but didn't create an
 # edge that wasn't there.
 #
-# Player props for the OTHER sports are unaffected: NFL anytime-TD props and
-# NCAAF totals both stay live with their own models below.
+# NFL anytime-TD props and NCAAF totals stay live with their own models below.
 #
 # The settings are kept (not deleted) so the workflow can be switched back on
 # in one line if HR props are ever revisited with a different approach.
