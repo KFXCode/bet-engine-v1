@@ -37,8 +37,18 @@ jobs:
           STATS_MODE: api
           ODDS_MODE: api
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
-          WHOP_API_KEY: ${{ secrets.WHOP_API_KEY }}
-          WHOP_EXPERIENCE_ID: ${{ secrets.WHOP_EXPERIENCE_ID }}
+          # ------------------------------------------------------------------
+          # WHOP AUTO-POSTING IS OFF (Sep 4, 2026) -- posting to the community
+          # is manual now, so the picks get a human read before members see
+          # them. output/publish_whop.py is a deliberate no-op when these two
+          # variables are absent, so simply NOT passing them here is the whole
+          # switch: the posting code stays in place, untouched and tested, and
+          # auto-posting resumes the moment these two lines are uncommented.
+          # The repo secrets stay set; nothing needs re-entering.
+          #
+          # WHOP_API_KEY: ${{ secrets.WHOP_API_KEY }}
+          # WHOP_EXPERIENCE_ID: ${{ secrets.WHOP_EXPERIENCE_ID }}
+          # ------------------------------------------------------------------
           PUBLIC_BETTING_MODE: manual
           PUBLIC_BETTING_URL: ""
           TIMEZONE: America/New_York
@@ -156,7 +166,7 @@ jobs:
             echo "product content (the Link app) so only active members can open it."
             echo "It stops working when the token rotates next Monday."
             echo ""
-            echo "The daily picks also post automatically into your Whop forum, so"
-            echo "this link is the optional full board -- not the only way in."
+            echo "Whop auto-posting is OFF -- you post the picks to the community"
+            echo "yourself. This link is how members reach the full board."
           } >> "$GITHUB_STEP_SUMMARY"
           echo "MEMBER LINK: $LINK"
