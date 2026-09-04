@@ -121,6 +121,8 @@
 
   .sport-tag { font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-dim);
                padding: 2px 8px; border-radius: 6px; vertical-align: middle; margin-left: 4px; }
+  .mkt-tag { font-size: 11px; font-weight: 700; color: var(--muted); border: 1px solid var(--card-border);
+             padding: 2px 7px; border-radius: 6px; vertical-align: middle; margin-left: 6px; }
 
   .section-title { font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted);
                     font-weight: 700; margin: 32px 0 12px; display: flex; align-items: center; justify-content: space-between; }
@@ -378,7 +380,7 @@
       <details class="pick{% if loop.first %} top-prop{% endif %}">
         <summary>
           <div class="s-main">
-            {% if loop.first %}<div class="top-badge">★ Top NFL Prop Today</div>{% endif %}
+            {% if loop.first %}<div class="top-badge">★ Top NFL TD Prop</div>{% endif %}
             <div class="s-team">{{ prop.player_name }} <span style="font-size:14px; color:var(--muted); font-weight:600;">TD</span></div>
             <div class="s-sub">Rank #{{ loop.index }} &middot; {{ prop.position }} &middot; {{ prop.team }} vs {{ prop.opponent }}{% if prop.odds_american is not none %} &middot; <span class="odds">{{ '%+d' | format(prop.odds_american) }}</span>{% else %} &middot; odds n/a{% endif %}</div>
           </div>
@@ -405,6 +407,43 @@
     {% else %}
       <div class="dropped">{% if 'NFL' in active_sports %}No anytime-TD prop cleared today's bar.{% else %}No NFL games today &mdash; TD props return with the next slate.{% endif %}</div>
     {% endif %}
+
+    <div class="section-title"><span>Player Props &middot; Yards / Receptions / Pass TDs</span>{% if player_props %}<span class="expand-all" onclick="toggleAll(this)">Expand all</span>{% endif %}</div>
+    {% if player_props %}
+      {% for prop in player_props %}
+      <details class="pick{% if loop.first %} top-prop{% endif %}">
+        <summary>
+          <div class="s-main">
+            {% if loop.first %}<div class="top-badge">★ Top NFL Player Prop</div>{% endif %}
+            <div class="s-team">{{ prop.player_name }} <span class="mkt-tag">{{ prop.market_label }}</span></div>
+            <div class="s-sub">Rank #{{ loop.index }} &middot; <b style="color:var(--fg);">{{ prop.side | title }} {{ '%g' | format(prop.line) }}</b> &middot; {{ prop.position }} &middot; {{ prop.team }} vs {{ prop.opponent }} &middot; <span class="odds">{{ '%+d' | format(prop.odds_american) }}</span>{% if prop.book %} ({{ prop.book }}){% endif %}</div>
+          </div>
+          <div class="s-right">
+            <div class="s-edge"><div class="n">{{ '%.1f' | format(prop.edge_pct * 100) }}%</div><div class="l">Edge</div></div>
+            <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+        </summary>
+        <div class="body">
+          <div class="metrics">
+            <div class="metric"><div class="num">{{ '%.1f' | format(prop.model_prob * 100) }}%</div><div class="lbl">Model {{ prop.side }}%</div></div>
+            <div class="metric"><div class="num">{{ '%.1f' | format(prop.market_prob * 100) }}%</div><div class="lbl">Market implied</div></div>
+            <div class="metric"><div class="num">{{ '%.1f' | format(prop.projection) }}</div><div class="lbl">Projected {{ prop.unit }}</div></div>
+          </div>
+          {% if prop.questionable %}
+          <div class="flags"><span class="flag">Injury designation &mdash; confirm he's active</span></div>
+          {% endif %}
+          <div class="why">
+            <div class="why-title">How this number was projected:</div>
+            <ul>
+              {% for reason in prop.reasoning %}<li>{{ reason }}</li>{% endfor %}
+            </ul>
+          </div>
+        </div>
+      </details>
+      {% endfor %}
+    {% else %}
+      <div class="dropped">{% if 'NFL' in active_sports %}No player prop cleared the edge bar today. The board fills only when the market is genuinely soft &mdash; padding it would just add losing bets.{% else %}No NFL games today &mdash; player props return with the next slate.{% endif %}</div>
+    {% endif %}
     {% endif %}
 
     <div class="section-title"><span>{{ sport }} &middot; Best Parlay</span></div>
@@ -415,7 +454,7 @@
       <div class="odds">Combined: {{ '%+d' | format(par.combined_odds_american) }} &middot; {{ '%.1f' | format(par.combined_prob * 100) }}% est. win probability</div>
       <div style="margin-top:14px;">
         {% for leg in par.legs %}
-        <div class="leg-row"><span class="n">Leg {{ loop.index }}</span><span class="lbl">{{ leg.label }}</span><span class="kind-tag">{% if leg.kind == 'td_prop' %}TD{% elif leg.kind == 'total' %}O/U{% else %}ML{% endif %}</span></div>
+        <div class="leg-row"><span class="n">Leg {{ loop.index }}</span><span class="lbl">{{ leg.label }}</span><span class="kind-tag">{% if leg.kind == 'td_prop' %}TD{% elif leg.kind == 'player_prop' %}PROP{% elif leg.kind == 'total' %}O/U{% else %}ML{% endif %}</span></div>
         {% endfor %}
       </div>
       <div class="note">Flat 1 unit. Built only from {{ sport }} legs the system graded today.</div>
@@ -455,7 +494,7 @@
             <div class="rec-row">
               <span class="mk" style="color:{{ '#2fd07a' if item.status == 'won' else ('#e5484d' if item.status == 'lost' else 'var(--muted)') }};">{% if item.status == 'won' %}&#10003;{% elif item.status == 'lost' %}&#10007;{% else %}&ndash;{% endif %}</span>
               <span class="lb">{{ item.label }}</span>
-              <span class="kind-tag">{% if item.kind == 'td_prop' %}TD{% elif item.kind == 'total' %}O/U{% else %}ML{% endif %}</span>
+              <span class="kind-tag">{% if item.kind == 'td_prop' %}TD{% elif item.kind == 'player_prop' %}PROP{% elif item.kind == 'total' %}O/U{% else %}ML{% endif %}</span>
             </div>
             {% endfor %}
             {% if d[2] or d[3] %}
@@ -496,7 +535,7 @@
       <div class="odds">Combined: {{ '%+d' | format(top_parlay.combined_odds_american) }} &middot; {{ '%.1f' | format(top_parlay.combined_prob * 100) }}% est. win probability</div>
       <div style="margin-top:14px;">
         {% for leg in top_parlay.legs %}
-        <div class="leg-row"><span class="n">Leg {{ loop.index }}</span><span class="lbl">{{ leg.label }}</span><span class="kind-tag">{% if leg.kind == 'td_prop' %}TD{% elif leg.kind == 'total' %}O/U{% else %}ML{% endif %}</span></div>
+        <div class="leg-row"><span class="n">Leg {{ loop.index }}</span><span class="lbl">{{ leg.label }}</span><span class="kind-tag">{% if leg.kind == 'td_prop' %}TD{% elif leg.kind == 'player_prop' %}PROP{% elif leg.kind == 'total' %}O/U{% else %}ML{% endif %}</span></div>
         {% endfor %}
       </div>
       <div class="note">Flat 1 unit. The single strongest ticket across every active sport &mdash; any mix of leagues and props the system rates highest today.</div>
