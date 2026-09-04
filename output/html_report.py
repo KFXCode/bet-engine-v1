@@ -4,9 +4,10 @@ output/html_report.py
 Renders the dark sportsbook-style, mobile/PWA-ready HTML daily report.
 Writes report_<date>.html (archive) and latest.html (always overwritten).
 
-Every value the template reads has to be passed explicitly here -- an omission
-makes a working feature look broken (pick_changes was built and stored for
-weeks but never rendered because it wasn't in this list).
+Every value the template reads has to be passed explicitly here. An omission
+doesn't error -- Jinja just renders nothing -- so the feature looks broken
+while the code behind it works fine. That exact mistake hid `pick_changes` for
+weeks. If you add something to DailyReport, add it to this call too.
 """
 
 import shutil
@@ -39,6 +40,7 @@ def render_daily_report(report):
         parlay=report.parlay,
         hr_props=report.hr_props,
         td_props=getattr(report, "td_props", []),
+        player_props=getattr(report, "player_props", []),
         totals=getattr(report, "totals", []),
         dropped_notes=report.dropped_notes,
         bankroll=report.bankroll_summary,
