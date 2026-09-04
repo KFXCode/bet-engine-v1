@@ -19,25 +19,23 @@ BET TYPES:
 Every prop/total is gated on the game being FINAL. Without that gate an
 in-progress game marks players who simply haven't scored YET as losses.
 
-SELF-HEALING PURGE (Sep 4, 2026). Two kinds of junk rows had to be cleaned out
-of the database by hand, and BOTH came back -- because the workflow commits its
-own copy of the DB every run, so a manual upload silently loses the race with
-whatever the runner checked out. Cleaning data by hand was never going to hold.
-The purge now runs in code at the top of every grading pass, so the fix
-re-applies itself no matter which copy of the DB wins:
+SELF-HEALING PURGE. Junk and retired rows are cleaned in CODE at the top of
+every grading pass, not by hand. Hand-fixing the database never held: the
+workflow commits its own copy of the DB every run, so a manual upload silently
+loses the race with whatever the runner checked out. Three categories:
 
   1. PLACEHOLDER MATCHUPS -- ESPN publishes undecided future rounds with the
-     team literally named "TBD". Those became real picks that can never be
-     graded and sat pending forever, dragging a league's record with them.
+     team literally named "TBD". Those became picks that can never be graded
+     and sat pending forever, dragging a league's record with them.
   2. IMPOSSIBLE TOTALS -- three NCAAF totals were graded WINS off lines of
-     8.0/7.5. Those are baseball run totals produced by the mock odds provider
-     during a credit outage; every football game clears 8 points, so the model
+     8.0/7.5, which are baseball run totals produced by the mock odds provider
+     during a credit outage. Every football game clears 8 points, so the model
      "won" them automatically and the record was inflated by bets that were
-     never real. Any football total under 28 points is refused and removed.
-
-Both root causes are fixed upstream (schedule providers drop TBD; engine/
-totals.py refuses mock books and implausible lines). This purge exists so the
-history that already exists gets corrected too, and stays corrected.
+     never real. Any football total under 28 points is removed.
+  3. RETIRED SPORTS (Sep 4, 2026) -- WNBA is switched off. Removing it from
+     ENABLED_SPORTS stops NEW picks, but its old rows still lived in the
+     ledger, which kept a WNBA tab and record on the report. Retiring a sport
+     should remove it from the product completely, so its rows are purged too.
 
 CLV (Closing Line Value): when a moneyline pick is graded, compare the price we
 recommended to the CLOSING line. Positive CLV = the market moved toward our
@@ -59,11 +57,15 @@ from data.td_settle import get_td_scorers
 logger = logging.getLogger(__name__)
 
 # Team names that mean "opponent not decided yet".
-PLACEHOLDER_TEAMS = {"TBD", "TBA", "TO BE DETERMINED", "TO BE ANNOUNCED"}
+PLACEHOLDER_TEAMS = ("TBD", "TBA", "TO BE DETERMINED", "TO BE ANNOUNCED")
 
 # A football total below this was never a real market line.
 MIN_FOOTBALL_TOTAL = 28.0
 FOOTBALL_SPORTS = ("NCAAF", "NFL")
+
+# Sports switched off for good -- their history is removed from the ledger so
+# no tab or record survives. config.RETIRED_SPORTS overrides this if set.
+RETIRED_SPORTS = tuple(getattr(config, "RETIRED_SPORTS", ("WNBA",)))
 
 
 def _norm_name(name):
@@ -112,10 +114,10 @@ def _parse_total_pick(side_or_player):
 
 
 def purge_ungradeable(db):
-    """Delete rows that can never be settled honestly. Runs every pass so a
-    hand-fix can't be lost to the workflow's own DB commit. Returns counts."""
-    removed_placeholder = 0
-    removed_bad_total = 0
+    """Delete rows that can never be settled honestly, plus rows belonging to
+    a retired sport. Runs every pass so a fix can't be lost to the workflow's
+    own DB commit."""
+    removed = {"placeholder": 0, "bad_total": 0, "retired": 0}
     try:
         with db.cursor() as cur:
             cur.execute("SELECT id, sport, kind, team, side_or_player FROM recommendations")
@@ -123,44 +125,47 @@ def purge_ungradeable(db):
 
             doomed = []
             for r in rows:
+                sport = (r["sport"] or "").strip().upper()
                 team = (r["team"] or "").strip().upper()
                 label = (r["side_or_player"] or "").strip()
 
+                if sport in RETIRED_SPORTS:
+                    doomed.append((r["id"], "retired"))
+                    continue
                 if team in PLACEHOLDER_TEAMS or label.upper().startswith("TBD "):
                     doomed.append((r["id"], "placeholder"))
                     continue
-
-                if r["kind"] == "total" and (r["sport"] or "") in FOOTBALL_SPORTS:
+                if r["kind"] == "total" and sport in FOOTBALL_SPORTS:
                     parsed = _parse_total_pick(label)
                     if parsed and parsed[1] < MIN_FOOTBALL_TOTAL:
                         doomed.append((r["id"], "bad_total"))
 
             for rec_id, why in doomed:
                 cur.execute("DELETE FROM recommendations WHERE id=?", (rec_id,))
-                if why == "placeholder":
-                    removed_placeholder += 1
-                else:
-                    removed_bad_total += 1
+                removed[why] += 1
 
+            placeholders = ",".join("?" for _ in PLACEHOLDER_TEAMS)
             cur.execute(
-                "DELETE FROM games WHERE UPPER(TRIM(home_team)) IN (?,?,?,?) "
-                "OR UPPER(TRIM(away_team)) IN (?,?,?,?)",
-                tuple(PLACEHOLDER_TEAMS) * 2 if len(PLACEHOLDER_TEAMS) == 4
-                else ("TBD", "TBA", "TO BE DETERMINED", "TO BE ANNOUNCED",
-                      "TBD", "TBA", "TO BE DETERMINED", "TO BE ANNOUNCED"),
+                f"DELETE FROM games WHERE UPPER(TRIM(home_team)) IN ({placeholders}) "
+                f"OR UPPER(TRIM(away_team)) IN ({placeholders})",
+                PLACEHOLDER_TEAMS + PLACEHOLDER_TEAMS,
             )
     except Exception as exc:
         logger.warning("Purge of ungradeable rows failed (continuing): %s", exc)
-        return {"placeholder": 0, "bad_total": 0}
+        return {"placeholder": 0, "bad_total": 0, "retired": 0}
 
-    if removed_placeholder:
+    if removed["placeholder"]:
         logger.info("Purge: removed %d placeholder (TBD) pick(s) -- those can never grade.",
-                    removed_placeholder)
-    if removed_bad_total:
+                    removed["placeholder"])
+    if removed["bad_total"]:
         logger.info("Purge: removed %d football total(s) with an impossible line (<%.0f pts) -- "
                     "simulated-odds artifacts that would fake a win.",
-                    removed_bad_total, MIN_FOOTBALL_TOTAL)
-    return {"placeholder": removed_placeholder, "bad_total": removed_bad_total}
+                    removed["bad_total"], MIN_FOOTBALL_TOTAL)
+    if removed["retired"]:
+        logger.info("Purge: removed %d pick(s) from retired sport(s) %s -- the league is off the "
+                    "product, so its tab and record come off with it.",
+                    removed["retired"], ", ".join(RETIRED_SPORTS))
+    return removed
 
 
 def grade_pending(db):
