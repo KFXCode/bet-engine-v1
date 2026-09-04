@@ -29,9 +29,9 @@ class Game:
     game_number: int = 1
     doubleheader: bool = False
     # True when ESPN reports this game under seasontype=1 (preseason/exhibition).
-    # Set by the schedule provider. engine/td_props.py uses it to SKIP TD props
-    # entirely: FanDuel posts no anytime-TD market in preseason, and season TD
-    # rates can't predict who scores when starters play two series.
+    # Set by the schedule provider. Both prop engines use it to SKIP preseason
+    # entirely: books post no player-prop markets then, and season rates can't
+    # predict anything when starters play two series.
     is_preseason: bool = False
 
     def dh_label(self):
@@ -145,5 +145,12 @@ class DailyReport:
     double_parlay: dict = field(default_factory=dict)
     active_sports: list = field(default_factory=list)
     pick_changes: list = field(default_factory=list)
+    # NFL anytime-touchdown props (engine/td_props.py) -- board 1 of 2.
     td_props: List[dict] = field(default_factory=list)
+    # NFL yardage / receptions / pass-TD props (engine/player_props.py) --
+    # board 2 of 2. Kept SEPARATE from td_props rather than merged into one
+    # list: they're ranked independently and each gets its own cap, because a
+    # touchdown prop and a receiving-yards prop aren't comparable bets and
+    # shouldn't compete for the same slots.
+    player_props: List[dict] = field(default_factory=list)
     totals: List[dict] = field(default_factory=list)
