@@ -7,19 +7,37 @@ calls this automatically at the start of every run.
 
 ALL SPORTS: MLB settles through statsapi.mlb.com; every other league settles
 through data/final_scores.py (ESPN scoreboard, multi-host) matched on the
-stored game's date + team abbreviations, since our non-MLB ids are hashes.
+stored game's date + team name, since our non-MLB ids are hashes.
 
 BET TYPES:
   moneyline -> winner of the game
   hr_prop   -> data/lineups.get_hr_settled_players (MLB boxscore)
   td_prop   -> data/td_settle.get_td_scorers (NFL boxscore TD columns)
   total     -> final combined score vs the line stored on the pick. An exact
-               landing (line 52, game totals 52) is a PUSH, not a loss -- that
-               matters because whole-number totals push often enough that
-               calling them losses would understate the record.
+               landing (line 52, game totals 52) is a PUSH, not a loss.
 
 Every prop/total is gated on the game being FINAL. Without that gate an
 in-progress game marks players who simply haven't scored YET as losses.
+
+SELF-HEALING PURGE (Sep 4, 2026). Two kinds of junk rows had to be cleaned out
+of the database by hand, and BOTH came back -- because the workflow commits its
+own copy of the DB every run, so a manual upload silently loses the race with
+whatever the runner checked out. Cleaning data by hand was never going to hold.
+The purge now runs in code at the top of every grading pass, so the fix
+re-applies itself no matter which copy of the DB wins:
+
+  1. PLACEHOLDER MATCHUPS -- ESPN publishes undecided future rounds with the
+     team literally named "TBD". Those became real picks that can never be
+     graded and sat pending forever, dragging a league's record with them.
+  2. IMPOSSIBLE TOTALS -- three NCAAF totals were graded WINS off lines of
+     8.0/7.5. Those are baseball run totals produced by the mock odds provider
+     during a credit outage; every football game clears 8 points, so the model
+     "won" them automatically and the record was inflated by bets that were
+     never real. Any football total under 28 points is refused and removed.
+
+Both root causes are fixed upstream (schedule providers drop TBD; engine/
+totals.py refuses mock books and implausible lines). This purge exists so the
+history that already exists gets corrected too, and stays corrected.
 
 CLV (Closing Line Value): when a moneyline pick is graded, compare the price we
 recommended to the CLOSING line. Positive CLV = the market moved toward our
@@ -39,6 +57,13 @@ from data.final_scores import get_final_score_espn
 from data.td_settle import get_td_scorers
 
 logger = logging.getLogger(__name__)
+
+# Team names that mean "opponent not decided yet".
+PLACEHOLDER_TEAMS = {"TBD", "TBA", "TO BE DETERMINED", "TO BE ANNOUNCED"}
+
+# A football total below this was never a real market line.
+MIN_FOOTBALL_TOTAL = 28.0
+FOOTBALL_SPORTS = ("NCAAF", "NFL")
 
 
 def _norm_name(name):
@@ -86,7 +111,61 @@ def _parse_total_pick(side_or_player):
     return m.group(1).lower(), float(m.group(2))
 
 
+def purge_ungradeable(db):
+    """Delete rows that can never be settled honestly. Runs every pass so a
+    hand-fix can't be lost to the workflow's own DB commit. Returns counts."""
+    removed_placeholder = 0
+    removed_bad_total = 0
+    try:
+        with db.cursor() as cur:
+            cur.execute("SELECT id, sport, kind, team, side_or_player FROM recommendations")
+            rows = cur.fetchall()
+
+            doomed = []
+            for r in rows:
+                team = (r["team"] or "").strip().upper()
+                label = (r["side_or_player"] or "").strip()
+
+                if team in PLACEHOLDER_TEAMS or label.upper().startswith("TBD "):
+                    doomed.append((r["id"], "placeholder"))
+                    continue
+
+                if r["kind"] == "total" and (r["sport"] or "") in FOOTBALL_SPORTS:
+                    parsed = _parse_total_pick(label)
+                    if parsed and parsed[1] < MIN_FOOTBALL_TOTAL:
+                        doomed.append((r["id"], "bad_total"))
+
+            for rec_id, why in doomed:
+                cur.execute("DELETE FROM recommendations WHERE id=?", (rec_id,))
+                if why == "placeholder":
+                    removed_placeholder += 1
+                else:
+                    removed_bad_total += 1
+
+            cur.execute(
+                "DELETE FROM games WHERE UPPER(TRIM(home_team)) IN (?,?,?,?) "
+                "OR UPPER(TRIM(away_team)) IN (?,?,?,?)",
+                tuple(PLACEHOLDER_TEAMS) * 2 if len(PLACEHOLDER_TEAMS) == 4
+                else ("TBD", "TBA", "TO BE DETERMINED", "TO BE ANNOUNCED",
+                      "TBD", "TBA", "TO BE DETERMINED", "TO BE ANNOUNCED"),
+            )
+    except Exception as exc:
+        logger.warning("Purge of ungradeable rows failed (continuing): %s", exc)
+        return {"placeholder": 0, "bad_total": 0}
+
+    if removed_placeholder:
+        logger.info("Purge: removed %d placeholder (TBD) pick(s) -- those can never grade.",
+                    removed_placeholder)
+    if removed_bad_total:
+        logger.info("Purge: removed %d football total(s) with an impossible line (<%.0f pts) -- "
+                    "simulated-odds artifacts that would fake a win.",
+                    removed_bad_total, MIN_FOOTBALL_TOTAL)
+    return {"placeholder": removed_placeholder, "bad_total": removed_bad_total}
+
+
 def grade_pending(db):
+    purge_ungradeable(db)
+
     pending = db.get_pending_recommendations()
     if not pending:
         return {"graded": 0, "hr_graded": 0, "td_graded": 0, "totals_graded": 0}
