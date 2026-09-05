@@ -6,16 +6,15 @@ on:
     # EVERY sport today and publishes exactly once, AUTO_RUN_LEAD_MINUTES
     # before it -- so a noon college football kickoff triggers an 11:00 AM
     # publish, and an evening-only slate waits until evening.
-    #
-    # Skipped checks are effectively free: the gate fetches only the (free)
-    # ESPN/schedule data and exits before any paid Odds API call, and
-    # last_published.txt guarantees at most one publish per day.
     - cron: "0 11-23,0-3 * * *"   # hourly, 07:00-22:00 ET
-    - cron: "0 6 * * *"           # 02:00 ET overnight grading
+    - cron: "0 6 * * *"           # 02:00 ET overnight grading (GRADE ONLY)
   workflow_dispatch: {}
 
 permissions:
   contents: write
+
+env:
+  GRADING_CRON: "0 6 * * *"
 
 jobs:
   daily-report:
@@ -39,13 +38,8 @@ jobs:
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
           # ------------------------------------------------------------------
           # WHOP AUTO-POSTING IS OFF (Sep 4, 2026) -- posting to the community
-          # is manual now, so the picks get a human read before members see
-          # them. output/publish_whop.py is a deliberate no-op when these two
-          # variables are absent, so simply NOT passing them here is the whole
-          # switch: the posting code stays in place, untouched and tested, and
-          # auto-posting resumes the moment these two lines are uncommented.
-          # The repo secrets stay set; nothing needs re-entering.
-          #
+          # is manual now. output/publish_whop.py is a deliberate no-op when
+          # these are absent, so NOT passing them here is the whole switch.
           # WHOP_API_KEY: ${{ secrets.WHOP_API_KEY }}
           # WHOP_EXPERIENCE_ID: ${{ secrets.WHOP_EXPERIENCE_ID }}
           # ------------------------------------------------------------------
@@ -54,45 +48,47 @@ jobs:
           TIMEZONE: America/New_York
           DAILY_RUN_HOUR: "10"
           DAILY_RUN_MINUTE: "0"
-          # Publish this many minutes before the FIRST game of the day,
-          # whichever sport that happens to be.
           AUTO_RUN_LEAD_MINUTES: "60"
         run: |
-          # 06:00 UTC (02:00 ET) is the grading pass: yesterday's games are
-          # final, so grade them under YESTERDAY's date. It never publishes a
-          # new slate, so it cannot overwrite a locked board.
-          if [ "${{ github.event.schedule }}" = "0 6 * * *" ]; then
-            echo "Overnight grading pass -- settling yesterday's finished games."
+          if [ "${{ github.event.schedule }}" = "${{ env.GRADING_CRON }}" ]; then
+            echo "Overnight GRADING pass -- settling yesterday's finished games. Will NOT publish."
             python run_daily.py --date "$(TZ=America/New_York date -d 'yesterday' +%F)"
           elif [ "${{ github.event_name }}" = "schedule" ]; then
             echo "Hourly gate check -- publishes only if within the lead window and not already published today."
             python run_daily.py --auto
           else
-            echo "Manually triggered -- forcing a fresh run + publish regardless of timing/once-a-day gate."
+            echo "Manually triggered -- forcing a fresh run + publish."
             python run_daily.py
           fi
 
       # ------------------------------------------------------------------
-      # PERMANENT MEMBER LINK
-      # The report publishes to the repo ROOT, so the address never changes:
-      #     https://kfxcode.github.io/bet-engine-v1/
+      # WHY THE GRADING RUN MUST NOT PUBLISH (Sep 5, 2026)
+      # The 02:00 ET pass runs with `--date yesterday` so it can settle games
+      # that finished overnight. But run_daily.py always RENDERS a report for
+      # whatever date it was given -- so that pass produced YESTERDAY's report
+      # and copied it over index.html, silently reverting the live page from
+      # today back to yesterday a few hours after it published correctly.
       #
-      # This replaced the weekly /p/<token>/ rotation. Rotation was meant to
-      # stop a screenshotted URL working forever, but it never actually did
-      # that -- within any given week a leaked link works for anyone -- and it
-      # cost a manual Whop update every Monday plus a dead link for paying
-      # members in between. Whop's own membership wall is the real access
-      # control; this link is just where members go.
+      # That is exactly what happened here: the evening run published Sep 5,
+      # then the 5:33 AM grading pass overwrote it with Sep 4. The run showed
+      # SUCCESS both times, because overwriting is not an error -- it was just
+      # the wrong file.
+      #
+      # The grading pass now skips the copy entirely. It still grades, still
+      # commits the updated database, and leaves the live page alone.
       # ------------------------------------------------------------------
       - name: Publish report to the permanent link
         run: |
+          if [ "${{ github.event.schedule }}" = "${{ env.GRADING_CRON }}" ]; then
+            echo "Grading pass -- deliberately NOT touching index.html so the live page keeps today's report."
+            exit 0
+          fi
           if [ -f data_store/reports/latest.html ]; then
             cp data_store/reports/latest.html index.html
             echo "Report copied to the permanent root link."
           else
             echo "No report generated this run -- leaving the existing index.html in place."
           fi
-          # One-time cleanup of the old rotating folders.
           if [ -d p ]; then
             rm -rf p
             echo "Removed leftover rotating /p/ folders."
@@ -102,30 +98,21 @@ jobs:
       # WHY THE STAGING IS SPLIT INTO SEPARATE COMMANDS (Sep 5, 2026)
       # This step used to run, in one line:
       #     git add -A index.html p
-      # `p` is the old rotation folder, deleted above and long gone from the
-      # repo. git treats an unmatched pathspec as a FATAL error for the whole
-      # command -- so once `p` no longer existed, that single `git add` failed
-      # and staged NOTHING, index.html included. `2>/dev/null || true` hid the
-      # error, `git diff --cached --quiet` then found no changes, and the step
-      # cheerfully printed "Nothing new to publish."
-      #
-      # Net effect: the pipeline ran perfectly, generated the report, reported
-      # SUCCESS -- and the live page silently sat frozen on an old date for
-      # days. Each path is now staged on its own line so one missing file can
-      # never suppress the others, and the publish is VERIFIED below instead
-      # of assumed.
+      # `p` is the old rotation folder, long deleted. git treats an unmatched
+      # pathspec as FATAL for the whole command -- so once `p` was gone, that
+      # single `git add` failed and staged NOTHING, index.html included.
+      # `2>/dev/null || true` hid the error and the step printed "Nothing new
+      # to publish", so the pipeline reported SUCCESS while the live page sat
+      # frozen for days. Each path is staged on its own line now.
       # ------------------------------------------------------------------
       - name: Publish report + save history back to the repo
         run: |
           git config user.name "mlb-picks-bot"
           git config user.email "actions@users.noreply.github.com"
 
-          # index.html is the member-facing page -- stage it FIRST and on its
-          # own, so nothing else can stop it going out.
           if [ -f index.html ]; then
             git add -f index.html
           fi
-          # Only stage the retired rotation folder if it's actually still tracked.
           if git ls-files --error-unmatch p >/dev/null 2>&1; then
             git add -A p
           fi
@@ -146,9 +133,13 @@ jobs:
           fi
 
       # Fail loudly if a report was generated but the live page didn't get it.
-      # A silent no-publish is the exact failure that hid the bug above.
+      # A silent no-publish is the exact failure that hid the pathspec bug.
       - name: Verify the live page actually got today's report
         run: |
+          if [ "${{ github.event.schedule }}" = "${{ env.GRADING_CRON }}" ]; then
+            echo "Grading pass -- no publish expected, nothing to verify."
+            exit 0
+          fi
           if [ ! -f data_store/reports/latest.html ]; then
             echo "No report this run (gate skipped it) -- nothing to verify."
             exit 0
@@ -169,10 +160,6 @@ jobs:
             echo ""
             echo "**$LINK**"
             echo ""
-            echo "This link is PERMANENT -- it no longer rotates, so it only has to be"
-            echo "pasted into your Whop product content once."
-            echo ""
-            echo "Whop auto-posting is OFF -- you post the picks to the community"
-            echo "yourself. This link is how members reach the full board."
+            echo "Permanent -- paste into Whop once."
           } >> "$GITHUB_STEP_SUMMARY"
           echo "MEMBER LINK: $LINK"
