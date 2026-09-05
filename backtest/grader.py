@@ -7,35 +7,30 @@ calls this automatically at the start of every run.
 
 ALL SPORTS: MLB settles through statsapi.mlb.com; every other league settles
 through data/final_scores.py (ESPN scoreboard, multi-host) matched on the
-stored game's date + team name, since our non-MLB ids are hashes.
+stored game's date + team abbreviations, since our non-MLB ids are hashes.
 
 BET TYPES:
-  moneyline -> winner of the game
-  hr_prop   -> data/lineups.get_hr_settled_players (MLB boxscore)
-  td_prop   -> data/td_settle.get_td_scorers (NFL boxscore TD columns)
-  total     -> final combined score vs the line stored on the pick. An exact
-               landing (line 52, game totals 52) is a PUSH, not a loss.
+  moneyline    -> winner from the final score
+  total        -> combined final score vs the stored line
+  td_prop      -> data/td_settle.get_td_scorers (NFL boxscore TD columns)
+  player_prop  -> data/player_settle (yards / receptions / pass TDs vs line)
 
-Every prop/total is gated on the game being FINAL. Without that gate an
-in-progress game marks players who simply haven't scored YET as losses.
+Every prop is gated on the game actually being FINAL first. Without that gate
+an in-progress game marks every player who simply hasn't produced YET as a
+loss, which silently destroys the prop record.
 
-SELF-HEALING PURGE. Junk and retired rows are cleaned in CODE at the top of
-every grading pass, not by hand. Hand-fixing the database never held: the
-workflow commits its own copy of the DB every run, so a manual upload silently
-loses the race with whatever the runner checked out. Three categories:
+PLAYER-PROP LABEL PARSING (Sep 5, 2026): player props are stored with the
+human-readable label engine/player_props.label_for() produces --
+"Bijan Robinson Over 68.5 Rushing Yards" -- because that same string is what
+shows in the History tab. An earlier version of this grader expected a
+pipe-delimited "Name|market|side|line" instead, so EVERY player prop failed to
+parse and silently stayed pending forever: a whole board that published picks
+and never once graded them. The parser below reads the real format, using
+player_props.MARKET_BY_LABEL as the reverse lookup from "Rushing Yards" to
+player_rush_yds, and it accepts the pipe form too so nothing already on the
+ledger is stranded.
 
-  1. PLACEHOLDER MATCHUPS -- ESPN publishes undecided future rounds with the
-     team literally named "TBD". Those became picks that can never be graded
-     and sat pending forever, dragging a league's record with them.
-  2. IMPOSSIBLE TOTALS -- three NCAAF totals were graded WINS off lines of
-     8.0/7.5, which are baseball run totals produced by the mock odds provider
-     during a credit outage. Every football game clears 8 points, so the model
-     "won" them automatically and the record was inflated by bets that were
-     never real. Any football total under 28 points is removed.
-  3. RETIRED SPORTS (Sep 4, 2026) -- WNBA is switched off. Removing it from
-     ENABLED_SPORTS stops NEW picks, but its old rows still lived in the
-     ledger, which kept a WNBA tab and record on the report. Retiring a sport
-     should remove it from the product completely, so its rows are purged too.
+MLB is moneyline-only -- HR props are retired, so nothing here settles them.
 
 CLV (Closing Line Value): when a moneyline pick is graded, compare the price we
 recommended to the CLOSING line. Positive CLV = the market moved toward our
@@ -50,22 +45,12 @@ from datetime import datetime, timezone
 import requests
 
 import config
-from data.lineups import get_hr_settled_players
 from data.final_scores import get_final_score_espn
 from data.td_settle import get_td_scorers
+from data.player_settle import get_player_stats, grade_player_prop
+from engine.player_props import MARKET_BY_LABEL
 
 logger = logging.getLogger(__name__)
-
-# Team names that mean "opponent not decided yet".
-PLACEHOLDER_TEAMS = ("TBD", "TBA", "TO BE DETERMINED", "TO BE ANNOUNCED")
-
-# A football total below this was never a real market line.
-MIN_FOOTBALL_TOTAL = 28.0
-FOOTBALL_SPORTS = ("NCAAF", "NFL")
-
-# Sports switched off for good -- their history is removed from the ledger so
-# no tab or record survives. config.RETIRED_SPORTS overrides this if set.
-RETIRED_SPORTS = tuple(getattr(config, "RETIRED_SPORTS", ("WNBA",)))
 
 
 def _norm_name(name):
@@ -103,85 +88,55 @@ def _compute_clv(db, rec):
     return round((close_p - pick_p) * 100.0, 2)
 
 
-def _parse_total_pick(side_or_player):
-    """'over 54.5' / 'under 47' -> ('over', 54.5). None if unparseable."""
-    if not side_or_player:
+# "Bijan Robinson Over 68.5 Rushing Yards" -> name / side / line / market label
+_PROP_RE = re.compile(r"^(?P<name>.+?)\s+(?P<side>Over|Under)\s+(?P<line>[\d.]+)\s+(?P<label>.+)$",
+                      re.IGNORECASE)
+
+
+def _parse_prop_label(label):
+    """(name, market_key, side, line) or None.
+
+    Handles the real stored format first, then the legacy pipe form so any
+    rows written by the earlier build still settle."""
+    if not label:
         return None
-    m = re.match(r"\s*(over|under)\s+([0-9]+(?:\.[0-9]+)?)", str(side_or_player), re.I)
+
+    if "|" in label:
+        parts = label.split("|")
+        if len(parts) == 4:
+            name, market, side, line = parts
+            try:
+                return name, market, side.lower(), float(line)
+            except (TypeError, ValueError):
+                return None
+        return None
+
+    m = _PROP_RE.match(label.strip())
     if not m:
         return None
-    return m.group(1).lower(), float(m.group(2))
-
-
-def purge_ungradeable(db):
-    """Delete rows that can never be settled honestly, plus rows belonging to
-    a retired sport. Runs every pass so a fix can't be lost to the workflow's
-    own DB commit."""
-    removed = {"placeholder": 0, "bad_total": 0, "retired": 0}
+    market = MARKET_BY_LABEL.get(m.group("label").strip().lower())
+    if not market:
+        logger.warning("Player prop label has an unknown market: %r", m.group("label"))
+        return None
     try:
-        with db.cursor() as cur:
-            cur.execute("SELECT id, sport, kind, team, side_or_player FROM recommendations")
-            rows = cur.fetchall()
-
-            doomed = []
-            for r in rows:
-                sport = (r["sport"] or "").strip().upper()
-                team = (r["team"] or "").strip().upper()
-                label = (r["side_or_player"] or "").strip()
-
-                if sport in RETIRED_SPORTS:
-                    doomed.append((r["id"], "retired"))
-                    continue
-                if team in PLACEHOLDER_TEAMS or label.upper().startswith("TBD "):
-                    doomed.append((r["id"], "placeholder"))
-                    continue
-                if r["kind"] == "total" and sport in FOOTBALL_SPORTS:
-                    parsed = _parse_total_pick(label)
-                    if parsed and parsed[1] < MIN_FOOTBALL_TOTAL:
-                        doomed.append((r["id"], "bad_total"))
-
-            for rec_id, why in doomed:
-                cur.execute("DELETE FROM recommendations WHERE id=?", (rec_id,))
-                removed[why] += 1
-
-            placeholders = ",".join("?" for _ in PLACEHOLDER_TEAMS)
-            cur.execute(
-                f"DELETE FROM games WHERE UPPER(TRIM(home_team)) IN ({placeholders}) "
-                f"OR UPPER(TRIM(away_team)) IN ({placeholders})",
-                PLACEHOLDER_TEAMS + PLACEHOLDER_TEAMS,
-            )
-    except Exception as exc:
-        logger.warning("Purge of ungradeable rows failed (continuing): %s", exc)
-        return {"placeholder": 0, "bad_total": 0, "retired": 0}
-
-    if removed["placeholder"]:
-        logger.info("Purge: removed %d placeholder (TBD) pick(s) -- those can never grade.",
-                    removed["placeholder"])
-    if removed["bad_total"]:
-        logger.info("Purge: removed %d football total(s) with an impossible line (<%.0f pts) -- "
-                    "simulated-odds artifacts that would fake a win.",
-                    removed["bad_total"], MIN_FOOTBALL_TOTAL)
-    if removed["retired"]:
-        logger.info("Purge: removed %d pick(s) from retired sport(s) %s -- the league is off the "
-                    "product, so its tab and record come off with it.",
-                    removed["retired"], ", ".join(RETIRED_SPORTS))
-    return removed
+        line = float(m.group("line"))
+    except (TypeError, ValueError):
+        return None
+    return m.group("name").strip(), market, m.group("side").lower(), line
 
 
 def grade_pending(db):
-    purge_ungradeable(db)
-
     pending = db.get_pending_recommendations()
     if not pending:
-        return {"graded": 0, "hr_graded": 0, "td_graded": 0, "totals_graded": 0}
+        return {"graded": 0, "td_graded": 0, "totals_graded": 0, "props_graded": 0}
 
     graded_count = 0
-    hr_graded = 0
     td_graded = 0
     totals_graded = 0
+    props_graded = 0
     final_cache = {}
-    hr_settlement_cache = {}
-    td_settlement_cache = {}
+    td_cache = {}
+    player_cache = {}
     by_date = {}
 
     def _final(game_id, sport):
@@ -203,34 +158,19 @@ def grade_pending(db):
 
     for rec in pending:
         sport = rec.get("sport") or "MLB"
-
-        # ---- HR props (MLB) -------------------------------------------------
-        if rec["kind"] == "hr_prop" and rec["game_id"]:
-            if _final(rec["game_id"], sport) is None:
-                continue
-            if rec["game_id"] not in hr_settlement_cache:
-                hr_settlement_cache[rec["game_id"]] = get_hr_settled_players(rec["game_id"])
-            homered = hr_settlement_cache[rec["game_id"]]
-            if homered is None:
-                continue
-            homered_norm = {_norm_name(n) for n in homered}
-            status = "won" if _norm_name(rec["side_or_player"]) in homered_norm else "lost"
-            db.set_recommendation_status(rec["id"], status)
-            hr_graded += 1
-            logger.info("HR prop graded %s: %s -> %s", rec["date"], rec["side_or_player"], status)
-            continue
+        kind = rec["kind"]
 
         # ---- Anytime-TD props (NFL) ----------------------------------------
-        if rec["kind"] == "td_prop" and rec["game_id"]:
+        if kind == "td_prop" and rec["game_id"]:
             if _final(rec["game_id"], sport) is None:
                 continue
-            if rec["game_id"] not in td_settlement_cache:
+            if rec["game_id"] not in td_cache:
                 row = db.get_game(rec["game_id"])
-                td_settlement_cache[rec["game_id"]] = (
+                td_cache[rec["game_id"]] = (
                     get_td_scorers(row.get("date"), row.get("home_team"), row.get("away_team"))
                     if row else None
                 )
-            scorers = td_settlement_cache[rec["game_id"]]
+            scorers = td_cache[rec["game_id"]]
             if scorers is None:
                 continue
             scorers_norm = {_norm_name(n) for n in scorers}
@@ -240,19 +180,52 @@ def grade_pending(db):
             logger.info("TD prop graded %s: %s -> %s", rec["date"], rec["side_or_player"], status)
             continue
 
-        # ---- Game totals (Over/Under) ---------------------------------------
-        if rec["kind"] == "total" and rec["game_id"]:
+        # ---- Player props (yards / receptions / pass TDs) ------------------
+        if kind == "player_prop" and rec["game_id"]:
+            parsed = _parse_prop_label(rec["side_or_player"])
+            if not parsed:
+                logger.warning("Player prop %s has an unparseable label -- skipping: %s",
+                               rec["id"], rec["side_or_player"])
+                continue
+            if _final(rec["game_id"], sport) is None:
+                continue
+            if rec["game_id"] not in player_cache:
+                row = db.get_game(rec["game_id"])
+                player_cache[rec["game_id"]] = (
+                    get_player_stats(row.get("date"), row.get("home_team"), row.get("away_team"))
+                    if row else None
+                )
+            stats = player_cache[rec["game_id"]]
+            if stats is None:
+                continue
+            name, market, side, line = parsed
+            status = grade_player_prop(stats, market, name, side, line)
+            if status is None:
+                continue
+            db.set_recommendation_status(rec["id"], status)
+            props_graded += 1
+            logger.info("Player prop graded %s: %s %s %g (%s) -> %s",
+                        rec["date"], name, side, line, market, status)
+            continue
+
+        # ---- Totals (over/under on the game) -------------------------------
+        if kind == "total" and rec["game_id"]:
             result = _final(rec["game_id"], sport)
             if result is None:
                 continue
-            parsed = _parse_total_pick(rec["side_or_player"])
-            if not parsed:
-                logger.warning("Total pick %s: could not parse '%s' -- leaving pending.",
-                               rec["id"], rec["side_or_player"])
+            home_score, away_score = result
+            combined = home_score + away_score
+            label = rec["side_or_player"] or ""
+            m = re.search(r"(over|under)\s+([\d.]+)", label, re.I)
+            if not m:
+                logger.warning("Total %s has no parseable line in '%s' -- skipping.", rec["id"], label)
                 continue
-            side, line = parsed
-            combined = result[0] + result[1]
-            if combined == line:
+            side = m.group(1).lower()
+            try:
+                line = float(m.group(2))
+            except ValueError:
+                continue
+            if abs(combined - line) < 1e-9:
                 status = "push"
             elif side == "over":
                 status = "won" if combined > line else "lost"
@@ -260,25 +233,11 @@ def grade_pending(db):
                 status = "won" if combined < line else "lost"
             db.set_recommendation_status(rec["id"], status)
             totals_graded += 1
-            logger.info("%s TOTAL graded %s: %s %s -> %s (final combined %s)",
-                        sport, rec["date"], side.upper(), line, status, combined)
-
-            day = by_date.setdefault(rec["date"], {"staked": 0.0, "won": 0.0, "d_staked": 0.0,
-                                                     "d_won": 0.0, "wins": 0, "graded": 0})
-            day["staked"] += rec["stake_units"] or 0
-            day["d_staked"] += rec["stake_dollars"] or 0
-            day["graded"] += 1
-            if status == "won":
-                day["won"] += _payout(rec["odds_american"], rec["stake_units"])
-                day["d_won"] += _payout(rec["odds_american"], rec["stake_dollars"])
-                day["wins"] += 1
-            elif status == "push":
-                day["won"] += rec["stake_units"] or 0
-                day["d_won"] += rec["stake_dollars"] or 0
+            logger.info("Total graded %s: %s (final %s) -> %s", rec["date"], label, combined, status)
             continue
 
         # ---- Moneyline ------------------------------------------------------
-        if rec["kind"] != "moneyline" or not rec["game_id"]:
+        if kind != "moneyline" or not rec["game_id"]:
             continue
         result = _final(rec["game_id"], sport)
         if result is None:
@@ -326,10 +285,10 @@ def grade_pending(db):
             bets_graded=totals["graded"], wins=totals["wins"],
         )
 
-    logger.info("Grading pass complete: %d moneyline, %d HR, %d TD, %d totals settled.",
-                graded_count, hr_graded, td_graded, totals_graded)
-    return {"graded": graded_count, "hr_graded": hr_graded,
-            "td_graded": td_graded, "totals_graded": totals_graded}
+    logger.info("Grading pass complete: %d ML, %d TD, %d totals, %d player props settled.",
+                graded_count, td_graded, totals_graded, props_graded)
+    return {"graded": graded_count, "td_graded": td_graded,
+            "totals_graded": totals_graded, "props_graded": props_graded}
 
 
 def _get_final_score_mlb(game_id):
