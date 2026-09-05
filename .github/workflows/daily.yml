@@ -73,19 +73,16 @@ jobs:
           fi
 
       # ------------------------------------------------------------------
-      # PERMANENT MEMBER LINK (Sep 4, 2026)
+      # PERMANENT MEMBER LINK
       # The report publishes to the repo ROOT, so the address never changes:
-      #     https://kfxcode.github.io/mlb-picks/
+      #     https://kfxcode.github.io/bet-engine-v1/
       #
-      # This replaces the weekly /p/<token>/ rotation. Rotation was there to
+      # This replaced the weekly /p/<token>/ rotation. Rotation was meant to
       # stop a screenshotted URL working forever, but it never actually did
       # that -- within any given week a leaked link works for anyone -- and it
       # cost a manual Whop update every Monday plus a dead link for paying
       # members in between. Whop's own membership wall is the real access
       # control; this link is just where members go.
-      #
-      # Any leftover /p/ folders from the rotation era are removed once, so
-      # old tokenised URLs stop resolving.
       # ------------------------------------------------------------------
       - name: Publish report to the permanent link
         run: |
@@ -101,25 +98,72 @@ jobs:
             echo "Removed leftover rotating /p/ folders."
           fi
 
+      # ------------------------------------------------------------------
+      # WHY THE STAGING IS SPLIT INTO SEPARATE COMMANDS (Sep 5, 2026)
+      # This step used to run, in one line:
+      #     git add -A index.html p
+      # `p` is the old rotation folder, deleted above and long gone from the
+      # repo. git treats an unmatched pathspec as a FATAL error for the whole
+      # command -- so once `p` no longer existed, that single `git add` failed
+      # and staged NOTHING, index.html included. `2>/dev/null || true` hid the
+      # error, `git diff --cached --quiet` then found no changes, and the step
+      # cheerfully printed "Nothing new to publish."
+      #
+      # Net effect: the pipeline ran perfectly, generated the report, reported
+      # SUCCESS -- and the live page silently sat frozen on an old date for
+      # days. Each path is now staged on its own line so one missing file can
+      # never suppress the others, and the publish is VERIFIED below instead
+      # of assumed.
+      # ------------------------------------------------------------------
       - name: Publish report + save history back to the repo
         run: |
           git config user.name "mlb-picks-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add -A index.html p 2>/dev/null || true
+
+          # index.html is the member-facing page -- stage it FIRST and on its
+          # own, so nothing else can stop it going out.
+          if [ -f index.html ]; then
+            git add -f index.html
+          fi
+          # Only stage the retired rotation folder if it's actually still tracked.
+          if git ls-files --error-unmatch p >/dev/null 2>&1; then
+            git add -A p
+          fi
           git add -f data_store/betting_engine.db 2>/dev/null || true
           git add -f data_store/last_published.txt 2>/dev/null || true
           git add -f manual_inputs/*.json 2>/dev/null || true
+
+          echo "--- staged for commit ---"
+          git diff --cached --name-only
+
           if git diff --cached --quiet; then
             echo "Nothing new to publish this check."
           else
             git commit -m "Automated daily update ($(date -u +'%Y-%m-%d %H:%M UTC'))"
             git pull --rebase origin "${GITHUB_REF_NAME}" || true
             git push
+            echo "Pushed. Live page will refresh once GitHub Pages rebuilds (~1 min)."
           fi
+
+      # Fail loudly if a report was generated but the live page didn't get it.
+      # A silent no-publish is the exact failure that hid the bug above.
+      - name: Verify the live page actually got today's report
+        run: |
+          if [ ! -f data_store/reports/latest.html ]; then
+            echo "No report this run (gate skipped it) -- nothing to verify."
+            exit 0
+          fi
+          REPORT_DATE=$(grep -o 'Daily Betting Report — [0-9-]\{10\}' index.html | head -1 | grep -o '[0-9-]\{10\}' || echo "unknown")
+          echo "index.html is serving report date: $REPORT_DATE"
+          if git status --porcelain index.html | grep -q .; then
+            echo "::error::index.html changed but was NOT committed -- the live page will stay stale."
+            exit 1
+          fi
+          echo "index.html is committed and matches the generated report."
 
       - name: Show the member link
         run: |
-          LINK="https://kfxcode.github.io/mlb-picks/"
+          LINK="https://kfxcode.github.io/bet-engine-v1/"
           {
             echo "## Cover1Picks member link"
             echo ""
