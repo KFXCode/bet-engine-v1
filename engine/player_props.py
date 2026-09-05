@@ -25,7 +25,7 @@ HOW AN EDGE IS FOUND (and why it's shaped this way):
          P(over) = 1 - CDF((line - projection) / sigma)
      Skipping this is how prop models convince themselves a 5-yard difference
      is a 90% bet. It's the same discipline that made the HR board's failure
-     legible: the model claimed edges that the distribution never supported.
+     legible: the model claimed edges the distribution never supported.
 
   3. COMPARE to the book's implied probability, de-vigged across the two
      sides. Standard -110/-110 pricing implies 52.4% per side, so a real edge
@@ -41,6 +41,14 @@ TWO HARD RULES:
 
 The board is a CAP, not a quota: props post only while they clear the edge
 bar. A thin slate publishing 4 props is the correct outcome, not a failure.
+
+LABEL CONTRACT (Sep 5, 2026): label_for() is what gets stored in the ledger
+AND shown in history, and backtest/grader.py has to be able to read the market,
+side and line back out of it to settle the bet. So the format is fixed and
+parseable -- "<Name> Over 68.5 Rushing Yards" -- and MARKET_BY_LABEL below is
+the reverse lookup the grader uses. Changing the wording of a market_label
+breaks grading for every prop already on the ledger; add to MARKET_BY_LABEL
+rather than renaming.
 """
 
 import logging
@@ -72,6 +80,9 @@ MARKET_SPEC = {
     "player_pass_tds":      {"field": "pass_td_pg", "label": "Passing TDs",
                              "unit": "TD", "positions": {"QB"}},
 }
+
+# Reverse lookup for the grader: display label -> market key.
+MARKET_BY_LABEL = {spec["label"].lower(): key for key, spec in MARKET_SPEC.items()}
 
 
 def american_to_implied(ml):
@@ -219,6 +230,7 @@ def evaluate_player_props(games, rosters_by_team, profiles, prop_odds,
 
                 is_q = _questionable(player["name"], injuries_by_player)
                 key_name = norm_player(player["name"])
+                season = profile.get("season")
 
                 for market in MARKETS:
                     spec = MARKET_SPEC[market]
@@ -262,12 +274,12 @@ def evaluate_player_props(games, rosters_by_team, profiles, prop_odds,
                         if edge < MIN_EDGE:
                             continue
 
+                        season_note = f" ({season} season)" if season else ""
                         reasoning = [
                             f"Projection {projection:.1f} {spec['unit']} vs a {line:g} line "
                             f"({projection - line:+.1f}).",
                             f"Season baseline {base:.1f} {spec['unit']}/game over "
-                            f"{profile['games']} game(s)"
-                            f"{f' ({profile[chr(34)+chr(34)] if False else profile.get(chr(115)+chr(101)+chr(97)+chr(115)+chr(111)+chr(110))} season)' if profile.get('season') else ''}.",
+                            f"{profile['games']} game(s){season_note}.",
                         ]
                         if env_note:
                             reasoning.append(env_note)
@@ -345,6 +357,9 @@ def finalize_player_props(pool, max_per_day=None):
 
 
 def label_for(prop):
-    """Ledger/report label, e.g. 'Bijan Robinson Over 68.5 Rushing Yards'."""
+    """Ledger + report label, e.g. 'Bijan Robinson Over 68.5 Rushing Yards'.
+
+    This exact shape is what backtest/grader.py parses to settle the bet --
+    see the LABEL CONTRACT note at the top of this module before changing it."""
     return (f"{prop['player_name']} {prop['side'].title()} {prop['line']:g} "
             f"{prop['market_label']}")
