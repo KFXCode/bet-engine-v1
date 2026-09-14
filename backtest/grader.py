@@ -29,18 +29,27 @@ settlement additionally tries several candidate dates:
     2. the stored game row's date
     3. one day either side of each (a 10pm ET kickoff is already "tomorrow"
        in UTC, which is how ESPN indexes some events)
-The first candidate returning a FINAL score wins, so this whole class of date
-drift can't strand picks again.
+The first candidate returning a FINAL score wins.
 
-VOIDING A PLAYER WHO DIDN'T PLAY (Sep 14, 2026): if a game is final and the
-player has no line in the box score, he was inactive. grade_player_prop
-correctly returns None (it can't compare a number that doesn't exist), but
-treating None as "try again next run" meant those picks stayed pending
-forever -- the second silent-stall bug in as many weeks. Sportsbooks VOID a
-prop when the player doesn't take the field, so it now settles as a push:
-excluded from the win/loss record, no fake loss, and off the pending list.
-Grading as a loss instead would quietly punish the model for a scratch it had
-no way to predict.
+VOIDING A PLAYER WHO DIDN'T PLAY -- applies to BOTH prop boards now.
+Sportsbooks void a player prop when the player doesn't take the field, so a
+scratch must never count against the model: it had no way to predict a late
+inactive, and recording it as a loss makes the tracked record worse than the
+strategy actually was.
+
+  - player_prop: grade_player_prop returns None when the player has no line
+    in the box score. That used to mean "retry next run", so those picks sat
+    pending forever. Now -> push.
+  - td_prop: this is the subtler one, and it was WRONG until Sep 14. An
+    anytime-TD prop grades by membership in the list of players who scored.
+    An inactive player is simply absent from that list -- exactly like a
+    player who suited up and didn't score -- so every scratch was silently
+    graded a LOSS. Real case: James Conner didn't play on Sep 13 and the
+    board read 6-4 when the honest result was 6-3.
+    Settlement now checks PARTICIPATION first, via the same box score the
+    player-prop path uses: no box-score line in a final game means inactive,
+    which is a void. Only a player who actually played and failed to score
+    takes the loss.
 
 CLV: when a moneyline pick grades, compare the price we took to the CLOSING
 line. Positive CLV means the market moved toward our side after we bet it.
@@ -116,6 +125,47 @@ def _candidate_dates(rec_date, row_date):
             if d and d not in out:
                 out.append(d)
     return out
+
+
+def _played_in_game(stats, player_name):
+    """Did this player appear in the final box score at all?
+
+    True  -> he played (a TD prop miss is a real loss)
+    False -> no line in a FINAL box score, i.e. inactive (void the prop)
+    None  -> we can't tell, so the caller should leave the pick pending
+
+    Written defensively about the shape of `stats` because guessing wrong here
+    would mean voiding real losses, which flatters the record -- the opposite
+    of the honesty this fix exists to protect. Anything unrecognised returns
+    None rather than a confident answer."""
+    if not stats:
+        return None
+    target = _norm_name(player_name)
+    if not target:
+        return None
+
+    # Shape A: {normalized_name: {...stats...}}
+    if isinstance(stats, dict):
+        for key in stats.keys():
+            if _norm_name(str(key)) == target:
+                return True
+        # A populated box score that doesn't contain him means he didn't play.
+        return False if len(stats) > 0 else None
+
+    # Shape B: iterable of records carrying a name field.
+    if isinstance(stats, (list, tuple, set)):
+        found_any = False
+        for row in stats:
+            found_any = True
+            if isinstance(row, dict):
+                for field in ("player", "name", "player_name", "athlete"):
+                    if field in row and _norm_name(str(row[field])) == target:
+                        return True
+            elif _norm_name(str(row)) == target:
+                return True
+        return False if found_any else None
+
+    return None
 
 
 # "Bijan Robinson Over 68.5 Rushing Yards" -> name / side / line / market label
@@ -199,6 +249,15 @@ def grade_pending(db):
         final_cache[game_id] = (result, used_date)
         return result, used_date
 
+    def _box_score(game_id, used_date, rec_date):
+        """Per-player box score for a game, cached. Shared by both prop paths
+        so the participation check and the yardage check agree."""
+        if game_id not in player_cache:
+            row = db.get_game(game_id) or {}
+            player_cache[game_id] = get_player_stats(
+                used_date or rec_date, row.get("home_team"), row.get("away_team"))
+        return player_cache[game_id]
+
     for rec in pending:
         sport = rec.get("sport") or "MLB"
         kind = rec["kind"]
@@ -216,11 +275,33 @@ def grade_pending(db):
             scorers = td_cache[rec["game_id"]]
             if scorers is None:
                 continue
+
+            player = rec["side_or_player"]
             scorers_norm = {_norm_name(n) for n in scorers}
-            status = "won" if _norm_name(rec["side_or_player"]) in scorers_norm else "lost"
-            db.set_recommendation_status(rec["id"], status)
+            if _norm_name(player) in scorers_norm:
+                db.set_recommendation_status(rec["id"], "won")
+                td_graded += 1
+                logger.info("TD prop graded %s: %s -> won", rec_date, player)
+                continue
+
+            # He isn't on the scorers list. Before calling that a loss, check
+            # he actually PLAYED -- an inactive player is absent for the same
+            # reason, and books void those. This is the Conner case.
+            played = _played_in_game(_box_score(rec["game_id"], used_date, rec_date), player)
+            if played is None:
+                logger.info("TD prop %s (%s): box score unreadable so participation is unknown "
+                            "-- leaving pending rather than guessing.", rec_date, player)
+                continue
+            if played is False:
+                db.set_recommendation_status(rec["id"], "push")
+                voided += 1
+                logger.info("TD prop VOIDED %s: %s never appeared in the final box score "
+                            "(inactive) -- settled as a push, not a loss.", rec_date, player)
+                continue
+
+            db.set_recommendation_status(rec["id"], "lost")
             td_graded += 1
-            logger.info("TD prop graded %s: %s -> %s", rec_date, rec["side_or_player"], status)
+            logger.info("TD prop graded %s: %s -> lost (played, did not score)", rec_date, player)
             continue
 
         # ---- Player props (yards / receptions / pass TDs) ------------------
@@ -233,21 +314,15 @@ def grade_pending(db):
             scores, used_date = _final(rec["game_id"], sport, rec_date)
             if scores is None:
                 continue
-            if rec["game_id"] not in player_cache:
-                row = db.get_game(rec["game_id"]) or {}
-                player_cache[rec["game_id"]] = get_player_stats(
-                    used_date or rec_date, row.get("home_team"), row.get("away_team"))
-            stats = player_cache[rec["game_id"]]
+            stats = _box_score(rec["game_id"], used_date, rec_date)
             if stats is None:
                 # Box score not readable yet -- genuinely retry next run.
                 continue
             name, market, side, line = parsed
             status = grade_player_prop(stats, market, name, side, line)
             if status is None:
-                # The game is FINAL and the box score loaded, but this player
-                # has no line in it -- he didn't play. Books void the prop, so
-                # record a push rather than leaving it pending forever (or
-                # inventing a loss the model couldn't have avoided).
+                # Final game, box score loaded, no line for this player: he
+                # didn't play. Void it (see the module note).
                 db.set_recommendation_status(rec["id"], "push")
                 voided += 1
                 logger.info("Player prop VOIDED %s: %s did not appear in the final box score "
