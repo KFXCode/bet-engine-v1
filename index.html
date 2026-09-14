@@ -186,7 +186,7 @@
   <div class="header">
     <h1>Daily Betting Report</h1>
     <p class="date">2026-09-14</p>
-    <p class="updated"><span class="dot"></span>Updated Sep 14, 2026 - 9:49 AM EDT</p>
+    <p class="updated"><span class="dot"></span>Updated Sep 14, 2026 - 10:41 AM EDT</p>
     <div class="strip">
       <div class="item">Slate: <b>11 games</b></div>
       <div class="item">Moon: <b>Waxing Crescent</b> in <b>Scorpio</b></div>
@@ -229,7 +229,7 @@
   <div class="warnbox">
     <b>Data quality warnings</b>
     <ul>
-      <li>NFL TD props are showing without prices -- anytime-TD is a paid player-props market on The Odds API. The picks are still model-ranked; confirm the price yourself.</li>
+      <li>NFL TD props are showing without prices -- anytime-TD is a paid player-props market on The Odds API. The picks are still model-ranked; confirm the price yourself.</li><li>GRADING STUCK: 2 pick(s) are still ungraded more than 48h after their games (1 NFL player_prop; 1 NFL td_prop). Results exist but settlement isn't finding them -- check the 'Could NOT find a final score' lines in the workflow log.</li><li>DATE DRIFT: 1 game(s) today are stored under a different date (nfl-401872931 stored as 2026-09-12). Grading now tries a date window so these still settle, but the stored dates are wrong.</li><li>NO PRICES: all 10 TD prop(s) published without odds. They're ranked on model probability only -- confirm each price on FanDuel before betting, and don't judge them on +EV.</li>
     </ul>
   </div>
   
@@ -3658,16 +3658,31 @@
     <div class="section-title"><span>NFL &middot; Best Parlay</span></div>
     
     
-    <div class="dropped">No NFL parlay today &mdash; fewer than 2 NFL legs cleared the confidence bar.</div>
+    <div class="parlay">
+      <div class="legs">4-Leg NFL Parlay</div>
+      <div class="odds">Combined: +1192 &middot; 34.2% est. win probability</div>
+      <div style="margin-top:14px;">
+        
+        <div class="leg-row"><span class="n">Leg 1</span><span class="lbl">J.K. Dobbins Over 49.5 Rushing Yards (-113)</span><span class="kind-tag">PROP</span></div>
+        
+        <div class="leg-row"><span class="n">Leg 2</span><span class="lbl">Marvin Mims Jr. Over 1.5 Receptions (+116)</span><span class="kind-tag">PROP</span></div>
+        
+        <div class="leg-row"><span class="n">Leg 3</span><span class="lbl">Rashee Rice Over 5.5 Receptions (-102)</span><span class="kind-tag">PROP</span></div>
+        
+        <div class="leg-row"><span class="n">Leg 4</span><span class="lbl">Kenneth Walker III Under 3.5 Receptions (-166)</span><span class="kind-tag">PROP</span></div>
+        
+      </div>
+      <div class="note">Flat 1 unit. Built only from NFL legs the system graded today.</div>
+    </div>
     
 
     <details class="rec">
       <summary>
         <span class="r-title">NFL Record &amp; History</span>
         <span class="r-sum">
-          <span class="r-stat"><span class="v">5-6</span><div class="k">Moneyline</div></span>
-          <span class="r-stat"><span class="v">14-30</span><div class="k">Props/Totals</div></span>
-          <span class="r-stat"><span class="v" style="color:var(--warn);">35%</span><div class="k">Win rate</div></span>
+          <span class="r-stat"><span class="v">6-6</span><div class="k">Moneyline</div></span>
+          <span class="r-stat"><span class="v">33-48</span><div class="k">Props/Totals</div></span>
+          <span class="r-stat"><span class="v" style="color:var(--warn);">42%</span><div class="k">Win rate</div></span>
           <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
         </span>
       </summary>
@@ -3838,14 +3853,260 @@
           
           <div class="rec-day">
             <div class="d-head">
+              <span class="d-date">2026-09-13</span>
+              <span class="d-rec">ML <b>1-0</b> &middot; Props/Totals <b>12-8</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">MIN ML (-134)</span>
+              <span class="kind-tag">ML</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">Derrick Henry anytime TD</span>
+              <span class="kind-tag">TD</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">Javonte Williams anytime TD</span>
+              <span class="kind-tag">TD</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Travis Etienne Jr. anytime TD</span>
+              <span class="kind-tag">TD</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Tucker Kraft anytime TD</span>
+              <span class="kind-tag">TD</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">Chase Brown anytime TD</span>
+              <span class="kind-tag">TD</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">Bijan Robinson anytime TD</span>
+              <span class="kind-tag">TD</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">D'Andre Swift anytime TD</span>
+              <span class="kind-tag">TD</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">James Conner anytime TD</span>
+              <span class="kind-tag">TD</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">Ashton Jeanty anytime TD</span>
+              <span class="kind-tag">TD</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Saquon Barkley anytime TD</span>
+              <span class="kind-tag">TD</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">Kyler Murray Under 218.5 Passing Yards (-113)</span>
+              <span class="kind-tag">PROP</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">Luther Burden III Under 5.5 Receptions (+125)</span>
+              <span class="kind-tag">PROP</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">Parker Washington Under 6.5 Receptions (+100)</span>
+              <span class="kind-tag">PROP</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Jahmyr Gibbs Under 116.5 Rushing Yards (-114)</span>
+              <span class="kind-tag">PROP</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Deshaun Watson Under 170.5 Passing Yards (-114)</span>
+              <span class="kind-tag">PROP</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">Kirk Cousins Under 205.5 Passing Yards (-113)</span>
+              <span class="kind-tag">PROP</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">Cooper Rush Under 165.5 Passing Yards (-114)</span>
+              <span class="kind-tag">PROP</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">Travis Hunter Over 0.5 Receiving Yards (-112)</span>
+              <span class="kind-tag">PROP</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">D'Andre Swift Under 109.5 Rushing Yards (-118)</span>
+              <span class="kind-tag">PROP</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Ja'Marr Chase Over 5.5 Receptions (+100)</span>
+              <span class="kind-tag">PROP</span>
+            </div>
+            
+            
+            <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--card-border);">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;"><b style="color:var(--accent);">Best Parlay:</b> HOU ML (+106) + WSH ML (-134) + NYY ML (-184) + STL ML (-102)</div>
+              <div style="font-size:12px; color:var(--muted);"><b style="color:var(--accent);">Double Your Money:</b> WSH ML (-134) + NYY ML (-184)</div>
+            </div>
+            
+          </div>
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
               <span class="d-date">2026-09-12</span>
-              <span class="d-rec">ML <b>0-0</b> &middot; Props/Totals <b>1-0</b></span>
+              <span class="d-rec">ML <b>0-0</b> &middot; Props/Totals <b>8-10</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">Jahmyr Gibbs anytime TD</span>
+              <span class="kind-tag">TD</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">Jonathan Taylor anytime TD</span>
+              <span class="kind-tag">TD</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Josh Jacobs anytime TD</span>
+              <span class="kind-tag">TD</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">Cam Skattebo anytime TD</span>
+              <span class="kind-tag">TD</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">James Cook III anytime TD</span>
+              <span class="kind-tag">TD</span>
             </div>
             
             <div class="rec-row">
               <span class="mk" style="color:#2fd07a;">&#10003;</span>
               <span class="lb">Eli Raridon anytime TD</span>
               <span class="kind-tag">TD</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">De'Von Achane anytime TD</span>
+              <span class="kind-tag">TD</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">Trey McBride anytime TD</span>
+              <span class="kind-tag">TD</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">Dallas Goedert anytime TD</span>
+              <span class="kind-tag">TD</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">Kyler Murray Under 221.5 Passing Yards (-114)</span>
+              <span class="kind-tag">PROP</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Garrett Wilson Under 5.5 Receptions (-114)</span>
+              <span class="kind-tag">PROP</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Hollywood Brown Over 1.5 Receptions (+174)</span>
+              <span class="kind-tag">PROP</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Deshaun Watson Under 178.5 Passing Yards (-114)</span>
+              <span class="kind-tag">PROP</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">Kirk Cousins Under 207.5 Passing Yards (-114)</span>
+              <span class="kind-tag">PROP</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Malik Nabers Under 57.5 Receiving Yards (-114)</span>
+              <span class="kind-tag">PROP</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Malik Willis Under 179.5 Passing Yards (-114)</span>
+              <span class="kind-tag">PROP</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Michael Mayer Under 4.5 Receptions (-108)</span>
+              <span class="kind-tag">PROP</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Lamar Jackson Under 220.5 Passing Yards (-114)</span>
+              <span class="kind-tag">PROP</span>
             </div>
             
             
@@ -4823,16 +5084,16 @@
     
     <div class="parlay">
       <div class="legs">4-Leg Top Parlay</div>
-      <div class="odds">Combined: +973 &middot; 13.0% est. win probability</div>
+      <div class="odds">Combined: +1285 &middot; 20.9% est. win probability</div>
       <div style="margin-top:14px;">
         
-        <div class="leg-row"><span class="n">Leg 1</span><span class="lbl">SD ML (-198)</span><span class="kind-tag">ML</span></div>
+        <div class="leg-row"><span class="n">Leg 1</span><span class="lbl">J.K. Dobbins Over 49.5 Rushing Yards (-113)</span><span class="kind-tag">PROP</span></div>
         
-        <div class="leg-row"><span class="n">Leg 2</span><span class="lbl">CWS ML (+126)</span><span class="kind-tag">ML</span></div>
+        <div class="leg-row"><span class="n">Leg 2</span><span class="lbl">Marvin Mims Jr. Over 1.5 Receptions (+116)</span><span class="kind-tag">PROP</span></div>
         
-        <div class="leg-row"><span class="n">Leg 3</span><span class="lbl">NYY ML (-124)</span><span class="kind-tag">ML</span></div>
+        <div class="leg-row"><span class="n">Leg 3</span><span class="lbl">SD ML (-198)</span><span class="kind-tag">ML</span></div>
         
-        <div class="leg-row"><span class="n">Leg 4</span><span class="lbl">ARI ML (-134)</span><span class="kind-tag">ML</span></div>
+        <div class="leg-row"><span class="n">Leg 4</span><span class="lbl">CWS ML (+126)</span><span class="kind-tag">ML</span></div>
         
       </div>
       <div class="note">Flat 1 unit. The single strongest ticket across every active sport &mdash; any mix of leagues and props the system rates highest today.</div>
