@@ -1,46 +1,50 @@
 """
 backtest/grader.py
 ====================
-Post-game review: fetch final scores for any game with pending recommendations,
-mark each won/lost/push, and roll the result into bankroll_log. run_daily.py
-calls this automatically at the start of every run.
+Post-game review: settle every pending recommendation, roll results into
+bankroll_log. run_daily.py calls this at the start of every run.
 
-ALL SPORTS: MLB settles through statsapi.mlb.com; every other league settles
-through data/final_scores.py (ESPN scoreboard, multi-host) matched on the
-stored game's date + team abbreviations, since our non-MLB ids are hashes.
+MLB settles via statsapi.mlb.com; every other league via data/final_scores.py
+(ESPN scoreboard, multi-host) matched on date + team abbreviations.
 
-BET TYPES:
+BET TYPES
   moneyline    -> winner from the final score
   total        -> combined final score vs the stored line
   td_prop      -> data/td_settle.get_td_scorers (NFL boxscore TD columns)
   player_prop  -> data/player_settle (yards / receptions / pass TDs vs line)
 
-Every prop is gated on the game actually being FINAL first. Without that gate
-an in-progress game marks every player who simply hasn't produced YET as a
-loss, which silently destroys the prop record.
+Props are gated on the game being FINAL first. Without that gate an
+in-progress game marks every player who simply hasn't produced YET as a loss,
+which silently destroys the prop record.
 
-PLAYER-PROP LABEL PARSING (Sep 5, 2026): player props are stored with the
-human-readable label engine/player_props.label_for() produces --
-"Bijan Robinson Over 68.5 Rushing Yards" -- because that same string is what
-shows in the History tab. An earlier version of this grader expected a
-pipe-delimited "Name|market|side|line" instead, so EVERY player prop failed to
-parse and silently stayed pending forever: a whole board that published picks
-and never once graded them. The parser below reads the real format, using
-player_props.MARKET_BY_LABEL as the reverse lookup from "Rushing Yards" to
-player_rush_yds, and it accepts the pipe form too so nothing already on the
-ledger is stranded.
+DATE-WINDOW SETTLEMENT (Sep 14, 2026) -- the bug that stranded 41 NFL picks:
+non-MLB games are matched to ESPN by DATE, and the date came from the stored
+`games` row. But db.upsert_game's ON CONFLICT clause updates the pitchers and
+kickoff time and NOT the date -- so a game first seen on Saturday (ESPN
+returns the upcoming slate) keeps date='2026-09-12' even though it's played on
+Sunday the 13th. Every Sunday NFL pick then asked ESPN for Saturday's
+scoreboard, found nothing final, and stayed "pending" forever. The picks were
+right there in the ledger with results available; the lookup was just asking
+about the wrong day.
 
-MLB is moneyline-only -- HR props are retired, so nothing here settles them.
+So settlement no longer trusts a single date. It tries, in order:
+    1. the recommendation's own date  (when the pick was published -- the most
+       reliable signal of when the game was played)
+    2. the stored game row's date
+    3. one day either side of each  (timezone rollover: a 10pm ET kickoff is
+       already "tomorrow" in UTC, which is how ESPN indexes some events)
+The first candidate that returns a FINAL score wins. That makes grading
+immune to this whole class of date drift instead of needing a data repair
+every time it shows up.
 
-CLV (Closing Line Value): when a moneyline pick is graded, compare the price we
-recommended to the CLOSING line. Positive CLV = the market moved toward our
-side after we picked it -- the most reliable single signal a pick was +EV.
+CLV: when a moneyline pick grades, compare the price we took to the CLOSING
+line. Positive CLV means the market moved toward our side after we bet it.
 """
 
 import logging
 import re
 import unicodedata
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import requests
 
@@ -88,16 +92,36 @@ def _compute_clv(db, rec):
     return round((close_p - pick_p) * 100.0, 2)
 
 
+def _shift(date_str, days):
+    try:
+        d = datetime.strptime(date_str, "%Y-%m-%d") + timedelta(days=days)
+        return d.strftime("%Y-%m-%d")
+    except Exception:
+        return None
+
+
+def _candidate_dates(rec_date, row_date):
+    """Dates to try, best guess first. See the DATE-WINDOW note at the top --
+    the stored game row's date can be stale, so the pick's own date leads."""
+    out = []
+    for base in (rec_date, row_date):
+        if not base:
+            continue
+        for delta in (0, 1, -1):
+            d = _shift(base, delta)
+            if d and d not in out:
+                out.append(d)
+    return out
+
+
 # "Bijan Robinson Over 68.5 Rushing Yards" -> name / side / line / market label
 _PROP_RE = re.compile(r"^(?P<name>.+?)\s+(?P<side>Over|Under)\s+(?P<line>[\d.]+)\s+(?P<label>.+)$",
                       re.IGNORECASE)
 
 
 def _parse_prop_label(label):
-    """(name, market_key, side, line) or None.
-
-    Handles the real stored format first, then the legacy pipe form so any
-    rows written by the earlier build still settle."""
+    """(name, market_key, side, line) or None. Handles the stored human format
+    and the legacy pipe form, so nothing already on the ledger is stranded."""
     if not label:
         return None
 
@@ -134,42 +158,55 @@ def grade_pending(db):
     td_graded = 0
     totals_graded = 0
     props_graded = 0
-    final_cache = {}
+    final_cache = {}      # game_id -> (scores, date_that_worked)
     td_cache = {}
     player_cache = {}
     by_date = {}
+    unresolved = []
 
-    def _final(game_id, sport):
-        """MLB via statsapi; everything else via the ESPN scoreboard."""
+    def _final(game_id, sport, rec_date):
+        """(home, away) final score plus the date it was found under, or
+        (None, None). Tries several candidate dates -- see _candidate_dates."""
         if game_id in final_cache:
             return final_cache[game_id]
+
         result = None
+        used_date = None
+
         if sport and sport != "MLB":
-            row = db.get_game(game_id)
-            if row:
-                result = get_final_score_espn(sport, row.get("date"),
-                                              row.get("home_team"), row.get("away_team"))
-            else:
-                logger.debug("No stored game row for %s (%s) -- cannot settle.", game_id, sport)
+            row = db.get_game(game_id) or {}
+            for candidate in _candidate_dates(rec_date, row.get("date")):
+                found = get_final_score_espn(sport, candidate,
+                                             row.get("home_team"), row.get("away_team"))
+                if found:
+                    result, used_date = found, candidate
+                    if candidate != row.get("date"):
+                        logger.info("Settled %s under %s (stored game row said %s) -- "
+                                    "date drift handled.", game_id, candidate, row.get("date"))
+                    break
+            if result is None:
+                unresolved.append(f"{sport} {game_id} ({row.get('away_team')}@{row.get('home_team')})")
         else:
             result = _get_final_score_mlb(game_id)
-        final_cache[game_id] = result
-        return result
+            used_date = rec_date
+
+        final_cache[game_id] = (result, used_date)
+        return result, used_date
 
     for rec in pending:
         sport = rec.get("sport") or "MLB"
         kind = rec["kind"]
+        rec_date = rec.get("date")
 
         # ---- Anytime-TD props (NFL) ----------------------------------------
         if kind == "td_prop" and rec["game_id"]:
-            if _final(rec["game_id"], sport) is None:
+            scores, used_date = _final(rec["game_id"], sport, rec_date)
+            if scores is None:
                 continue
             if rec["game_id"] not in td_cache:
-                row = db.get_game(rec["game_id"])
-                td_cache[rec["game_id"]] = (
-                    get_td_scorers(row.get("date"), row.get("home_team"), row.get("away_team"))
-                    if row else None
-                )
+                row = db.get_game(rec["game_id"]) or {}
+                td_cache[rec["game_id"]] = get_td_scorers(
+                    used_date or rec_date, row.get("home_team"), row.get("away_team"))
             scorers = td_cache[rec["game_id"]]
             if scorers is None:
                 continue
@@ -177,7 +214,7 @@ def grade_pending(db):
             status = "won" if _norm_name(rec["side_or_player"]) in scorers_norm else "lost"
             db.set_recommendation_status(rec["id"], status)
             td_graded += 1
-            logger.info("TD prop graded %s: %s -> %s", rec["date"], rec["side_or_player"], status)
+            logger.info("TD prop graded %s: %s -> %s", rec_date, rec["side_or_player"], status)
             continue
 
         # ---- Player props (yards / receptions / pass TDs) ------------------
@@ -187,14 +224,13 @@ def grade_pending(db):
                 logger.warning("Player prop %s has an unparseable label -- skipping: %s",
                                rec["id"], rec["side_or_player"])
                 continue
-            if _final(rec["game_id"], sport) is None:
+            scores, used_date = _final(rec["game_id"], sport, rec_date)
+            if scores is None:
                 continue
             if rec["game_id"] not in player_cache:
-                row = db.get_game(rec["game_id"])
-                player_cache[rec["game_id"]] = (
-                    get_player_stats(row.get("date"), row.get("home_team"), row.get("away_team"))
-                    if row else None
-                )
+                row = db.get_game(rec["game_id"]) or {}
+                player_cache[rec["game_id"]] = get_player_stats(
+                    used_date or rec_date, row.get("home_team"), row.get("away_team"))
             stats = player_cache[rec["game_id"]]
             if stats is None:
                 continue
@@ -205,15 +241,15 @@ def grade_pending(db):
             db.set_recommendation_status(rec["id"], status)
             props_graded += 1
             logger.info("Player prop graded %s: %s %s %g (%s) -> %s",
-                        rec["date"], name, side, line, market, status)
+                        rec_date, name, side, line, market, status)
             continue
 
         # ---- Totals (over/under on the game) -------------------------------
         if kind == "total" and rec["game_id"]:
-            result = _final(rec["game_id"], sport)
-            if result is None:
+            scores, _ = _final(rec["game_id"], sport, rec_date)
+            if scores is None:
                 continue
-            home_score, away_score = result
+            home_score, away_score = scores
             combined = home_score + away_score
             label = rec["side_or_player"] or ""
             m = re.search(r"(over|under)\s+([\d.]+)", label, re.I)
@@ -233,21 +269,21 @@ def grade_pending(db):
                 status = "won" if combined < line else "lost"
             db.set_recommendation_status(rec["id"], status)
             totals_graded += 1
-            logger.info("Total graded %s: %s (final %s) -> %s", rec["date"], label, combined, status)
+            logger.info("Total graded %s: %s (final %s) -> %s", rec_date, label, combined, status)
             continue
 
         # ---- Moneyline ------------------------------------------------------
         if kind != "moneyline" or not rec["game_id"]:
             continue
-        result = _final(rec["game_id"], sport)
-        if result is None:
+        scores, _ = _final(rec["game_id"], sport, rec_date)
+        if scores is None:
             continue
 
         clv = _compute_clv(db, rec)
         if clv is not None:
             db.set_recommendation_clv(rec["id"], clv)
 
-        home_score, away_score = result
+        home_score, away_score = scores
         if home_score == away_score:
             status = "push"
         else:
@@ -257,10 +293,10 @@ def grade_pending(db):
         db.record_result(rec["game_id"], home_score, away_score, datetime.now(timezone.utc).isoformat())
         graded_count += 1
         logger.info("%s ML graded %s: %s %s -> %s",
-                    sport, rec["date"], rec.get("team"), rec["side_or_player"], status)
+                    sport, rec_date, rec.get("team"), rec["side_or_player"], status)
 
-        day = by_date.setdefault(rec["date"], {"staked": 0.0, "won": 0.0, "d_staked": 0.0,
-                                                 "d_won": 0.0, "wins": 0, "graded": 0})
+        day = by_date.setdefault(rec_date, {"staked": 0.0, "won": 0.0, "d_staked": 0.0,
+                                             "d_won": 0.0, "wins": 0, "graded": 0})
         day["staked"] += rec["stake_units"] or 0
         day["d_staked"] += rec["stake_dollars"] or 0
         day["graded"] += 1
@@ -287,6 +323,10 @@ def grade_pending(db):
 
     logger.info("Grading pass complete: %d ML, %d TD, %d totals, %d player props settled.",
                 graded_count, td_graded, totals_graded, props_graded)
+    if unresolved:
+        logger.warning("Could NOT find a final score for %d game(s) on any candidate date "
+                       "(they stay pending and will retry next run): %s",
+                       len(unresolved), ", ".join(sorted(set(unresolved))[:10]))
     return {"graded": graded_count, "td_graded": td_graded,
             "totals_graded": totals_graded, "props_graded": props_graded}
 
