@@ -2,36 +2,27 @@
 """
 run_daily.py -- the one command you run each day.
 
-MLB IS MONEYLINE-ONLY as of Sep 3, 2026. HR props are retired (11-120, ROI
--46% over 131 graded picks). Everything HR-related is stripped from
-generation, history and records.
+MLB IS MONEYLINE-ONLY. HR props are retired (11-120, ROI -46% over 131
+graded picks). Everything HR-related is stripped from generation and records.
 
-NFL RUNS TWO SEPARATE PROP BOARDS (Sep 4, 2026):
-  - anytime touchdown   (engine/td_props.py)      cap 10
-  - yards / receptions / pass TDs (engine/player_props.py)  cap 10
-Ranked and capped INDEPENDENTLY, never merged. Both caps are ceilings, not
-quotas: a thin slate publishes four and that is the correct outcome.
+NFL RUNS TWO SEPARATE PROP BOARDS, ranked and capped INDEPENDENTLY:
+  - anytime touchdown            (engine/td_props.py)      cap 10
+  - yards / receptions / pass TD (engine/player_props.py)   cap 10
+Both caps are ceilings, not quotas: a thin slate publishing four is correct.
 
-TWO FIXES (Sep 14, 2026), both of which had been silently wrong for weeks:
+DEPTH FILTERING (Sep 14, 2026) -- the backup-QB bug. The prop boards were
+built from every Active skill player, so KC@DEN published Patrick Mahomes AND
+Justin Fields, his backup, and Fields' +700 anytime-TD landed in the Top
+Parlay. He is genuinely rostered and genuinely Active, so no roster check
+caught it -- he just won't take a snap, and his stat profile came from
+starting elsewhere. data/nfl_players.filter_to_contributors now cuts each
+roster to one QB (the passing-volume leader) plus players clearing
+per-position volume floors, and it runs BEFORE either board is built.
 
-1. THE TOP PARLAY WAS ALWAYS ALL-MLB. It's advertised as the best ticket
-   across every active sport, but it was built with `build_daily_parlay(plays,
-   [])` -- no sport cap and no props passed in. Legs ranked on edge alone, and
-   MLB plays 15 games a night against the NFL's 1-14 a week, so MLB owned
-   every slot by sheer volume. It now passes max_per_sport plus both NFL prop
-   boards, so the ticket genuinely spans the slate.
-
-2. PLAYER-PROP GRADING NEVER APPEARED IN THE LOG. grade_pending returns
-   `props_graded`; this file read `player_prop_graded`, a key that never
-   exists. Grading worked, the count just always printed as zero -- which is
-   exactly the kind of wrong-but-quiet signal that let the real grading bug
-   hide for days.
-
-SELF-CHECK: data/self_check.py runs at the end of every pipeline and appends
-its findings to data_warnings, so anomalies show up in the report's warning
-box instead of waiting for someone to notice. It's the answer to "why do these
-bugs keep happening": almost nothing in this system fails loudly, so the
-system now audits its own output every run.
+That filter also repairs an already-published board without touching the
+database: _locked_props reinstates today's picks by matching stored names
+against the freshly built pool, so a player who is no longer in the pool
+simply cannot come back.
 """
 
 import argparse
@@ -59,7 +50,8 @@ from data.standings_wnba import get_all_wnba_records
 from data.standings_espn import get_all_records_for_sport
 from data.standings_scores import get_records as get_scores_records
 from data.lineups import get_confirmed_pitcher
-from data.nfl_players import get_skill_players, get_td_profile, get_player_profile
+from data.nfl_players import (get_skill_players, get_player_profile,
+                              filter_to_contributors)
 from data.td_odds import fetch_td_odds
 from data.prop_odds import fetch_player_prop_odds
 from data.self_check import run_self_check
@@ -100,14 +92,10 @@ logging.basicConfig(level=getattr(logging, config.LOG_LEVEL, logging.INFO),
 logger = logging.getLogger("run_daily")
 
 LEDGER_CUTOFF = "2026-07-26"
-
 SEED_OVERRIDE_DATES = {"2026-07-29", "2026-07-30"}
-
 SPORT_ORDER = ["MLB", "WNBA", "NFL", "NCAAF", "NCAAB", "NHL", "NBA"]
-
 RECORD_SPORTS = {"MLB", "WNBA", "NFL", "NCAAF", "NCAAB", "NHL", "NBA"}
 SCORES_RECORD_SPORTS = {"WNBA", "NFL", "NCAAF", "NCAAB", "NHL", "NBA"}
-
 RETIRED_KINDS = {"hr_prop"}
 
 _ESPN_SCHEDULE_PROVIDERS = {
@@ -174,7 +162,11 @@ def _recent_prop_players(db, run_date, kind, lookback_days, bench_days, max_appe
 
 
 def _locked_props(db, date_str, pool, kind, name_key="player_name", match_fn=None):
-    """Reuse today's already-published picks so the board never shifts mid-day."""
+    """Reuse today's already-published picks so the board never shifts mid-day.
+
+    Names are matched against the FRESH pool, which is what lets a filter fix
+    repair an already-published board: a player who no longer qualifies isn't
+    in the pool, so he can't be reinstated."""
     try:
         existing = db.get_recommendations_for_date(date_str, kind=kind)
     except Exception as exc:
@@ -193,8 +185,13 @@ def _locked_props(db, date_str, pool, kind, name_key="player_name", match_fn=Non
         k = _norm_player(match_fn(c) if match_fn else c[name_key])
         by_key.setdefault(k, c)
     locked = [by_key[k] for k in keys if k in by_key]
+    dropped = [k for k in keys if k not in by_key]
     for c in locked:
         c["pick_type"] = "core"
+    if dropped:
+        logger.info("%s lock: dropped %d previously-published pick(s) that no longer qualify "
+                    "(%s) -- a filter fix has removed them.", kind, len(dropped),
+                    ", ".join(dropped[:6]))
     if locked:
         logger.info("%s LOCKED to today's published picks (%d).", kind, len(locked))
         return locked
@@ -227,9 +224,9 @@ def _row_to_odds(row):
     )
 
 
-def _nfl_rosters_and_profiles(nfl_games):
-    """Skill rosters + full stat profiles, fetched ONCE and shared by both
-    prop boards -- they need the same players and the same underlying stats."""
+def _nfl_player_pool(nfl_games):
+    """Rosters + stat profiles for tonight's NFL teams, cut down to players who
+    plausibly carry a workload. Fetched once and shared by both prop boards."""
     rosters_by_team = {}
     profiles = {}
     for game in nfl_games:
@@ -242,12 +239,13 @@ def _nfl_rosters_and_profiles(nfl_games):
                 pid = p["player_id"]
                 if pid not in profiles:
                     profiles[pid] = get_player_profile(pid, p["name"])
+    # One QB per team + per-position volume floors. See the module docstring.
+    rosters_by_team = filter_to_contributors(rosters_by_team, profiles)
     return rosters_by_team, profiles
 
 
 def _build_td_props(db, nfl_games, rosters_by_team, profiles, odds_by_game,
                     date_str, run_date, data_warnings):
-    """Board 1: NFL anytime-TD props, Poisson-modelled, locked per day."""
     if not nfl_games:
         return []
 
@@ -261,7 +259,6 @@ def _build_td_props(db, nfl_games, rosters_by_team, profiles, odds_by_game,
             "total_td": prof["total_td"], "td_per_game": prof["td_per_game"],
             "touches": prof["touches"], "targets": int(prof["targets"]),
         }
-
     if not td_profiles:
         data_warnings.append(
             "NFL TD props: no player TD history loaded (ESPN athlete stats unavailable) -- "
@@ -286,16 +283,13 @@ def _build_td_props(db, nfl_games, rosters_by_team, profiles, odds_by_game,
 
     if board and all(c.get("odds_american") is None for c in board):
         data_warnings.append(
-            "NFL TD props are showing without prices -- anytime-TD is a paid player-props "
-            "market on The Odds API. The picks are still model-ranked; confirm the price yourself.")
+            "NFL TD props are showing without prices -- the picks are still model-ranked; "
+            "confirm each price on FanDuel before betting.")
     return board
 
 
 def _build_player_props(db, nfl_games, rosters_by_team, profiles, odds_by_game,
                         date_str, data_warnings):
-    """Board 2: NFL yards / receptions / pass TDs. No rotation fade -- with ten
-    slots across five markets the board turns over naturally, and benching a
-    genuinely soft line would mean passing on the edge we're paid to find."""
     if not nfl_games or not getattr(config, "PLAYER_PROPS_ENABLED", False):
         return []
     if not profiles:
@@ -313,19 +307,17 @@ def _build_player_props(db, nfl_games, rosters_by_team, profiles, odds_by_game,
         return []
 
     fresh_board = finalize_player_props(pool)
-    locked = _locked_props(db, date_str, pool, "player_prop",
-                           match_fn=player_prop_label)
+    locked = _locked_props(db, date_str, pool, "player_prop", match_fn=player_prop_label)
     return locked if locked is not None else fresh_board
 
 
 def _injury_status_map(nfl_games):
     """{player_name: status} from ESPN's per-game injury block, used to skip
     UNDERS on questionable players -- a scratch voids the bet at most books but
-    grades UNDER at a few, so the bet's own settlement rules are unreliable."""
+    grades UNDER at a few, so settlement rules are unreliable."""
     from data.espn_fetch import fetch_scoreboard_events
     out = {}
-    dates = {g.date for g in nfl_games}
-    for date_str in dates:
+    for date_str in {g.date for g in nfl_games}:
         try:
             events = fetch_scoreboard_events("football/nfl", date_str,
                                              season_types=(None, 1, 2, 3))
@@ -345,7 +337,6 @@ def _injury_status_map(nfl_games):
 
 
 def _log_props(db, date_str, rows, kind, sport, name_key, label_fn=None):
-    """Store props/totals so they lock for the day and reach history."""
     if not rows:
         return
     try:
@@ -362,7 +353,8 @@ def _log_props(db, date_str, rows, kind, sport, name_key, label_fn=None):
                 team=c.get("team"), sport=c.get("sport") or sport,
                 odds_american=c.get("odds_american"),
                 edge_pct=c.get("ev_edge", c.get("edge_pct")),
-                model_prob=c.get("model_prob"), market_prob=c.get("market_prob", c.get("implied_prob")),
+                model_prob=c.get("model_prob"),
+                market_prob=c.get("market_prob", c.get("implied_prob")),
                 stake_units=1.0, stake_dollars=0.0,
                 reasoning=c.get("reasoning", []), factor_scores=[],
                 created_at=now_iso,
@@ -399,21 +391,20 @@ def main(argv=None):
 
     if not args.skip_grading:
         result = grade_pending(db)
-        # Keys must match what grade_pending actually returns -- reading a key
-        # that doesn't exist silently prints nothing, which is how a real
-        # grading failure stayed invisible.
         for key, label in (("graded", "moneyline pick(s)"), ("td_graded", "TD prop(s)"),
-                           ("props_graded", "player prop(s)"), ("totals_graded", "total(s)")):
+                           ("props_graded", "player prop(s)"), ("totals_graded", "total(s)"),
+                           ("voided", "prop(s) voided (player inactive)")):
             if result.get(key):
                 logger.info("Graded %s %s from prior days.", result[key], label)
 
     data_warnings = []
 
     if not games:
-        logger.info("No games found across in-season sports (%s) for %s.", ", ".join(live_sports), date_str)
+        logger.info("No games found across in-season sports (%s) for %s.",
+                    ", ".join(live_sports), date_str)
         history = _build_history(db, date_str)
-        report = DailyReport(date=date_str, slate_size=0, plays=[], fade_teams=[], hr_props=[], parlay=None,
-                              dropped_notes=[], celestial=_celestial_dict(run_date),
+        report = DailyReport(date=date_str, slate_size=0, plays=[], fade_teams=[], hr_props=[],
+                              parlay=None, dropped_notes=[], celestial=_celestial_dict(run_date),
                               numerology=_numerology_dict(run_date),
                               bankroll_summary=bankroll_summary(db, history),
                               data_warnings=["No games on today's schedule across in-season sports."],
@@ -436,11 +427,10 @@ def main(argv=None):
     missing_pitchers = [g for g in games if g.sport == "MLB" and (not g.home_pitcher or not g.away_pitcher)]
     if missing_pitchers:
         data_warnings.append(
-            f"{len(missing_pitchers)} MLB game(s) have no probable pitcher posted by MLB yet -- "
-            f"pitching-matchup grading is skipped for those until confirmed: "
+            f"{len(missing_pitchers)} MLB game(s) have no probable pitcher posted yet -- "
+            f"pitching-matchup grading is skipped for those: "
             + ", ".join(f"{g.away_team}@{g.home_team}" for g in missing_pitchers[:6])
-            + (f" +{len(missing_pitchers) - 6} more" if len(missing_pitchers) > 6 else "")
-        )
+            + (f" +{len(missing_pitchers) - 6} more" if len(missing_pitchers) > 6 else ""))
 
     odds_by_game = {}
     for sport in live_sports:
@@ -474,15 +464,13 @@ def main(argv=None):
             data_warnings.append(
                 f"{game.away_team} @ {game.home_team}: public betting % is "
                 f"{'simulated' if split.data_quality == 'mock' else 'not yet filled in'} -- "
-                f"edit manual_inputs/public_betting_{date_str}.json for a sharper read."
-            )
+                f"edit manual_inputs/public_betting_{date_str}.json for a sharper read.")
 
     stats_provider = get_stats_provider()
     team_records = _load_team_records(games, run_date, data_warnings)
     if not team_records:
         data_warnings.append("Standings unavailable today -- talent gap & motivation factors are running blind.")
 
-    # Confirmed MLB starters override MLB's listed probables, which go stale.
     for game in games:
         if game.sport != "MLB":
             continue
@@ -504,32 +492,28 @@ def main(argv=None):
             continue
         is_mlb = game.sport == "MLB"
         has_records = game.sport in RECORD_SPORTS
-        home_pitcher_profile = (stats_provider.get_pitcher_profile(game.home_pitcher.name, game.home_pitcher.player_id)
-                                 if is_mlb and game.home_pitcher else None)
-        away_pitcher_profile = (stats_provider.get_pitcher_profile(game.away_pitcher.name, game.away_pitcher.player_id)
-                                 if is_mlb and game.away_pitcher else None)
-        home_offense = stats_provider.get_team_offense_profile(game.home_team) if is_mlb else None
-        away_offense = stats_provider.get_team_offense_profile(game.away_team) if is_mlb else None
+        home_sp = (stats_provider.get_pitcher_profile(game.home_pitcher.name, game.home_pitcher.player_id)
+                   if is_mlb and game.home_pitcher else None)
+        away_sp = (stats_provider.get_pitcher_profile(game.away_pitcher.name, game.away_pitcher.player_id)
+                   if is_mlb and game.away_pitcher else None)
+        home_off = stats_provider.get_team_offense_profile(game.home_team) if is_mlb else None
+        away_off = stats_provider.get_team_offense_profile(game.away_team) if is_mlb else None
         situational = (park_and_situational_summary(game.home_team, game.away_team, date_str)
                        if is_mlb else {})
-        ev = evaluate_game(
-            game, odds, home_pitcher_profile, away_pitcher_profile, home_offense, away_offense,
+        evaluations.append(evaluate_game(
+            game, odds, home_sp, away_sp, home_off, away_off,
             team_records.get(game.home_team, {}) if has_records else {},
             team_records.get(game.away_team, {}) if has_records else {},
-            public_splits.get(game.game_id), situational, run_date=run_date,
-        )
-        evaluations.append(ev)
+            public_splits.get(game.game_id), situational, run_date=run_date))
 
     plays, dropped_notes = select_daily_plays(evaluations, db, public_splits, date_str)
     fade_teams = select_fade_teams(evaluations)
 
-    # ---- the two NFL prop boards, built off one shared roster/stat pull ----
-    nfl_games = [g for g in games
-                 if g.sport == "NFL" and not getattr(g, "is_preseason", False)]
+    nfl_games = [g for g in games if g.sport == "NFL" and not getattr(g, "is_preseason", False)]
     td_props = []
     player_props = []
     if nfl_games:
-        rosters_by_team, profiles = _nfl_rosters_and_profiles(nfl_games)
+        rosters_by_team, profiles = _nfl_player_pool(nfl_games)
         td_props = _build_td_props(db, nfl_games, rosters_by_team, profiles,
                                    odds_by_game, date_str, run_date, data_warnings)
         player_props = _build_player_props(db, nfl_games, rosters_by_team, profiles,
@@ -539,10 +523,8 @@ def main(argv=None):
 
     raw_celestial, _, _ = celestial_signal_for(run_date)
     raw_numerology, _, _ = numerology_signal_for(run_date)
-    parlay_pool = get_parlay_pool(evaluations)
-    parlay = maybe_build_parlay(parlay_pool, raw_celestial, raw_numerology)
+    parlay = maybe_build_parlay(get_parlay_pool(evaluations), raw_celestial, raw_numerology)
 
-    # Per-sport tabs: every leg is that sport already, so no cap is needed.
     sport_parlays = {}
     active_sports = [s for s in SPORT_ORDER if any(g.sport == s for g in games)]
     for sport in active_sports:
@@ -553,22 +535,14 @@ def main(argv=None):
         if par:
             sport_parlays[sport] = par
 
-    # TOP PARLAY: genuinely cross-sport. The per-sport cap stops MLB's nightly
-    # 15-game slate taking every slot, and both NFL prop boards are eligible
-    # legs so an NFL-heavy day can actually contribute.
-    top_parlay = build_daily_parlay(
-        plays, [],
-        max_per_sport=TOP_PARLAY_MAX_PER_SPORT,
-        td_props=td_props, player_props=player_props,
-    )
+    top_parlay = build_daily_parlay(plays, [], max_per_sport=TOP_PARLAY_MAX_PER_SPORT,
+                                     td_props=td_props, player_props=player_props)
     double_parlay = build_double_parlay(plays)
 
-    first_starts = [g.game_time_utc for g in games if g.game_time_utc]
-    earliest_start = min(first_starts) if first_starts else None
-
+    starts = [g.game_time_utc for g in games if g.game_time_utc]
     log_recommendations(db, date_str, plays, [], top_parlay,
                         sport_parlays=sport_parlays, double_parlay=double_parlay,
-                        first_pitch_utc=earliest_start)
+                        first_pitch_utc=min(starts) if starts else None)
     _log_props(db, date_str, td_props, "td_prop", "NFL", "player_name")
     _log_props(db, date_str, player_props, "player_prop", "NFL", "player_name",
                label_fn=player_prop_label)
@@ -576,21 +550,16 @@ def main(argv=None):
 
     history = _build_history(db, date_str)
     report = DailyReport(
-        date=date_str, slate_size=len(games), plays=plays, fade_teams=fade_teams, hr_props=[], parlay=parlay,
-        dropped_notes=dropped_notes, celestial=_celestial_dict(run_date),
-        numerology=_numerology_dict(run_date), bankroll_summary=bankroll_summary(db, history),
+        date=date_str, slate_size=len(games), plays=plays, fade_teams=fade_teams,
+        hr_props=[], parlay=parlay, dropped_notes=dropped_notes,
+        celestial=_celestial_dict(run_date), numerology=_numerology_dict(run_date),
+        bankroll_summary=bankroll_summary(db, history),
         data_warnings=data_warnings, results_recap=_build_results_recap(db, date_str),
-        history=history,
-        daily_parlay=top_parlay,
+        history=history, daily_parlay=top_parlay,
         sport_parlays=sport_parlays, top_parlay=top_parlay, double_parlay=double_parlay,
-        active_sports=active_sports,
-        pick_changes=get_pick_changes(date_str),
-        td_props=td_props, player_props=player_props, totals=totals,
-    )
+        active_sports=active_sports, pick_changes=get_pick_changes(date_str),
+        td_props=td_props, player_props=player_props, totals=totals)
 
-    # Self-audit LAST, once the report is fully assembled, and fold the
-    # findings into the warning box so anomalies are visible on the page
-    # instead of buried in a log nobody reads.
     report.data_warnings = data_warnings + run_self_check(
         db, report, games, odds_by_game, date_str)
 
@@ -600,7 +569,6 @@ def main(argv=None):
 
 
 def _label_for(row):
-    """History label for a stored recommendation, or None if retired."""
     kind = row["kind"]
     if kind in RETIRED_KINDS:
         return None
@@ -619,8 +587,7 @@ def _label_for(row):
 
 
 def _build_history(db, today_str):
-    """Past graded slates, newest first -- STRICTLY days before today_str.
-    HR props are filtered out entirely (RETIRED_KINDS)."""
+    """Past graded slates, newest first -- STRICTLY days before today_str."""
     seed = [
         {"date": "2026-07-30",
          "parlay": ["PIT ML (-112)", "TB ML (-178)", "ATL ML (-154)", "CWS ML (-116)"],
@@ -662,8 +629,7 @@ def _build_history(db, today_str):
             {"label": "MIA ML (-142)", "status": "lost", "kind": "moneyline", "sport": "MLB"},
         ]},
         {"date": "2026-07-24",
-         "parlay": [],
-         "double": [],
+         "parlay": [], "double": [],
          "picks": [
             {"label": "ARI ML (-124)", "status": "won", "kind": "moneyline", "sport": "MLB"},
             {"label": "MIL ML (-122)", "status": "lost", "kind": "moneyline", "sport": "MLB"},
@@ -686,13 +652,11 @@ def _build_history(db, today_str):
                             "sport": r.get("sport") or "MLB"})
     db_days = []
     for d in order:
-        parlay_rows = db.get_recommendations_for_date(d, kind="parlay_leg")
-        double_rows = db.get_recommendations_for_date(d, kind="double_parlay_leg")
         db_days.append({
             "date": d,
             "picks": by_date[d],
-            "parlay": [r["side_or_player"] for r in parlay_rows],
-            "double": [r["side_or_player"] for r in double_rows],
+            "parlay": [r["side_or_player"] for r in db.get_recommendations_for_date(d, kind="parlay_leg")],
+            "double": [r["side_or_player"] for r in db.get_recommendations_for_date(d, kind="double_parlay_leg")],
         })
     all_days = db_days + seed
     all_days.sort(key=lambda x: x["date"], reverse=True)
@@ -728,13 +692,9 @@ def _emit(report):
     print_daily_report(report)
     path, html = render_daily_report(report)
     logger.info("HTML report written to %s", path)
-
     publish_result = publish_latest_report(html)
     if publish_result.get("published"):
         logger.info("Live at %s", publish_result["url"])
-
-    # No-op unless WHOP_API_KEY / WHOP_EXPERIENCE_ID are set. Deliberately
-    # unset -- posting to the community is manual.
     whop_result = publish_to_whop(report)
     if whop_result.get("published"):
         logger.info("Posted to Whop forum (post %s).", whop_result.get("post_id"))
