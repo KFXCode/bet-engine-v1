@@ -5,11 +5,17 @@ Single SQLite database for the whole engine: games, odds snapshots, public
 betting splits, recommendations, results, and bankroll history.
 """
 
+import logging
 import sqlite3
 import json
 from contextlib import contextmanager
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
+import config
 from config import DB_PATH
+
+logger = logging.getLogger(__name__)
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS games (
@@ -95,6 +101,23 @@ CREATE TABLE IF NOT EXISTS stats_cache (
 """
 
 
+def _local_date_from_kickoff(game_time_utc):
+    """The calendar date a game is actually PLAYED on, in local time.
+
+    This is the authoritative date for a game, and it is NOT the same as the
+    date of the run that discovered it -- see the note on upsert_game."""
+    if not game_time_utc:
+        return None
+    try:
+        iso = str(game_time_utc)
+        if iso.endswith("Z"):
+            iso = iso[:-1] + "+00:00"
+        dt = datetime.fromisoformat(iso)
+        return dt.astimezone(ZoneInfo(config.TIMEZONE)).strftime("%Y-%m-%d")
+    except Exception:
+        return None
+
+
 class Database:
     def __init__(self, path=None):
         self.path = str(path or DB_PATH)
@@ -127,16 +150,48 @@ class Database:
             cur.close()
 
     def upsert_game(self, game):
+        """Store/refresh a game's schedule row.
+
+        THE DATE BUG THIS FIXES (Sep 14, 2026) -- it stranded 41 NFL picks.
+
+        Two compounding mistakes lived here:
+
+        1. `game.date` is the date of the RUN that discovered the game, not
+           the date the game is played. ESPN's scoreboard for a given day
+           happily returns neighbouring games, so Saturday's run pulled the
+           whole Sunday NFL slate and stamped all 14 games '2026-09-12'.
+
+        2. The ON CONFLICT clause refreshed the pitchers and the kickoff time
+           but NOT the date -- so once a game was stored wrong, every later
+           run left the wrong date in place permanently.
+
+        Grading matches non-MLB results on date + teams, so every Sunday NFL
+        pick asked ESPN for Saturday's scoreboard, got nothing final back, and
+        sat 'pending' forever. Results were available the whole time; the
+        lookup was just asking about the wrong day. Nothing errored.
+
+        The kickoff timestamp already carries the true answer, so the stored
+        date is now DERIVED from game_time_utc (converted to config.TIMEZONE)
+        and only falls back to the run date when a game has no time yet. The
+        conflict clause refreshes it too, which means existing wrong rows
+        self-heal the next time that game appears on a slate."""
+        true_date = _local_date_from_kickoff(game.game_time_utc) or game.date
+        if true_date != game.date:
+            logger.debug("Game %s: storing played-date %s (run date was %s).",
+                         game.game_id, true_date, game.date)
         with self.cursor() as cur:
             cur.execute(
                 """INSERT INTO games (game_id, date, home_team, away_team,
                        home_pitcher, away_pitcher, game_time_utc)
                    VALUES (?, ?, ?, ?, ?, ?, ?)
                    ON CONFLICT(game_id) DO UPDATE SET
+                       date=excluded.date,
+                       home_team=excluded.home_team,
+                       away_team=excluded.away_team,
                        home_pitcher=excluded.home_pitcher,
                        away_pitcher=excluded.away_pitcher,
                        game_time_utc=excluded.game_time_utc""",
-                (game.game_id, game.date, game.home_team, game.away_team,
+                (game.game_id, true_date, game.home_team, game.away_team,
                  game.home_pitcher.name if game.home_pitcher else None,
                  game.away_pitcher.name if game.away_pitcher else None,
                  game.game_time_utc),
