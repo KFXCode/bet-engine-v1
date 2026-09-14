@@ -2,32 +2,55 @@
 data/nfl_players.py
 ====================
 Skill-position rosters and SEASON STAT PROFILES for NFL player props, from
-free ESPN endpoints (verified working from the runner):
+free ESPN endpoints:
 
     roster -> /sports/football/nfl/teams/{espn_id}/roster
     stats  -> /common/v3/sports/football/nfl/athletes/{id}/stats
 
-Originally this pulled touchdowns only. It now returns a FULL per-game profile
--- passing / rushing / receiving yards, attempts, completions, receptions,
-targets -- because the prop board covers passing yards, rushing yards,
-receiving yards, receptions and QB pass TDs, and every one of those models
-needs a per-game rate plus the volume behind it.
-
 WHY PER-GAME RATES AND NOT TOTALS: a prop is a single-game question. A back
 with 900 rush yards means nothing until you know whether that came in 6 games
-or 16. Every field below is stored as both the season total and the per-game
-average, and models should read the per-game number.
+or 16. Every field is stored as both the season total and the per-game
+average, and models read the per-game number.
 
 TWO ESPN QUIRKS THIS HANDLES:
-  1. Stat rows come back for MANY seasons and NOT in a guaranteed order (spot
-     checks returned 2017 first for one player, 2021 for another). Never trust
-     statistics[0] -- we scan every row and keep the newest season.
+  1. Stat rows come back for MANY seasons and NOT in a guaranteed order.
+     Never trust statistics[0] -- we scan every row and keep the newest.
   2. Early in a season the current year has no data at all, so we fall back to
      the most recent completed season. Without that, every Week 1 prop would
      be modelled off zeros.
 
-Everything is cached 24h in the shared stats_cache table, and every failure is
-swallowed (returns None/empty) so the daily run always produces a report.
+=====================================================================
+ROSTER STATUS + ROLE FILTERING (Sep 14, 2026) -- the backup-QB bug.
+=====================================================================
+The prop boards were built from EVERY skill player on the roster, which is
+wrong in two separate ways, and both shipped picks:
+
+  1. NO STATUS FILTER. ESPN's roster includes Practice Squad, IR and
+     day-to-day players. A practice-squad back cannot score a touchdown, but
+     nothing stopped him being priced and published.
+
+  2. NO ROLE FILTER. On KC@DEN the anytime-TD board published Patrick
+     Mahomes AND Justin Fields -- Mahomes' backup. Fields is genuinely on the
+     roster and genuinely Active, so no roster check could catch it; he
+     simply will not take a snap while Mahomes is upright. Worse, the model
+     built his scoring rate from his career as a STARTER elsewhere, so he
+     graded as a strong +700 play and landed in the Top Parlay. A backup QB's
+     true anytime-TD probability is near zero.
+
+ESPN's depth-chart endpoint returns an empty body, so depth isn't directly
+available. The reliable proxy is VOLUME: real contributors accumulate
+attempts, carries and targets, and backups don't. So:
+
+  - ONE QB PER TEAM. Quarterbacks are strictly ranked by passing volume and
+    only the leader survives. Two QBs from one team can never both be
+    starters, and it's the single highest-confidence cut available.
+  - PER-POSITION VOLUME FLOORS. A player below the floor for his position
+    isn't a prop candidate regardless of name value.
+
+These are deliberately conservative: they remove players who demonstrably
+don't carry a workload, and they do NOT try to guess a starter among two
+genuine committee backs -- that's a real ambiguity the volume model should
+price, not a filter should delete.
 """
 
 import json
@@ -52,6 +75,25 @@ ESPN_TEAM_IDS = {
 }
 
 SCORING_POSITIONS = {"RB", "WR", "TE", "QB", "FB"}
+
+# Roster statuses that CANNOT produce a prop result. Anything else (Active,
+# or an unknown label we haven't seen) is allowed through -- excluding an
+# unrecognised status would silently shrink the board.
+EXCLUDED_STATUSES = {
+    "practice squad", "injured reserve", "ir", "out", "suspended",
+    "physically unable to perform", "pup", "non football injury",
+    "reserve/future", "waived", "released", "inactive",
+}
+
+# Minimum per-game volume to be considered a real contributor, by position.
+# Below this a player is a depth piece whose prop is noise, not an edge.
+VOLUME_FLOORS = {
+    "QB": {"field": "pass_att_pg", "min": 10.0},
+    "RB": {"field": "touch_pg", "min": 3.0},
+    "FB": {"field": "touch_pg", "min": 1.0},
+    "WR": {"field": "targets_pg", "min": 1.5},
+    "TE": {"field": "targets_pg", "min": 1.0},
+}
 
 ROSTER_HOSTS = [
     "https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/{tid}/roster",
@@ -114,14 +156,27 @@ def _get_json(hosts, **fmt):
     return None
 
 
+def _status_of(athlete):
+    st = athlete.get("status") or {}
+    for field in ("name", "type", "abbreviation", "description"):
+        val = st.get(field)
+        if val:
+            return str(val)
+    return "Active"
+
+
 def get_skill_players(team_abbr):
-    """[{player_id, name, position}] for the skill players on this team."""
+    """[{player_id, name, position, status}] for skill players who could
+    actually play. Practice squad / IR / out are filtered out -- see the
+    module note."""
     tid = ESPN_TEAM_IDS.get(team_abbr)
     if not tid:
         logger.debug("No ESPN team id mapped for NFL abbr %s.", team_abbr)
         return []
 
-    key = f"nfl_roster:{team_abbr}"
+    # Cache key is versioned so the status filter invalidates old cached
+    # rosters that still contain practice-squad players.
+    key = f"nfl_roster_v2:{team_abbr}"
     cached = _cache_get(key)
     if cached is not None:
         return cached
@@ -131,6 +186,7 @@ def get_skill_players(team_abbr):
         return []
 
     players = []
+    excluded = []
     for group in payload.get("athletes", []):
         for a in group.get("items", []):
             pos = ((a.get("position") or {}).get("abbreviation") or "").upper()
@@ -138,11 +194,89 @@ def get_skill_players(team_abbr):
                 continue
             pid = a.get("id")
             name = a.get("displayName")
-            if pid and name:
-                players.append({"player_id": str(pid), "name": name, "position": pos})
+            if not pid or not name:
+                continue
+            status = _status_of(a)
+            if status.strip().lower() in EXCLUDED_STATUSES:
+                excluded.append(f"{name} ({status})")
+                continue
+            players.append({"player_id": str(pid), "name": name,
+                            "position": pos, "status": status})
+
     _cache_set(key, players)
-    logger.info("NFL roster %s: %d skill players.", team_abbr, len(players))
+    logger.info("NFL roster %s: %d available skill player(s)%s.",
+                team_abbr, len(players),
+                f", {len(excluded)} filtered out" if excluded else "")
+    if excluded:
+        logger.debug("NFL roster %s excluded: %s", team_abbr, ", ".join(excluded[:10]))
     return players
+
+
+def filter_to_contributors(rosters_by_team, profiles):
+    """Cut each roster down to players who plausibly carry a workload.
+
+    Returns a NEW {team: [player, ...]} mapping. Two rules, both explained in
+    the module note:
+      1. one QB per team, the passing-volume leader
+      2. per-position per-game volume floors
+
+    Players with no profile at all are kept -- the prop models already skip
+    them, and dropping them here would hide that in the logs."""
+    out = {}
+    for team, players in (rosters_by_team or {}).items():
+        qbs = []
+        others = []
+        for p in players:
+            prof = profiles.get(p["player_id"])
+            if p["position"] == "QB":
+                qbs.append((p, prof))
+            else:
+                others.append((p, prof))
+
+        kept = []
+
+        # --- QBs: strictly one, the volume leader -------------------------
+        if qbs:
+            def _pass_volume(pair):
+                prof = pair[1] or {}
+                return prof.get("pass_att_pg") or 0.0
+            qbs.sort(key=_pass_volume, reverse=True)
+            starter, starter_prof = qbs[0]
+            benched = [p["name"] for p, _ in qbs[1:]]
+            if (starter_prof or {}).get("pass_att_pg", 0) >= VOLUME_FLOORS["QB"]["min"]:
+                kept.append(starter)
+            else:
+                benched.append(f"{starter['name']} (below QB volume floor)")
+            if benched:
+                logger.info("NFL %s: QB1 = %s; excluded %s -- a backup QB's anytime-TD and "
+                            "passing props are near-zero equity, and his stat profile is from "
+                            "starting elsewhere.", team, starter["name"], ", ".join(benched))
+
+        # --- Everyone else: volume floor ----------------------------------
+        for p, prof in others:
+            if not prof:
+                kept.append(p)
+                continue
+            floor = VOLUME_FLOORS.get(p["position"])
+            if not floor:
+                kept.append(p)
+                continue
+            field = floor["field"]
+            if field == "touch_pg":
+                value = (prof.get("rush_att_pg") or 0.0) + (prof.get("rec_pg") or 0.0)
+            else:
+                value = prof.get(field) or 0.0
+            if value >= floor["min"]:
+                kept.append(p)
+            else:
+                logger.debug("NFL %s: excluded %s (%s %.1f < floor %.1f).",
+                             team, p["name"], field, value, floor["min"])
+
+        dropped = len(players) - len(kept)
+        out[team] = kept
+        logger.info("NFL %s: %d contributor(s) kept, %d depth player(s) filtered.",
+                    team, len(kept), dropped)
+    return out
 
 
 def _newest_season_row(category):
@@ -181,16 +315,7 @@ def _num(v):
 
 def get_player_profile(player_id, name=None):
     """Full season profile for a skill player, with per-game rates.
-
-    Returns None when the player has no usable stat history at all.
-    {
-      season, games,
-      pass_yds, pass_att, pass_cmp, pass_td,   + *_pg per-game versions
-      rush_yds, rush_att, rush_td,             + *_pg
-      rec_yds, rec, targets, rec_td,           + *_pg
-      total_td, td_per_game, touches
-    }
-    """
+    None when the player has no usable stat history at all."""
     if not player_id:
         return None
     key = f"nfl_profile:{player_id}"
@@ -212,7 +337,6 @@ def get_player_profile(player_id, name=None):
     season_used = None
     games = 0.0
 
-    # PASSING
     cat = cats.get("passing")
     if cat:
         row, year = _newest_season_row(cat)
@@ -225,7 +349,6 @@ def get_player_profile(player_id, name=None):
             games = max(games, _num(v.get("GP")))
             season_used = year if season_used is None or (year and year > season_used) else season_used
 
-    # RUSHING
     cat = cats.get("rushing")
     if cat:
         row, year = _newest_season_row(cat)
@@ -237,7 +360,6 @@ def get_player_profile(player_id, name=None):
             games = max(games, _num(v.get("GP")))
             season_used = year if season_used is None or (year and year > season_used) else season_used
 
-    # RECEIVING
     cat = cats.get("receiving")
     if cat:
         row, year = _newest_season_row(cat)
@@ -260,21 +382,20 @@ def get_player_profile(player_id, name=None):
     prof["total_td"] = int(total_td)
     prof["touches"] = int(prof["rush_att"] + prof["rec"])
 
-    # Per-game rates -- what every prop model actually reads.
     g = games if games > 0 else 1.0
     for base in ("pass_yds", "pass_att", "pass_cmp", "pass_td",
                  "rush_yds", "rush_att", "rush_td",
                  "rec_yds", "rec", "targets", "rec_td"):
         prof[f"{base}_pg"] = round(prof[base] / g, 3)
     prof["td_per_game"] = round(total_td / g, 3)
+    prof["touch_pg"] = round((prof["rush_att"] + prof["rec"]) / g, 3)
 
     _cache_set(key, prof)
     return prof
 
 
 def get_td_profile(player_id, name=None):
-    """Back-compat shim for engine/td_props.py, which only needs the TD view.
-    Kept so the TD model didn't have to change when the profile got wider."""
+    """Back-compat shim for engine/td_props.py, which only needs the TD view."""
     prof = get_player_profile(player_id, name)
     if not prof:
         return None
