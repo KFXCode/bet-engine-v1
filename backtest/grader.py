@@ -17,25 +17,30 @@ Props are gated on the game being FINAL first. Without that gate an
 in-progress game marks every player who simply hasn't produced YET as a loss,
 which silently destroys the prop record.
 
-DATE-WINDOW SETTLEMENT (Sep 14, 2026) -- the bug that stranded 41 NFL picks:
-non-MLB games are matched to ESPN by DATE, and the date came from the stored
-`games` row. But db.upsert_game's ON CONFLICT clause updates the pitchers and
-kickoff time and NOT the date -- so a game first seen on Saturday (ESPN
-returns the upcoming slate) keeps date='2026-09-12' even though it's played on
-Sunday the 13th. Every Sunday NFL pick then asked ESPN for Saturday's
-scoreboard, found nothing final, and stayed "pending" forever. The picks were
-right there in the ledger with results available; the lookup was just asking
-about the wrong day.
-
-So settlement no longer trusts a single date. It tries, in order:
-    1. the recommendation's own date  (when the pick was published -- the most
-       reliable signal of when the game was played)
+DATE-WINDOW SETTLEMENT -- the bug that stranded 41 NFL picks. Non-MLB games
+are matched to ESPN by DATE, and that date used to come straight from the
+stored `games` row, which was the date of the RUN that discovered the game
+rather than the day it was played. Saturday's run pulled the whole Sunday NFL
+slate and stamped it Saturday, so every Sunday pick asked ESPN for Saturday's
+scoreboard, found nothing final, and stayed pending forever. Nothing errored.
+data/db.py now derives the stored date from the kickoff timestamp, and
+settlement additionally tries several candidate dates:
+    1. the recommendation's own date
     2. the stored game row's date
-    3. one day either side of each  (timezone rollover: a 10pm ET kickoff is
-       already "tomorrow" in UTC, which is how ESPN indexes some events)
-The first candidate that returns a FINAL score wins. That makes grading
-immune to this whole class of date drift instead of needing a data repair
-every time it shows up.
+    3. one day either side of each (a 10pm ET kickoff is already "tomorrow"
+       in UTC, which is how ESPN indexes some events)
+The first candidate returning a FINAL score wins, so this whole class of date
+drift can't strand picks again.
+
+VOIDING A PLAYER WHO DIDN'T PLAY (Sep 14, 2026): if a game is final and the
+player has no line in the box score, he was inactive. grade_player_prop
+correctly returns None (it can't compare a number that doesn't exist), but
+treating None as "try again next run" meant those picks stayed pending
+forever -- the second silent-stall bug in as many weeks. Sportsbooks VOID a
+prop when the player doesn't take the field, so it now settles as a push:
+excluded from the win/loss record, no fake loss, and off the pending list.
+Grading as a loss instead would quietly punish the model for a scratch it had
+no way to predict.
 
 CLV: when a moneyline pick grades, compare the price we took to the CLOSING
 line. Positive CLV means the market moved toward our side after we bet it.
@@ -101,8 +106,7 @@ def _shift(date_str, days):
 
 
 def _candidate_dates(rec_date, row_date):
-    """Dates to try, best guess first. See the DATE-WINDOW note at the top --
-    the stored game row's date can be stale, so the pick's own date leads."""
+    """Dates to try, best guess first. See the DATE-WINDOW note above."""
     out = []
     for base in (rec_date, row_date):
         if not base:
@@ -152,12 +156,14 @@ def _parse_prop_label(label):
 def grade_pending(db):
     pending = db.get_pending_recommendations()
     if not pending:
-        return {"graded": 0, "td_graded": 0, "totals_graded": 0, "props_graded": 0}
+        return {"graded": 0, "td_graded": 0, "totals_graded": 0,
+                "props_graded": 0, "voided": 0}
 
     graded_count = 0
     td_graded = 0
     totals_graded = 0
     props_graded = 0
+    voided = 0
     final_cache = {}      # game_id -> (scores, date_that_worked)
     td_cache = {}
     player_cache = {}
@@ -233,10 +239,20 @@ def grade_pending(db):
                     used_date or rec_date, row.get("home_team"), row.get("away_team"))
             stats = player_cache[rec["game_id"]]
             if stats is None:
+                # Box score not readable yet -- genuinely retry next run.
                 continue
             name, market, side, line = parsed
             status = grade_player_prop(stats, market, name, side, line)
             if status is None:
+                # The game is FINAL and the box score loaded, but this player
+                # has no line in it -- he didn't play. Books void the prop, so
+                # record a push rather than leaving it pending forever (or
+                # inventing a loss the model couldn't have avoided).
+                db.set_recommendation_status(rec["id"], "push")
+                voided += 1
+                logger.info("Player prop VOIDED %s: %s did not appear in the final box score "
+                            "(inactive) -- settled as a push, excluded from the record.",
+                            rec_date, name)
                 continue
             db.set_recommendation_status(rec["id"], status)
             props_graded += 1
@@ -321,14 +337,16 @@ def grade_pending(db):
             bets_graded=totals["graded"], wins=totals["wins"],
         )
 
-    logger.info("Grading pass complete: %d ML, %d TD, %d totals, %d player props settled.",
-                graded_count, td_graded, totals_graded, props_graded)
+    logger.info("Grading pass complete: %d ML, %d TD, %d totals, %d player props settled"
+                "%s.", graded_count, td_graded, totals_graded, props_graded,
+                f", {voided} voided (player inactive)" if voided else "")
     if unresolved:
         logger.warning("Could NOT find a final score for %d game(s) on any candidate date "
                        "(they stay pending and will retry next run): %s",
                        len(unresolved), ", ".join(sorted(set(unresolved))[:10]))
     return {"graded": graded_count, "td_graded": td_graded,
-            "totals_graded": totals_graded, "props_graded": props_graded}
+            "totals_graded": totals_graded, "props_graded": props_graded,
+            "voided": voided}
 
 
 def _get_final_score_mlb(game_id):
