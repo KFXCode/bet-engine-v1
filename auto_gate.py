@@ -1,26 +1,36 @@
 """
 auto_gate.py
 =============
-Decides WHEN the automatic (cloud) daily run should actually publish a fresh
-report, so a single frequent cron schedule (e.g. every 30 min) can still
-produce "update ~1 hour before today's first pitch" behavior on both a
-noon-start slate and a 6pm-start slate -- without hard-coding either time.
+Decides WHEN the automatic (cloud) run should publish, so one frequent cron
+schedule produces "update ahead of today's first game" behaviour whether that
+game is at noon or 8pm -- without hard-coding either time.
 
-Used by run_daily.py's `--auto` flag (see .github/workflows/daily.yml, which
-is what actually calls it on a schedule). A plain `python run_daily.py` with
-no `--auto` ignores all of this and just runs immediately, same as always --
-this file only changes behavior for the unattended/scheduled path.
+Used by run_daily.py's `--auto` flag. A plain `python run_daily.py` ignores
+all of this and runs immediately.
 
-How it decides:
-  1. Already published today? (data_store/last_published.txt) -> skip.
-  2. Otherwise, pull today's schedule and find the EARLIEST game time.
-     Target publish time = that time minus AUTO_RUN_LEAD_MINUTES (config.py).
-     No games today -> fall back to config.DAILY_RUN_HOUR/MINUTE instead,
-     so an off-day still gets a single "no games" report.
-  3. If local now (config.TIMEZONE) is at/past the target -> run + publish.
-     Otherwise -> skip; the next scheduled check (e.g. 30 min later) will
-     re-evaluate. Nothing is lost by checking often -- a skip does almost no
-     work (one schedule fetch, no odds/stats/scoring).
+It anchors on the EARLIEST game across every in-season sport, not baseball --
+run_daily passes the full merged slate, so an NFL 1pm kickoff correctly drives
+the publish even when the first MLB game isn't until 7pm.
+
+THE GRACE WINDOW (Sep 14, 2026) -- why publishing kept landing late.
+The gate published when `now >= target`, where target = first game minus 60
+minutes. With HOURLY cron checks that quietly fails for any game that doesn't
+start exactly on the hour:
+
+    Game 1:05pm -> target 12:05pm
+    check 12:00  ->  12:00 < 12:05  ->  SKIP
+    check 13:00  ->  13:00 > 12:05  ->  PUBLISH, five minutes before kickoff
+
+The intent was "an hour of warning"; the delivery was five minutes, and
+nothing logged an error because the gate did exactly what it was told. Any
+start time between :01 and :59 past the hour hit this.
+
+So the window now OPENS one full check-interval before the target. The gate
+fires at the first check inside that window, which guarantees publishing at
+least AUTO_RUN_LEAD_MINUTES before the first game rather than at most. Same
+example: the window opens 11:05, the 12:00 check publishes, 65 minutes of
+warning. Publishing slightly early costs nothing -- odds are cached, and the
+board locks on first publish and only refines before the game.
 """
 
 from datetime import datetime, timedelta
@@ -29,6 +39,11 @@ from zoneinfo import ZoneInfo
 import config
 
 MARKER_PATH = config.DATA_STORE_DIR / "last_published.txt"
+
+# How far apart the scheduled checks are (.github/workflows/daily.yml runs
+# hourly). The grace window matches it, so a start time anywhere inside the
+# hour still gets the full intended lead.
+CHECK_INTERVAL_MINUTES = int(getattr(config, "AUTO_CHECK_INTERVAL_MINUTES", 60))
 
 
 def already_published_today(date_str):
@@ -51,20 +66,35 @@ def _parse_game_time_utc(iso_str):
     return datetime.fromisoformat(iso_str)
 
 
+def earliest_game_local(run_date, games):
+    """Kickoff/first pitch of the day's FIRST game across all sports, in local
+    time, or None when nothing on the slate carries a start time."""
+    tz = ZoneInfo(config.TIMEZONE)
+    starts = []
+    for g in games:
+        if not g.game_time_utc:
+            continue
+        try:
+            starts.append(_parse_game_time_utc(g.game_time_utc))
+        except Exception:
+            continue
+    if not starts:
+        return None
+    return min(starts).astimezone(tz)
+
+
 def compute_target_publish_time(run_date, games):
-    """Earliest game today minus the configured lead time, in config.TIMEZONE.
+    """Earliest game today minus the configured lead, in config.TIMEZONE.
     Falls back to the fixed DAILY_RUN_HOUR/MINUTE when there's no schedule to
-    anchor to (off day, or a game missing its time)."""
+    anchor to (off day, or every game missing its time)."""
     tz = ZoneInfo(config.TIMEZONE)
     fallback = datetime(run_date.year, run_date.month, run_date.day,
                          config.DAILY_RUN_HOUR, config.DAILY_RUN_MINUTE, tzinfo=tz)
 
-    game_times = [_parse_game_time_utc(g.game_time_utc) for g in games if g.game_time_utc]
-    if not game_times:
+    earliest = earliest_game_local(run_date, games)
+    if earliest is None:
         return fallback
-
-    earliest_local = min(game_times).astimezone(tz)
-    return earliest_local - timedelta(minutes=config.AUTO_RUN_LEAD_MINUTES)
+    return earliest - timedelta(minutes=config.AUTO_RUN_LEAD_MINUTES)
 
 
 def should_run_now(run_date, date_str, games):
@@ -73,9 +103,20 @@ def should_run_now(run_date, date_str, games):
         return False, f"Already published today's report ({date_str})."
 
     target = compute_target_publish_time(run_date, games)
+    # Open the window a full check-interval early -- see the module docstring.
+    window_open = target - timedelta(minutes=CHECK_INTERVAL_MINUTES)
     now = _local_now()
-    target_str = target.strftime("%-I:%M %p %Z")
 
-    if now >= target:
-        return True, f"Publishing now -- past target time of {target_str}."
-    return False, f"Not yet time -- will publish at {target_str} (next scheduled check)."
+    earliest = earliest_game_local(run_date, games)
+    first_game_str = earliest.strftime("%-I:%M %p %Z") if earliest else "n/a"
+    window_str = window_open.strftime("%-I:%M %p %Z")
+
+    if now >= window_open:
+        if earliest:
+            lead = int((earliest - now).total_seconds() // 60)
+            return True, (f"Publishing now -- first game {first_game_str}, "
+                          f"{lead} min of lead time.")
+        return True, f"Publishing now -- no game times available, using the {window_str} fallback."
+
+    return False, (f"Not yet -- first game {first_game_str}, publish window opens "
+                   f"{window_str}. Next scheduled check will re-evaluate.")
