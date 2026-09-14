@@ -2,19 +2,36 @@
 """
 run_daily.py -- the one command you run each day.
 
-MLB IS MONEYLINE-ONLY as of Sep 3, 2026. HR props are retired (see config.py:
-11-120, ROI -46% over 131 graded picks). Everything HR-related is stripped from
-generation, history and records -- keeping the old losses in the ledger would
-drag a discontinued bet type through every number the report shows.
+MLB IS MONEYLINE-ONLY as of Sep 3, 2026. HR props are retired (11-120, ROI
+-46% over 131 graded picks). Everything HR-related is stripped from
+generation, history and records.
 
 NFL RUNS TWO SEPARATE PROP BOARDS (Sep 4, 2026):
   - anytime touchdown   (engine/td_props.py)      cap 10
   - yards / receptions / pass TDs (engine/player_props.py)  cap 10
-They are ranked and capped INDEPENDENTLY and never merged. A touchdown prop
-and a receiving-yards prop aren't comparable bets, so letting them compete for
-the same ten slots would just mean whichever model happens to output bigger
-numbers crowds the other off the page. Both caps are ceilings, not quotas: a
-thin slate publishes four and that is the correct outcome.
+Ranked and capped INDEPENDENTLY, never merged. Both caps are ceilings, not
+quotas: a thin slate publishes four and that is the correct outcome.
+
+TWO FIXES (Sep 14, 2026), both of which had been silently wrong for weeks:
+
+1. THE TOP PARLAY WAS ALWAYS ALL-MLB. It's advertised as the best ticket
+   across every active sport, but it was built with `build_daily_parlay(plays,
+   [])` -- no sport cap and no props passed in. Legs ranked on edge alone, and
+   MLB plays 15 games a night against the NFL's 1-14 a week, so MLB owned
+   every slot by sheer volume. It now passes max_per_sport plus both NFL prop
+   boards, so the ticket genuinely spans the slate.
+
+2. PLAYER-PROP GRADING NEVER APPEARED IN THE LOG. grade_pending returns
+   `props_graded`; this file read `player_prop_graded`, a key that never
+   exists. Grading worked, the count just always printed as zero -- which is
+   exactly the kind of wrong-but-quiet signal that let the real grading bug
+   hide for days.
+
+SELF-CHECK: data/self_check.py runs at the end of every pipeline and appends
+its findings to data_warnings, so anomalies show up in the report's warning
+box instead of waiting for someone to notice. It's the answer to "why do these
+bugs keep happening": almost nothing in this system fails loudly, so the
+system now audits its own output every run.
 """
 
 import argparse
@@ -45,6 +62,7 @@ from data.lineups import get_confirmed_pitcher
 from data.nfl_players import get_skill_players, get_td_profile, get_player_profile
 from data.td_odds import fetch_td_odds
 from data.prop_odds import fetch_player_prop_odds
+from data.self_check import run_self_check
 import re as _re
 import unicodedata as _ud
 
@@ -65,7 +83,8 @@ from engine.td_props import evaluate_td_candidates, finalize_td_props
 from engine.player_props import (evaluate_player_props, finalize_player_props,
                                   label_for as player_prop_label)
 from engine.totals import evaluate_totals, label_for as total_label
-from engine.parlay import maybe_build_parlay, build_daily_parlay, build_double_parlay
+from engine.parlay import (maybe_build_parlay, build_daily_parlay, build_double_parlay,
+                            TOP_PARLAY_MAX_PER_SPORT)
 from engine.models import DailyReport, ProbablePitcher, MoneylineOdds
 
 from output.terminal_report import print_daily_report
@@ -89,7 +108,6 @@ SPORT_ORDER = ["MLB", "WNBA", "NFL", "NCAAF", "NCAAB", "NHL", "NBA"]
 RECORD_SPORTS = {"MLB", "WNBA", "NFL", "NCAAF", "NCAAB", "NHL", "NBA"}
 SCORES_RECORD_SPORTS = {"WNBA", "NFL", "NCAAF", "NCAAB", "NHL", "NBA"}
 
-# Bet kinds that no longer belong anywhere in the report or the records.
 RETIRED_KINDS = {"hr_prop"}
 
 _ESPN_SCHEDULE_PROVIDERS = {
@@ -120,8 +138,6 @@ def _fetch_schedule(sport, date_str):
 
 
 def _active_sports_today(run_date):
-    """Only query leagues that can actually be playing, so out-of-season sports
-    don't burn Odds API credits returning nothing."""
     live = [s for s in config.ENABLED_SPORTS if config.in_season(s, run_date)]
     skipped = [s for s in config.ENABLED_SPORTS if s not in live]
     if skipped:
@@ -131,8 +147,6 @@ def _active_sports_today(run_date):
 
 
 def _recent_prop_players(db, run_date, kind, lookback_days, bench_days, max_appearances=None):
-    """Normalized player names to fade for rotation, so the same handful of
-    names doesn't repeat on the board week after week."""
     appearances = {}
     recent = set()
     for i in range(1, lookback_days + 1):
@@ -160,13 +174,7 @@ def _recent_prop_players(db, run_date, kind, lookback_days, bench_days, max_appe
 
 
 def _locked_props(db, date_str, pool, kind, name_key="player_name", match_fn=None):
-    """If today's props of this kind are already logged, reuse those exact
-    picks (with fresh odds/reasoning) so the board never shifts mid-day.
-
-    match_fn lets a caller key on something other than the player's name --
-    player props need the full 'Player Over 62.5 Receiving Yards' label,
-    because the same man can legitimately appear under two different markets
-    and matching on name alone would collapse them into one."""
+    """Reuse today's already-published picks so the board never shifts mid-day."""
     try:
         existing = db.get_recommendations_for_date(date_str, kind=kind)
     except Exception as exc:
@@ -220,11 +228,8 @@ def _row_to_odds(row):
 
 
 def _nfl_rosters_and_profiles(nfl_games):
-    """Skill rosters + full stat profiles for both prop boards.
-
-    Fetched ONCE and shared: the TD board and the yardage board need the same
-    players and the same underlying stats, and pulling them twice would double
-    the ESPN calls for no benefit."""
+    """Skill rosters + full stat profiles, fetched ONCE and shared by both
+    prop boards -- they need the same players and the same underlying stats."""
     rosters_by_team = {}
     profiles = {}
     for game in nfl_games:
@@ -246,7 +251,6 @@ def _build_td_props(db, nfl_games, rosters_by_team, profiles, odds_by_game,
     if not nfl_games:
         return []
 
-    # td_props.py wants the narrower TD view of each profile.
     td_profiles = {}
     for pid, prof in profiles.items():
         if not prof:
@@ -289,12 +293,9 @@ def _build_td_props(db, nfl_games, rosters_by_team, profiles, odds_by_game,
 
 def _build_player_props(db, nfl_games, rosters_by_team, profiles, odds_by_game,
                         date_str, data_warnings):
-    """Board 2: NFL yards / receptions / pass TDs.
-
-    Unlike the TD board there is NO rotation fade here. Rotation exists to stop
-    the same three names recurring on a 3-slot board; with ten slots across
-    five markets the board naturally turns over, and benching a player whose
-    line is genuinely soft would mean passing on the edge we're paid to find."""
+    """Board 2: NFL yards / receptions / pass TDs. No rotation fade -- with ten
+    slots across five markets the board turns over naturally, and benching a
+    genuinely soft line would mean passing on the edge we're paid to find."""
     if not nfl_games or not getattr(config, "PLAYER_PROPS_ENABLED", False):
         return []
     if not profiles:
@@ -375,7 +376,7 @@ def main(argv=None):
     parser.add_argument("--date", default=None, help="Run as if it were this date (YYYY-MM-DD).")
     parser.add_argument("--skip-grading", action="store_true", help="Skip grading yesterday's picks first.")
     parser.add_argument("--auto", action="store_true",
-                         help="Scheduled mode: only publish once, ~1 hour before the first game.")
+                         help="Scheduled mode: only publish once, ahead of the first game.")
     args = parser.parse_args(argv)
 
     run_date = (datetime.strptime(args.date, "%Y-%m-%d").date() if args.date
@@ -398,8 +399,11 @@ def main(argv=None):
 
     if not args.skip_grading:
         result = grade_pending(db)
+        # Keys must match what grade_pending actually returns -- reading a key
+        # that doesn't exist silently prints nothing, which is how a real
+        # grading failure stayed invisible.
         for key, label in (("graded", "moneyline pick(s)"), ("td_graded", "TD prop(s)"),
-                           ("player_prop_graded", "player prop(s)"), ("totals_graded", "total(s)")):
+                           ("props_graded", "player prop(s)"), ("totals_graded", "total(s)")):
             if result.get(key):
                 logger.info("Graded %s %s from prior days.", result[key], label)
 
@@ -538,14 +542,25 @@ def main(argv=None):
     parlay_pool = get_parlay_pool(evaluations)
     parlay = maybe_build_parlay(parlay_pool, raw_celestial, raw_numerology)
 
+    # Per-sport tabs: every leg is that sport already, so no cap is needed.
     sport_parlays = {}
     active_sports = [s for s in SPORT_ORDER if any(g.sport == s for g in games)]
     for sport in active_sports:
         sp_plays = [p for p in plays if p.sport == sport]
-        par = build_daily_parlay(sp_plays, [])
+        sp_td = td_props if sport == "NFL" else []
+        sp_pp = player_props if sport == "NFL" else []
+        par = build_daily_parlay(sp_plays, [], td_props=sp_td, player_props=sp_pp)
         if par:
             sport_parlays[sport] = par
-    top_parlay = build_daily_parlay(plays, [])
+
+    # TOP PARLAY: genuinely cross-sport. The per-sport cap stops MLB's nightly
+    # 15-game slate taking every slot, and both NFL prop boards are eligible
+    # legs so an NFL-heavy day can actually contribute.
+    top_parlay = build_daily_parlay(
+        plays, [],
+        max_per_sport=TOP_PARLAY_MAX_PER_SPORT,
+        td_props=td_props, player_props=player_props,
+    )
     double_parlay = build_double_parlay(plays)
 
     first_starts = [g.game_time_utc for g in games if g.game_time_utc]
@@ -572,14 +587,20 @@ def main(argv=None):
         pick_changes=get_pick_changes(date_str),
         td_props=td_props, player_props=player_props, totals=totals,
     )
+
+    # Self-audit LAST, once the report is fully assembled, and fold the
+    # findings into the warning box so anomalies are visible on the page
+    # instead of buried in a log nobody reads.
+    report.data_warnings = data_warnings + run_self_check(
+        db, report, games, odds_by_game, date_str)
+
     _emit(report)
     if args.auto:
         auto_gate.mark_published(date_str)
 
 
 def _label_for(row):
-    """History label for a stored recommendation, or None if the kind is
-    retired or not something we display."""
+    """History label for a stored recommendation, or None if retired."""
     kind = row["kind"]
     if kind in RETIRED_KINDS:
         return None
@@ -590,7 +611,6 @@ def _label_for(row):
         return (f"{row['side_or_player']} anytime TD ({odds:+d})" if odds is not None
                 else f"{row['side_or_player']} anytime TD")
     if kind == "player_prop":
-        # Already stored as a full sentence: "Player Over 62.5 Receiving Yards".
         return (f"{row['side_or_player']} ({odds:+d})" if odds is not None
                 else row["side_or_player"])
     if kind == "total":
@@ -600,11 +620,7 @@ def _label_for(row):
 
 def _build_history(db, today_str):
     """Past graded slates, newest first -- STRICTLY days before today_str.
-
-    HR props are filtered out entirely (RETIRED_KINDS). They were 11-120, and
-    leaving them in would keep a discontinued bet type dragging down every
-    record on the page. The seed days below are moneyline-only for the same
-    reason."""
+    HR props are filtered out entirely (RETIRED_KINDS)."""
     seed = [
         {"date": "2026-07-30",
          "parlay": ["PIT ML (-112)", "TB ML (-178)", "ATL ML (-154)", "CWS ML (-116)"],
@@ -717,8 +733,8 @@ def _emit(report):
     if publish_result.get("published"):
         logger.info("Live at %s", publish_result["url"])
 
-    # No-op unless WHOP_API_KEY / WHOP_EXPERIENCE_ID are set. They're
-    # deliberately unset -- posting to the community is manual.
+    # No-op unless WHOP_API_KEY / WHOP_EXPERIENCE_ID are set. Deliberately
+    # unset -- posting to the community is manual.
     whop_result = publish_to_whop(report)
     if whop_result.get("published"):
         logger.info("Posted to Whop forum (post %s).", whop_result.get("post_id"))
