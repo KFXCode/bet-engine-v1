@@ -3,7 +3,8 @@ engine/strategy_rules.py
 =========================
 Non-negotiable rules layered on top of raw edge numbers:
   - never below the sport's edge floor (config.min_edge_for(sport))
-  - PRICE POLICY: no heavy chalk, higher bar on small dogs and MLB favourites
+  - PRICE POLICY: no heavy chalk, higher bars on small dogs, MLB favourites,
+    and non-MLB long dogs
   - DOG-FIRST ranking on MLB
   - flat 1-unit sizing, up to MAX_PLAYS_PER_DAY plays PER SPORT
   - team diversification (no same team 3+ days without stricter re-confirm)
@@ -16,27 +17,28 @@ PRICE POLICY (Aug 29, 2026), from 215 graded moneylines:
     heavy favs (-200 or worse)  21-6     +0.1u   ROI  +0.4%
     small dogs (+1..+149)       12-16    -2.2u   ROI  -7.8%
 
-CALIBRATION (Sep 30, 2026), 324 graded MLB moneylines, bucketed by the
-model's own win probability:
-    model 30-40%  ->  won 59.4%   ROI +148%   (32 picks)
-    model 40-50%  ->  won 53.3%   ROI  +37%
-    model 50-70%  ->  won ~58%    ROI  +2 to +5%
-    model 80-90%  ->  won 73.3%   ROI   -8%
-Of the season's +69 units, 47.5 came from 32 underdog picks. The model is
-honestly calibrated overall (said 59.5%, hit 60.5%) and beats the market's
-Brier score, but its value is concentrated in plus-money: it UNDERRATES its
-own dogs, and small-edge favourites are close to coin flips after the vig.
+CALIBRATION (Sep 30, 2026) -- the grade that split the rules by sport.
 
-So on MLB:
-  - UNDERDOGS RANK FIRST for the daily slots. When more candidates clear the
-    bar than there are slots, the dogs get them.
-  - FAVOURITES NEED A 5% EDGE instead of the 2% floor. A -140 with a 2.5%
-    edge has returned almost nothing; it was taking a slot a dog could use.
-Big dogs keep the base floor -- they're the bucket carrying the system.
+  MLB, 324 picks, bucketed by the model's own win probability:
+      model 30-40%  ->  won 59.4%   ROI +148%   (32 picks)
+      model 40-50%  ->  won 53.3%   ROI  +37%
+      model 50-70%  ->  won ~58%    ROI  +2 to +5%
+      model 80-90%  ->  won 73.3%   ROI   -8%
+  The MLB model UNDERRATES its own dogs. So on MLB, dogs rank first for the
+  daily slots and favourites need a 5% edge.
 
-Honest caveat: 32 picks is a small sample, and a +148% ROI will regress. The
-direction is well supported (it matches the Aug 29 price-bucket grade exactly),
-the size is not.
+  NON-MLB, 52 picks: the OPPOSITE. It OVERRATES its dogs --
+      model 30-40%  ->  won 22.7%   ROI  -17%   (22 picks)
+  and overall it predicted 44.1% but won 38.5%, ROI -10.3%, with a Brier
+  score slightly worse than the market's. So on every other sport:
+    - the edge floor is 4% (config.MIN_EDGE_BY_SPORT), not 1.5%
+    - a +150-or-longer dog needs a 7% edge (config.ML_NON_MLB_LONG_DOG_MIN_EDGE)
+    - no dog-first ranking
+
+The same rule that makes money on one sport was losing it on another, which is
+why these are per-sport rather than global. Honest caveat on both: 32 and 22
+picks are small samples. The DIRECTION of each finding is well supported; the
+SIZE of the edges will shrink as the samples grow.
 
 The reasoning each pick carries is SPLIT so the card is honest:
   1. an EDGE SOURCE line -- data factors vs astrology/numerology,
@@ -52,10 +54,12 @@ MAX_FAV = getattr(config, "ML_MAX_FAVORITE_PRICE", -200)
 SMALL_DOG_MIN_EDGE = getattr(config, "ML_SMALL_DOG_MIN_EDGE", 0.045)
 BIG_DOG_MIN_ODDS = getattr(config, "ML_BIG_DOG_MIN_ODDS", 150)
 
-# Sports where the dog-first ranking and the favourite edge bar apply. MLB only:
-# it's the only sport with a graded sample that supports the rule.
+# MLB-only: dog-first ranking + a 5% bar on favourites.
 DOG_FIRST_SPORTS = set(getattr(config, "ML_DOG_FIRST_SPORTS", ["MLB"]))
 FAVORITE_MIN_EDGE = getattr(config, "ML_FAVORITE_MIN_EDGE", 0.05)
+
+# Everyone else: a +150-or-longer dog needs a much wider gap.
+NON_MLB_LONG_DOG_MIN_EDGE = getattr(config, "ML_NON_MLB_LONG_DOG_MIN_EDGE", 0.07)
 
 
 def _odds_for(ev):
@@ -71,11 +75,22 @@ def _price_check(odds, edge_pct, sport=None):
                        f"21-6 for +0.1 units (ROI +0.4%), and the calibration grade has 80%+ "
                        f"model favourites at ROI -8%. A high win rate that earns nothing isn't "
                        f"a bet, so this bucket is off the board.")
-    if (sport in DOG_FIRST_SPORTS and odds < 0 and edge_pct < FAVORITE_MIN_EDGE):
+
+    dog_first = sport in DOG_FIRST_SPORTS
+
+    if dog_first and odds < 0 and edge_pct < FAVORITE_MIN_EDGE:
         return False, (f"priced {odds:+d} with a {edge_pct:.1%} edge -- MLB favourites need "
-                       f"{FAVORITE_MIN_EDGE:.0%}+ now. The Sep 30 calibration grade has small-edge "
-                       f"favourites returning ~2-5% ROI, while the model's real value sits in "
-                       f"underdogs, so a thin favourite doesn't get a slot a dog could use.")
+                       f"{FAVORITE_MIN_EDGE:.0%}+. Small-edge favourites return ~2-5% ROI while "
+                       f"the model's real value sits in underdogs, so a thin favourite doesn't "
+                       f"get a slot a dog could use.")
+
+    if (not dog_first and odds >= BIG_DOG_MIN_ODDS and edge_pct < NON_MLB_LONG_DOG_MIN_EDGE):
+        return False, (f"priced {odds:+d} with a {edge_pct:.1%} edge -- {sport or 'non-MLB'} dogs "
+                       f"at +{BIG_DOG_MIN_ODDS} or longer need {NON_MLB_LONG_DOG_MIN_EDGE:.0%}+. "
+                       f"Outside MLB the model OVERRATES long dogs (rated 30-40%, won 22.7%, "
+                       f"ROI -17%), so it has to show a much wider gap before its number is "
+                       f"worth betting.")
+
     if 0 <= odds < BIG_DOG_MIN_ODDS and edge_pct < SMALL_DOG_MIN_EDGE:
         return False, (f"priced {odds:+d} with only a {edge_pct:.1%} edge -- small dogs "
                        f"(+1 to +{BIG_DOG_MIN_ODDS - 1}) are 12-16 for -2.2 units, so they need "
@@ -179,11 +194,16 @@ def select_daily_plays(evaluations, db, public_splits, run_date_str):
         reasoning, edge_data_pct, edge_astro_pct = _build_reasoning(ev, dh_note)
 
         if odds_american is not None and odds_american >= BIG_DOG_MIN_ODDS:
-            reasoning.append(
-                f"[Proven price bucket] {odds_american:+d} is a {BIG_DOG_MIN_ODDS}-or-longer dog -- "
-                f"the bucket carrying this system. The Sep 30 calibration grade has the model "
-                f"UNDERRATING its dogs (said ~31%, won ~59%), which is where most of the season's "
-                f"units came from.")
+            if sport in DOG_FIRST_SPORTS:
+                reasoning.append(
+                    f"[Proven price bucket] {odds_american:+d} is a {BIG_DOG_MIN_ODDS}-or-longer MLB dog -- "
+                    f"the bucket carrying this system. The Sep 30 calibration grade has the MLB model "
+                    f"UNDERRATING its dogs (said ~31%, won ~59%).")
+            else:
+                reasoning.append(
+                    f"[Cleared the long-dog bar] {odds_american:+d} with a {ev.edge_pct:.1%} edge -- "
+                    f"above the {NON_MLB_LONG_DOG_MIN_EDGE:.0%} bar {sport} long dogs need, because "
+                    f"outside MLB the model has been overrating them.")
 
         plays.append(Recommendation(
             game=ev.game, side=ev.recommended_side, team=label, sport=ev.game.sport,
@@ -212,9 +232,9 @@ def _edge_rank_key(ev):
 
 
 def _rank_key(ev):
-    """Dogs first on DOG_FIRST_SPORTS, then the original edge ranking. This
-    decides who gets the per-sport slots when more candidates clear the bar
-    than there are slots."""
+    """Dogs first on DOG_FIRST_SPORTS (MLB), then the original edge ranking.
+    Every other sport ranks on edge alone -- its model overrates dogs, so
+    promoting them would promote its weakest picks."""
     dog_tier = 1
     if ev.game.sport in DOG_FIRST_SPORTS:
         odds = _odds_for(ev)
