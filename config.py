@@ -84,10 +84,19 @@ FLAT_STAKE_UNITS = 1.0
 # ---------------------------------------------------------------------------
 # Strategy engine thresholds
 # ---------------------------------------------------------------------------
+# EDGE FLOORS BY SPORT (raised for non-MLB, Sep 30, 2026).
+# Until today the non-MLB floor was 1.5% -- LOWER than MLB's 2% -- even though
+# non-MLB is the weaker model. That was backwards. The Sep 30 calibration grade
+# of 52 non-MLB moneylines: model predicted 44.1%, won 38.5%, ROI -10.3%, and a
+# Brier score slightly worse than the market's. MLB, over 324 picks, is
+# calibrated and beats the market. MLB has probable pitchers, bullpen load,
+# park and platoon inputs; the other moneylines run on price plus generic team
+# factors. A thinner model has to show a BIGGER gap before its number is worth
+# betting, so non-MLB now needs 4%.
 MIN_EDGE = 0.02
 MIN_EDGE_BY_SPORT = {
-    "MLB": 0.02, "NBA": 0.015, "NHL": 0.015,
-    "NFL": 0.015, "NCAAF": 0.015, "NCAAB": 0.015,
+    "MLB": 0.02, "NBA": 0.04, "NHL": 0.04,
+    "NFL": 0.04, "NCAAF": 0.04, "NCAAB": 0.04,
 }
 
 
@@ -101,36 +110,43 @@ TARGET_EDGE_MIN = 0.045
 TARGET_EDGE_MAX = 0.05
 
 # ---------------------------------------------------------------------------
-# MONEYLINE PRICE POLICY  (from the Aug 29 grade of 215 graded picks)
+# MONEYLINE PRICE POLICY
 # ---------------------------------------------------------------------------
-# Actual results, flat 1 unit:
+# Aug 29 grade of 215 picks, flat 1 unit:
 #     big dogs (+150 or longer)  28-30   +44.0u   ROI +75.8%
 #     favorites (-200..-1)       64-38    +7.0u   ROI  +6.8%
 #     heavy favs (-200 or worse) 21-6     +0.1u   ROI  +0.4%
 #     small dogs (+1..+149)      12-16    -2.2u   ROI  -7.8%
-# Heavy favorites win 78% of the time and return essentially NOTHING -- laying
-# -235 to make 100 is break-even at best, and every slot spent there is a slot
-# not spent on the one bucket that actually prints. Small dogs lose outright.
-# So: refuse heavy chalk entirely, and require a bigger modelled edge on small
-# dogs before they're allowed on the board.
 ML_MAX_FAVORITE_PRICE = -200      # refuse anything at -200 or worse
 ML_SMALL_DOG_MIN_EDGE = 0.045     # +1..+149 must clear a higher bar
-ML_BIG_DOG_MIN_ODDS = 150         # the proven bucket
+ML_BIG_DOG_MIN_ODDS = 150         # the proven bucket (on MLB)
+
+# MLB: dogs rank first for the daily slots, and favourites need a 5% edge.
+# Sep 30 calibration: 47.5 of MLB's +69 units came from 32 underdog picks the
+# model rated 30-40% that actually won 59%; small-edge favourites returned
+# only ~2-5% ROI.
+ML_DOG_FIRST_SPORTS = ["MLB"]
+ML_FAVORITE_MIN_EDGE = 0.05
+
+# NON-MLB LONG DOGS need a 7% edge. The dog lean that PAYS on MLB is the exact
+# thing BLEEDING elsewhere: non-MLB picks the model rated 30-40% won only 22.7%
+# (22 picks, ROI -17.2%). MLB's model underrates its dogs; the non-MLB model
+# overrates them. So a non-MLB +150 or longer now has to show a much wider gap.
+ML_NON_MLB_LONG_DOG_MIN_EDGE = 0.07
 
 # ---------------------------------------------------------------------------
 # Sports covered
 # ---------------------------------------------------------------------------
-# WNBA RETIRED Sep 4, 2026. It finished 10-12 on moneyline -- a losing record
-# on a real sample, with no bet type of its own to justify the API calls and
-# the extra schedule/standings/abbreviation surface it dragged along (it was
-# the source of most of the team-name settle bugs: WSH/GS/LV all collide with
-# other leagues). Dropping it removes those calls entirely and narrows the
-# system to the sports that are actually carrying it.
-#
-# The WNBA modules (schedule provider, standings, team map) are intentionally
-# LEFT IN THE REPO rather than deleted -- nothing imports them once the sport
-# is off this list, and keeping them means re-enabling is a one-word change.
+# WNBA RETIRED Sep 4, 2026 (10-12 on moneyline, and the source of most
+# team-name settle bugs). Its modules stay in the repo; re-enabling is a
+# one-word change.
 ENABLED_SPORTS = ["MLB", "NFL", "NCAAF", "NCAAB", "NHL", "NBA"]
+
+# Sports whose moneylines PUBLISH as bets. All of them -- non-MLB moneylines
+# stay on the board and are improved through the stricter edge floors and the
+# long-dog rule above rather than being hidden. Remove a sport from this list
+# to make its moneylines tracking-only (still logged and graded, not published).
+ML_BETTABLE_SPORTS = list(ENABLED_SPORTS)
 
 DIVERSIFICATION_LOOKBACK_DAYS = 3
 DIVERSIFICATION_EXTRA_EDGE = 0.03
@@ -148,18 +164,9 @@ FADE_MIN_EDGE = 0.05
 FADE_MAX_PER_DAY = 5
 
 # ---------------------------------------------------------------------------
-# HR PROPS -- RETIRED Sep 3, 2026
+# HR PROPS -- RETIRED Sep 3, 2026 (11-120 over 131 graded picks, ROI -46%).
+# Settings kept so the workflow can be switched back on in one line.
 # ---------------------------------------------------------------------------
-# MLB is moneyline-only now. The decision came straight off the ledger: 131
-# graded HR picks went 11-120 (8.4%), and on the 40 that had a real recorded
-# price that was -18.4 units at ROI -46%. An average price of +348 needs about
-# 22% to break even, so the market was never mispriced in our favor -- the
-# model was simply wrong about how often these hit, by a factor of roughly
-# four. Recalibrating the curve made the +EV tag honest but didn't create an
-# edge that wasn't there.
-#
-# The settings are kept (not deleted) so the workflow can be switched back on
-# in one line if HR props are ever revisited with a different approach.
 HR_PROPS_ENABLED = False
 HR_PROP_MIN_SCORE = 0
 HR_PROP_MAX_PER_DAY = 3
@@ -195,17 +202,8 @@ HR_PROP_MIN_CLUSTERS = 3
 HR_WEATHER_ENABLED = True
 
 # ---------------------------------------------------------------------------
-# NFL ANYTIME-TD PROPS  (board 1 of 2)
+# NFL ANYTIME-TD PROPS  (board 1 of 2) -- a CAP, not a quota.
 # ---------------------------------------------------------------------------
-# Raised from 3 to 10 (Sep 4, 2026). This is its OWN board, separate from the
-# yardage/reception props below -- the two are never mixed or ranked against
-# each other, because a TD prop and a receiving-yards prop aren't comparable
-# bets and shouldn't compete for the same slots.
-#
-# 10 is a CAP, not a quota. The board posts as many props as genuinely clear
-# the edge bar and stops there; a thin slate publishes 4 and that is the
-# correct outcome. Padding to a round number is exactly what killed the HR
-# board -- volume outran real edge and the marginal picks did the damage.
 TD_PROP_MAX_PER_DAY = 10
 TD_PROP_STRONG_SCORE = 70
 TD_MIN_EV_EDGE = 0.05
@@ -214,15 +212,10 @@ TD_MIN_LAMBDA = 0.06
 # ---------------------------------------------------------------------------
 # NFL PLAYER PROPS -- yards / receptions / pass TDs  (board 2 of 2)
 # ---------------------------------------------------------------------------
-# Five markets, both sides, ranked purely on modelled edge regardless of
-# whether the player is a star or a backup (your call: "whatever has the
-# biggest edge"). Same cap-not-quota rule as the TD board.
 PLAYER_PROPS_ENABLED = True
 PLAYER_PROP_MAX_PER_DAY = 10
-PLAYER_PROP_MIN_EDGE = 0.05        # modelled probability minus the book's
+PLAYER_PROP_MIN_EDGE = 0.05
 
-# The Odds API market keys. Each one is billed PER EVENT, so this list is
-# deliberately short -- exactly the five you asked for, nothing speculative.
 PLAYER_PROP_MARKETS = [
     "player_pass_yds",
     "player_rush_yds",
@@ -231,15 +224,8 @@ PLAYER_PROP_MARKETS = [
     "player_pass_tds",
 ]
 
-# A player needs this many games of history before the model will price him.
-# Below it the per-game average is noise, not a projection.
 PLAYER_PROP_MIN_GAMES = 3
 
-# Spread of real single-game outcomes around the projection, per market. These
-# are what convert "we project 68 yards vs a 62.5 line" into an actual
-# probability -- without them a 5-yard gap looks like a lock instead of the
-# coin-flip it usually is. Receiving yards scatter hardest (one broken tackle
-# swings a whole game); receptions are the tightest because volume is stable.
 PLAYER_PROP_SIGMA = {
     "player_pass_yds": 62.0,
     "player_rush_yds": 28.0,
@@ -248,10 +234,8 @@ PLAYER_PROP_SIGMA = {
     "player_pass_tds": 1.05,
 }
 
-# UNDERS ARE SKIPPED FOR INJURY-QUESTIONABLE PLAYERS (your call). If a
-# questionable player is scratched, most books VOID the bet but some grade it
-# UNDER -- so an under on a player who might not dress is a bet whose rules
-# change depending on the book. Overs are unaffected: a scratch just voids.
+# Unders are skipped for injury-questionable players: a scratch voids the bet
+# at most books but grades it UNDER at a few.
 PLAYER_PROP_SKIP_UNDER_IF_QUESTIONABLE = True
 
 # ---------------------------------------------------------------------------
