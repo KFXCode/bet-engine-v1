@@ -3,26 +3,40 @@ engine/strategy_rules.py
 =========================
 Non-negotiable rules layered on top of raw edge numbers:
   - never below the sport's edge floor (config.min_edge_for(sport))
-  - PRICE POLICY: no heavy chalk, higher bar on small dogs (see below)
-  - flat 1-unit sizing
-  - up to MAX_PLAYS_PER_DAY plays PER SPORT
+  - PRICE POLICY: no heavy chalk, higher bar on small dogs and MLB favourites
+  - DOG-FIRST ranking on MLB
+  - flat 1-unit sizing, up to MAX_PLAYS_PER_DAY plays PER SPORT
   - team diversification (no same team 3+ days without stricter re-confirm)
   - line movement (only drop on significant adverse move AND heavy money)
   - doubleheader safety (one game per pairing; every label names Gm 1/Gm 2)
 
-PRICE POLICY (Aug 29, 2026), straight from 215 graded moneylines:
+PRICE POLICY (Aug 29, 2026), from 215 graded moneylines:
     big dogs (+150 or longer)   28-30   +44.0u   ROI +75.8%
     favorites (-199..-1)        64-38    +7.0u   ROI  +6.8%
     heavy favs (-200 or worse)  21-6     +0.1u   ROI  +0.4%
     small dogs (+1..+149)       12-16    -2.2u   ROI  -7.8%
 
-Heavy favourites won 78% of the time and returned +0.1 units across 27 bets --
-laying -235 to make 100 is break-even at best, and every slot spent there is a
-slot NOT spent on the one bucket that actually prints. A high win rate that
-earns nothing is the most seductive way to lose: the board looks great and the
-bankroll doesn't move. Small dogs lost outright, so they now need a bigger
-modelled edge to qualify. Both rules are enforced here, before a pick can ever
-reach the report.
+CALIBRATION (Sep 30, 2026), 324 graded MLB moneylines, bucketed by the
+model's own win probability:
+    model 30-40%  ->  won 59.4%   ROI +148%   (32 picks)
+    model 40-50%  ->  won 53.3%   ROI  +37%
+    model 50-70%  ->  won ~58%    ROI  +2 to +5%
+    model 80-90%  ->  won 73.3%   ROI   -8%
+Of the season's +69 units, 47.5 came from 32 underdog picks. The model is
+honestly calibrated overall (said 59.5%, hit 60.5%) and beats the market's
+Brier score, but its value is concentrated in plus-money: it UNDERRATES its
+own dogs, and small-edge favourites are close to coin flips after the vig.
+
+So on MLB:
+  - UNDERDOGS RANK FIRST for the daily slots. When more candidates clear the
+    bar than there are slots, the dogs get them.
+  - FAVOURITES NEED A 5% EDGE instead of the 2% floor. A -140 with a 2.5%
+    edge has returned almost nothing; it was taking a slot a dog could use.
+Big dogs keep the base floor -- they're the bucket carrying the system.
+
+Honest caveat: 32 picks is a small sample, and a +148% ROI will regress. The
+direction is well supported (it matches the Aug 29 price-bucket grade exactly),
+the size is not.
 
 The reasoning each pick carries is SPLIT so the card is honest:
   1. an EDGE SOURCE line -- data factors vs astrology/numerology,
@@ -38,15 +52,30 @@ MAX_FAV = getattr(config, "ML_MAX_FAVORITE_PRICE", -200)
 SMALL_DOG_MIN_EDGE = getattr(config, "ML_SMALL_DOG_MIN_EDGE", 0.045)
 BIG_DOG_MIN_ODDS = getattr(config, "ML_BIG_DOG_MIN_ODDS", 150)
 
+# Sports where the dog-first ranking and the favourite edge bar apply. MLB only:
+# it's the only sport with a graded sample that supports the rule.
+DOG_FIRST_SPORTS = set(getattr(config, "ML_DOG_FIRST_SPORTS", ["MLB"]))
+FAVORITE_MIN_EDGE = getattr(config, "ML_FAVORITE_MIN_EDGE", 0.05)
 
-def _price_check(odds, edge_pct):
+
+def _odds_for(ev):
+    return ev.odds.home_ml if ev.recommended_side == "home" else ev.odds.away_ml
+
+
+def _price_check(odds, edge_pct, sport=None):
     """(ok, note). Applies the graded price policy to one candidate."""
     if odds is None:
         return True, None
     if odds <= MAX_FAV:
         return False, (f"priced {odds:+d} -- heavy favourites ({MAX_FAV:+d} or worse) have gone "
-                       f"21-6 for +0.1 units all season (ROI +0.4%). A 78% win rate that earns "
-                       f"nothing isn't a bet, so this bucket is off the board.")
+                       f"21-6 for +0.1 units (ROI +0.4%), and the calibration grade has 80%+ "
+                       f"model favourites at ROI -8%. A high win rate that earns nothing isn't "
+                       f"a bet, so this bucket is off the board.")
+    if (sport in DOG_FIRST_SPORTS and odds < 0 and edge_pct < FAVORITE_MIN_EDGE):
+        return False, (f"priced {odds:+d} with a {edge_pct:.1%} edge -- MLB favourites need "
+                       f"{FAVORITE_MIN_EDGE:.0%}+ now. The Sep 30 calibration grade has small-edge "
+                       f"favourites returning ~2-5% ROI, while the model's real value sits in "
+                       f"underdogs, so a thin favourite doesn't get a slot a dog could use.")
     if 0 <= odds < BIG_DOG_MIN_ODDS and edge_pct < SMALL_DOG_MIN_EDGE:
         return False, (f"priced {odds:+d} with only a {edge_pct:.1%} edge -- small dogs "
                        f"(+1 to +{BIG_DOG_MIN_ODDS - 1}) are 12-16 for -2.2 units, so they need "
@@ -96,7 +125,7 @@ def _build_reasoning(ev, dh_note=None):
 def select_daily_plays(evaluations, db, public_splits, run_date_str):
     candidates = [e for e in evaluations
                   if e.recommended_side and e.edge_pct >= config.min_edge_for(e.game.sport)]
-    candidates.sort(key=_edge_rank_key)
+    candidates.sort(key=_rank_key)
 
     recent_picks = {p["team"] for p in db.get_recent_team_picks(run_date_str, config.DIVERSIFICATION_LOOKBACK_DAYS)}
     picked_today = {}
@@ -112,9 +141,9 @@ def select_daily_plays(evaluations, db, public_splits, run_date_str):
         team = ev.game.home_team if ev.recommended_side == "home" else ev.game.away_team
         label = team + ev.game.dh_label()
         matchup = f"{ev.game.away_team} @ {ev.game.home_team}{ev.game.dh_label()}"
-        odds_american = ev.odds.home_ml if ev.recommended_side == "home" else ev.odds.away_ml
+        odds_american = _odds_for(ev)
 
-        price_ok, price_note = _price_check(odds_american, ev.edge_pct)
+        price_ok, price_note = _price_check(odds_american, ev.edge_pct, sport)
         if not price_ok:
             dropped_notes.append(f"{label} ({matchup}): {price_note}")
             continue
@@ -152,8 +181,9 @@ def select_daily_plays(evaluations, db, public_splits, run_date_str):
         if odds_american is not None and odds_american >= BIG_DOG_MIN_ODDS:
             reasoning.append(
                 f"[Proven price bucket] {odds_american:+d} is a {BIG_DOG_MIN_ODDS}-or-longer dog -- "
-                f"the only bucket carrying this system (28-30 but +44.0 units, ROI +75.8%). "
-                f"Books shade favourite prices toward public money, which is what leaves value here.")
+                f"the bucket carrying this system. The Sep 30 calibration grade has the model "
+                f"UNDERRATING its dogs (said ~31%, won ~59%), which is where most of the season's "
+                f"units came from.")
 
         plays.append(Recommendation(
             game=ev.game, side=ev.recommended_side, team=label, sport=ev.game.sport,
@@ -179,6 +209,18 @@ def _edge_rank_key(ev):
         band_center = (config.TARGET_EDGE_MIN + config.TARGET_EDGE_MAX) / 2
         return (0, abs(ev.edge_pct - band_center))
     return (1, -ev.edge_pct)
+
+
+def _rank_key(ev):
+    """Dogs first on DOG_FIRST_SPORTS, then the original edge ranking. This
+    decides who gets the per-sport slots when more candidates clear the bar
+    than there are slots."""
+    dog_tier = 1
+    if ev.game.sport in DOG_FIRST_SPORTS:
+        odds = _odds_for(ev)
+        if odds is not None and odds > 0:
+            dog_tier = 0
+    return (dog_tier,) + _edge_rank_key(ev)
 
 
 def select_fade_teams(evaluations):
@@ -210,8 +252,7 @@ def select_fade_teams(evaluations):
 
 def get_parlay_pool(evaluations):
     """All games that independently cleared their sport's edge floor AND the
-    price policy, sorted by edge desc. Best-edge-first + the seen-team guard
-    means a doubleheader contributes only its STRONGER game to the parlay."""
+    price policy, sorted by edge desc."""
     candidates = [e for e in evaluations
                   if e.recommended_side and e.edge_pct >= config.min_edge_for(e.game.sport)]
     candidates.sort(key=lambda e: e.edge_pct, reverse=True)
@@ -221,8 +262,8 @@ def get_parlay_pool(evaluations):
         team = ev.game.home_team if ev.recommended_side == "home" else ev.game.away_team
         if team in seen_teams:
             continue
-        odds_american = ev.odds.home_ml if ev.recommended_side == "home" else ev.odds.away_ml
-        price_ok, _ = _price_check(odds_american, ev.edge_pct)
+        odds_american = _odds_for(ev)
+        price_ok, _ = _price_check(odds_american, ev.edge_pct, ev.game.sport)
         if not price_ok:
             continue
         seen_teams.add(team)
