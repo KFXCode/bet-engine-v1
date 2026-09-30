@@ -3,13 +3,37 @@ engine/strategy_rules.py
 =========================
 Non-negotiable rules layered on top of raw edge numbers:
   - never below the sport's edge floor (config.min_edge_for(sport))
+  - CONVICTION GATE: only picks near the day's best, driven by data
   - PRICE POLICY: no heavy chalk, higher bars on small dogs, MLB favourites,
     and non-MLB long dogs
   - DOG-FIRST ranking on MLB
   - flat 1-unit sizing, up to MAX_PLAYS_PER_DAY plays PER SPORT
-  - team diversification (no same team 3+ days without stricter re-confirm)
-  - line movement (only drop on significant adverse move AND heavy money)
-  - doubleheader safety (one game per pairing; every label names Gm 1/Gm 2)
+  - team diversification, line movement, doubleheader safety
+
+=====================================================================
+CONVICTION GATE (Sep 30, 2026) -- one pick is a valid day.
+=====================================================================
+MAX_PLAYS_PER_DAY was always a CEILING -- nothing ever padded the board. But
+the floor it sat on was low: on a 15-game MLB slate, five or more games clear
+a 2% edge almost every day, so the board filled to five almost every day and
+it LOOKED forced. The picks at the bottom were the ones that barely cleared.
+
+Two extra tests now run before a pick is kept:
+
+  1. RELATIVE STRENGTH. Each pick must carry at least ML_STRONG_PICK_RATIO
+     (60%) of the best edge in its sport today. When one game stands well
+     above the rest, it publishes alone. When five are genuinely close, five
+     publish. The board size is set by the slate, not by the cap.
+
+  2. DATA-DRIVEN. The edge must come mostly from data factors. If moon and
+     numerology supply more than ML_MAX_ASTRO_SHARE (50%) of a pick's edge,
+     the data alone didn't make the case, and it's dropped.
+
+Honest note: the Sep 30 grade found edge SIZE doesn't separate MLB winners
+from losers (winners and losers both averaged 6.96%). So this gate is about
+publishing only the model's highest-conviction reads and cutting marginal
+volume -- not a promise that high-edge picks win more. Re-grade it once a few
+weeks of gated picks exist.
 
 PRICE POLICY (Aug 29, 2026), from 215 graded moneylines:
     big dogs (+150 or longer)   28-30   +44.0u   ROI +75.8%
@@ -17,32 +41,11 @@ PRICE POLICY (Aug 29, 2026), from 215 graded moneylines:
     heavy favs (-200 or worse)  21-6     +0.1u   ROI  +0.4%
     small dogs (+1..+149)       12-16    -2.2u   ROI  -7.8%
 
-CALIBRATION (Sep 30, 2026) -- the grade that split the rules by sport.
-
-  MLB, 324 picks, bucketed by the model's own win probability:
-      model 30-40%  ->  won 59.4%   ROI +148%   (32 picks)
-      model 40-50%  ->  won 53.3%   ROI  +37%
-      model 50-70%  ->  won ~58%    ROI  +2 to +5%
-      model 80-90%  ->  won 73.3%   ROI   -8%
-  The MLB model UNDERRATES its own dogs. So on MLB, dogs rank first for the
-  daily slots and favourites need a 5% edge.
-
-  NON-MLB, 52 picks: the OPPOSITE. It OVERRATES its dogs --
-      model 30-40%  ->  won 22.7%   ROI  -17%   (22 picks)
-  and overall it predicted 44.1% but won 38.5%, ROI -10.3%, with a Brier
-  score slightly worse than the market's. So on every other sport:
-    - the edge floor is 4% (config.MIN_EDGE_BY_SPORT), not 1.5%
-    - a +150-or-longer dog needs a 7% edge (config.ML_NON_MLB_LONG_DOG_MIN_EDGE)
-    - no dog-first ranking
-
-The same rule that makes money on one sport was losing it on another, which is
-why these are per-sport rather than global. Honest caveat on both: 32 and 22
-picks are small samples. The DIRECTION of each finding is well supported; the
-SIZE of the edges will shrink as the samples grow.
-
-The reasoning each pick carries is SPLIT so the card is honest:
-  1. an EDGE SOURCE line -- data factors vs astrology/numerology,
-  2. supporting factors, 3. neutral context, 4. counter-signals.
+CALIBRATION (Sep 30, 2026):
+  MLB (324): the model UNDERRATES its dogs -- rated 30-40%, won 59.4%, ROI
+  +148%. So MLB ranks dogs first and makes favourites clear 5%.
+  Non-MLB (52): the model OVERRATES its dogs -- rated 30-40%, won 22.7%, ROI
+  -17%. So other sports need a 4% floor and a 7% edge on +150-or-longer dogs.
 """
 
 import config
@@ -54,12 +57,13 @@ MAX_FAV = getattr(config, "ML_MAX_FAVORITE_PRICE", -200)
 SMALL_DOG_MIN_EDGE = getattr(config, "ML_SMALL_DOG_MIN_EDGE", 0.045)
 BIG_DOG_MIN_ODDS = getattr(config, "ML_BIG_DOG_MIN_ODDS", 150)
 
-# MLB-only: dog-first ranking + a 5% bar on favourites.
 DOG_FIRST_SPORTS = set(getattr(config, "ML_DOG_FIRST_SPORTS", ["MLB"]))
 FAVORITE_MIN_EDGE = getattr(config, "ML_FAVORITE_MIN_EDGE", 0.05)
-
-# Everyone else: a +150-or-longer dog needs a much wider gap.
 NON_MLB_LONG_DOG_MIN_EDGE = getattr(config, "ML_NON_MLB_LONG_DOG_MIN_EDGE", 0.07)
+
+# Conviction gate.
+STRONG_PICK_RATIO = getattr(config, "ML_STRONG_PICK_RATIO", 0.60)
+MAX_ASTRO_SHARE = getattr(config, "ML_MAX_ASTRO_SHARE", 0.50)
 
 
 def _odds_for(ev):
@@ -72,29 +76,54 @@ def _price_check(odds, edge_pct, sport=None):
         return True, None
     if odds <= MAX_FAV:
         return False, (f"priced {odds:+d} -- heavy favourites ({MAX_FAV:+d} or worse) have gone "
-                       f"21-6 for +0.1 units (ROI +0.4%), and the calibration grade has 80%+ "
-                       f"model favourites at ROI -8%. A high win rate that earns nothing isn't "
-                       f"a bet, so this bucket is off the board.")
+                       f"21-6 for +0.1 units (ROI +0.4%), and 80%+ model favourites grade at "
+                       f"ROI -8%. A high win rate that earns nothing isn't a bet.")
 
     dog_first = sport in DOG_FIRST_SPORTS
 
     if dog_first and odds < 0 and edge_pct < FAVORITE_MIN_EDGE:
         return False, (f"priced {odds:+d} with a {edge_pct:.1%} edge -- MLB favourites need "
                        f"{FAVORITE_MIN_EDGE:.0%}+. Small-edge favourites return ~2-5% ROI while "
-                       f"the model's real value sits in underdogs, so a thin favourite doesn't "
-                       f"get a slot a dog could use.")
+                       f"the model's real value sits in underdogs.")
 
-    if (not dog_first and odds >= BIG_DOG_MIN_ODDS and edge_pct < NON_MLB_LONG_DOG_MIN_EDGE):
+    if not dog_first and odds >= BIG_DOG_MIN_ODDS and edge_pct < NON_MLB_LONG_DOG_MIN_EDGE:
         return False, (f"priced {odds:+d} with a {edge_pct:.1%} edge -- {sport or 'non-MLB'} dogs "
                        f"at +{BIG_DOG_MIN_ODDS} or longer need {NON_MLB_LONG_DOG_MIN_EDGE:.0%}+. "
-                       f"Outside MLB the model OVERRATES long dogs (rated 30-40%, won 22.7%, "
-                       f"ROI -17%), so it has to show a much wider gap before its number is "
-                       f"worth betting.")
+                       f"Outside MLB the model OVERRATES long dogs (rated 30-40%, won 22.7%).")
 
     if 0 <= odds < BIG_DOG_MIN_ODDS and edge_pct < SMALL_DOG_MIN_EDGE:
         return False, (f"priced {odds:+d} with only a {edge_pct:.1%} edge -- small dogs "
                        f"(+1 to +{BIG_DOG_MIN_ODDS - 1}) are 12-16 for -2.2 units, so they need "
-                       f"at least a {SMALL_DOG_MIN_EDGE:.1%} edge to qualify.")
+                       f"at least a {SMALL_DOG_MIN_EDGE:.1%} edge.")
+    return True, None
+
+
+def _edge_split(ev):
+    """(data_edge, astro_edge) toward the recommended side, as fractions."""
+    side = ev.recommended_side
+    data = astro = 0.0
+    for fs in ev.factor_scores:
+        toward = fs.signal if side == "home" else -fs.signal
+        if fs.key in ASTRO_KEYS:
+            astro += toward * fs.weight
+        else:
+            data += toward * fs.weight
+    return data, astro
+
+
+def _conviction_check(ev, sport_top_edge):
+    """(ok, note). The two-part gate described in the module docstring."""
+    if sport_top_edge and sport_top_edge > 0:
+        floor = sport_top_edge * STRONG_PICK_RATIO
+        if ev.edge_pct < floor:
+            return False, (f"{ev.edge_pct:.1%} edge is below {STRONG_PICK_RATIO:.0%} of today's best "
+                           f"{ev.game.sport} edge ({sport_top_edge:.1%}) -- cleared the floor but "
+                           f"isn't close to the day's strongest read, so it doesn't publish.")
+    data, astro = _edge_split(ev)
+    positive = max(data, 0.0) + max(astro, 0.0)
+    if positive > 0 and astro > 0 and astro / positive > MAX_ASTRO_SHARE:
+        return False, (f"moon/numerology supply {astro / positive:.0%} of the edge -- the data "
+                       f"factors alone didn't make the case.")
     return True, None
 
 
@@ -102,15 +131,9 @@ def _build_reasoning(ev, dh_note=None):
     """Returns (reasoning_list, edge_data_pct, edge_astro_pct)."""
     side = ev.recommended_side
     support, context, counter = [], [], []
-    edge_data = 0.0
-    edge_astro = 0.0
+    edge_data, edge_astro = _edge_split(ev)
     for fs in ev.factor_scores:
         toward = fs.signal if side == "home" else -fs.signal
-        contribution = toward * fs.weight
-        if fs.key in ASTRO_KEYS:
-            edge_astro += contribution
-        else:
-            edge_data += contribution
         if toward > 0.02:
             support.append(fs.reasoning)
         elif toward < -0.02:
@@ -126,9 +149,7 @@ def _build_reasoning(ev, dh_note=None):
         reasoning.append(dh_note)
     reasoning.append(
         f"EDGE SOURCE: data factors {edge_data_pct:+.1f}%, astrology/numerology "
-        f"{edge_astro_pct:+.1f}% (of the {ev.edge_pct * 100:.1f}% total edge). "
-        f"A healthy pick is driven mostly by DATA -- if astro is carrying it, treat it as thin."
-    )
+        f"{edge_astro_pct:+.1f}% (of the {ev.edge_pct * 100:.1f}% total edge).")
     reasoning += support
     reasoning += context
     if counter:
@@ -137,10 +158,26 @@ def _build_reasoning(ev, dh_note=None):
     return reasoning, edge_data_pct, edge_astro_pct
 
 
+def _sport_top_edges(candidates):
+    """Best price-eligible edge per sport -- the yardstick for the gate. Only
+    price-eligible candidates count, so a heavy favourite that can never
+    publish can't set a bar nobody else can reach."""
+    tops = {}
+    for ev in candidates:
+        ok, _ = _price_check(_odds_for(ev), ev.edge_pct, ev.game.sport)
+        if not ok:
+            continue
+        s = ev.game.sport
+        if ev.edge_pct > tops.get(s, 0.0):
+            tops[s] = ev.edge_pct
+    return tops
+
+
 def select_daily_plays(evaluations, db, public_splits, run_date_str):
     candidates = [e for e in evaluations
                   if e.recommended_side and e.edge_pct >= config.min_edge_for(e.game.sport)]
     candidates.sort(key=_rank_key)
+    top_edges = _sport_top_edges(candidates)
 
     recent_picks = {p["team"] for p in db.get_recent_team_picks(run_date_str, config.DIVERSIFICATION_LOOKBACK_DAYS)}
     picked_today = {}
@@ -163,11 +200,15 @@ def select_daily_plays(evaluations, db, public_splits, run_date_str):
             dropped_notes.append(f"{label} ({matchup}): {price_note}")
             continue
 
+        conv_ok, conv_note = _conviction_check(ev, top_edges.get(sport))
+        if not conv_ok:
+            dropped_notes.append(f"{label} ({matchup}): {conv_note}")
+            continue
+
         if team in picked_today:
             dropped_notes.append(
                 f"{label} ({matchup}): already locked in today's stronger play on {team} from the "
-                f"{picked_today[team]} game -- not doubling up on the same team twice in one day."
-            )
+                f"{picked_today[team]} game -- not doubling up on the same team twice in one day.")
             continue
 
         diversification_flag = None
@@ -177,8 +218,7 @@ def select_daily_plays(evaluations, db, public_splits, run_date_str):
             if ev.edge_pct < required_edge or strong_factors < config.DIVERSIFICATION_MIN_STRONG_FACTORS:
                 dropped_notes.append(
                     f"{label} ({matchup}): skipped -- played in the last {config.DIVERSIFICATION_LOOKBACK_DAYS} "
-                    f"day(s) and didn't clear the stricter re-confirmation bar."
-                )
+                    f"day(s) and didn't clear the stricter re-confirmation bar.")
                 continue
             diversification_flag = (f"{team} played within the last {config.DIVERSIFICATION_LOOKBACK_DAYS} days -- "
                                      f"needed {required_edge:.1%}+ edge and {config.DIVERSIFICATION_MIN_STRONG_FACTORS}+ "
@@ -193,17 +233,20 @@ def select_daily_plays(evaluations, db, public_splits, run_date_str):
         dh_note = ev.game.dh_reasoning()
         reasoning, edge_data_pct, edge_astro_pct = _build_reasoning(ev, dh_note)
 
+        top = top_edges.get(sport)
+        if top and abs(ev.edge_pct - top) < 1e-9:
+            reasoning.insert(0, f"[Strongest {sport} read today] Highest edge on the {sport} slate "
+                                f"at {ev.edge_pct:.1%}.")
+
         if odds_american is not None and odds_american >= BIG_DOG_MIN_ODDS:
             if sport in DOG_FIRST_SPORTS:
                 reasoning.append(
                     f"[Proven price bucket] {odds_american:+d} is a {BIG_DOG_MIN_ODDS}-or-longer MLB dog -- "
-                    f"the bucket carrying this system. The Sep 30 calibration grade has the MLB model "
-                    f"UNDERRATING its dogs (said ~31%, won ~59%).")
+                    f"the bucket carrying this system (MLB model rated these ~31%, they won ~59%).")
             else:
                 reasoning.append(
                     f"[Cleared the long-dog bar] {odds_american:+d} with a {ev.edge_pct:.1%} edge -- "
-                    f"above the {NON_MLB_LONG_DOG_MIN_EDGE:.0%} bar {sport} long dogs need, because "
-                    f"outside MLB the model has been overrating them.")
+                    f"above the {NON_MLB_LONG_DOG_MIN_EDGE:.0%} bar {sport} long dogs need.")
 
         plays.append(Recommendation(
             game=ev.game, side=ev.recommended_side, team=label, sport=ev.game.sport,
@@ -232,9 +275,7 @@ def _edge_rank_key(ev):
 
 
 def _rank_key(ev):
-    """Dogs first on DOG_FIRST_SPORTS (MLB), then the original edge ranking.
-    Every other sport ranks on edge alone -- its model overrates dogs, so
-    promoting them would promote its weakest picks."""
+    """Dogs first on DOG_FIRST_SPORTS (MLB), then the original edge ranking."""
     dog_tier = 1
     if ev.game.sport in DOG_FIRST_SPORTS:
         odds = _odds_for(ev)
@@ -271,11 +312,13 @@ def select_fade_teams(evaluations):
 
 
 def get_parlay_pool(evaluations):
-    """All games that independently cleared their sport's edge floor AND the
-    price policy, sorted by edge desc."""
+    """Games that cleared the floor, the price policy AND the conviction gate,
+    sorted by edge desc -- so the optional green-light parlay can't use a pick
+    the board itself rejected."""
     candidates = [e for e in evaluations
                   if e.recommended_side and e.edge_pct >= config.min_edge_for(e.game.sport)]
     candidates.sort(key=lambda e: e.edge_pct, reverse=True)
+    top_edges = _sport_top_edges(candidates)
     pool = []
     seen_teams = set()
     for ev in candidates:
@@ -285,6 +328,9 @@ def get_parlay_pool(evaluations):
         odds_american = _odds_for(ev)
         price_ok, _ = _price_check(odds_american, ev.edge_pct, ev.game.sport)
         if not price_ok:
+            continue
+        conv_ok, _ = _conviction_check(ev, top_edges.get(ev.game.sport))
+        if not conv_ok:
             continue
         seen_teams.add(team)
         model_prob = ev.model_prob_home if ev.recommended_side == "home" else ev.model_prob_away
