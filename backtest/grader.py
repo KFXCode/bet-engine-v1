@@ -13,50 +13,52 @@ BET TYPES
   td_prop      -> data/td_settle.get_td_scorers (NFL boxscore TD columns)
   player_prop  -> data/player_settle (yards / receptions / pass TDs vs line)
 
-Props are gated on the game being FINAL first. Without that gate an
-in-progress game marks every player who simply hasn't produced YET as a loss,
-which silently destroys the prop record.
+Props are gated on the game being FINAL first, so an in-progress game can't
+mark every player who hasn't produced YET as a loss.
 
-DATE-WINDOW SETTLEMENT -- the bug that stranded 41 NFL picks. Non-MLB games
-are matched to ESPN by DATE, and that date used to come straight from the
-stored `games` row, which was the date of the RUN that discovered the game
-rather than the day it was played. Saturday's run pulled the whole Sunday NFL
-slate and stamped it Saturday, so every Sunday pick asked ESPN for Saturday's
-scoreboard, found nothing final, and stayed pending forever. Nothing errored.
-data/db.py now derives the stored date from the kickoff timestamp, and
-settlement additionally tries several candidate dates:
-    1. the recommendation's own date
-    2. the stored game row's date
-    3. one day either side of each (a 10pm ET kickoff is already "tomorrow"
-       in UTC, which is how ESPN indexes some events)
-The first candidate returning a FINAL score wins.
+DATE-WINDOW SETTLEMENT: non-MLB games are matched to ESPN by date, and a
+stored game row can carry the date of the RUN that found it rather than the
+day it was played. Settlement tries the recommendation's date, the stored
+row's date, and one day either side of each, taking the first FINAL result.
 
-VOIDING A PLAYER WHO DIDN'T PLAY -- applies to BOTH prop boards now.
-Sportsbooks void a player prop when the player doesn't take the field, so a
-scratch must never count against the model: it had no way to predict a late
-inactive, and recording it as a loss makes the tracked record worse than the
-strategy actually was.
+=====================================================================
+THE VOID BUG (fixed Sep 30, 2026) -- read this before touching voids.
+=====================================================================
+On Sep 14 a participation check was added so a scratched player's TD prop
+voids instead of grading as a loss. The check was WRONG, and wrong in the
+worst direction: it flattered the record.
 
-  - player_prop: grade_player_prop returns None when the player has no line
-    in the box score. That used to mean "retry next run", so those picks sat
-    pending forever. Now -> push.
-  - td_prop: this is the subtler one, and it was WRONG until Sep 14. An
-    anytime-TD prop grades by membership in the list of players who scored.
-    An inactive player is simply absent from that list -- exactly like a
-    player who suited up and didn't score -- so every scratch was silently
-    graded a LOSS. Real case: James Conner didn't play on Sep 13 and the
-    board read 6-4 when the honest result was 6-3.
-    Settlement now checks PARTICIPATION first, via the same box score the
-    player-prop path uses: no box-score line in a final game means inactive,
-    which is a void. Only a player who actually played and failed to score
-    takes the loss.
+data/player_settle.get_player_stats returns
+    {market_key: {normalized_player_name: value}}
+-- keyed by MARKET first. The check treated it as keyed by PLAYER, compared
+each player's name against "player_pass_yds", "player_rush_yds" and so on,
+never found a match, and concluded that every player who didn't score had
+not played. Result over two weeks: 12 TD props won, 0 lost, 40 "voided". A
+flawless-looking record built entirely out of a lookup against the wrong
+level of a dictionary.
+
+_played_in_game now looks in EVERY market's player map. A player who logged
+any passing, rushing or receiving line in the final box score played.
+
+KNOWN LIMIT, stated honestly: a player who was active but recorded no
+passing, rushing or receiving stat at all -- e.g. a receiver who ran routes
+and was never targeted -- is absent from every map and still voids, where a
+book would grade his anytime-TD as a loss. That's rare for the high-usage
+players these boards pick, and it's the conservative direction for a void
+check to err. It is not zero, though.
+
+ONE-TIME REPAIR: _repair_false_td_voids re-grades every TD-prop push using
+the corrected check, once, then marks itself done in stats_cache. That fixes
+the history in place, so no database upload is needed.
 
 CLV: when a moneyline pick grades, compare the price we took to the CLOSING
 line. Positive CLV means the market moved toward our side after we bet it.
 """
 
+import json
 import logging
 import re
+import time
 import unicodedata
 from datetime import datetime, timedelta, timezone
 
@@ -69,6 +71,8 @@ from data.player_settle import get_player_stats, grade_player_prop
 from engine.player_props import MARKET_BY_LABEL
 
 logger = logging.getLogger(__name__)
+
+TD_VOID_REPAIR_MARKER = "repair:td_false_voids:v1"
 
 
 def _norm_name(name):
@@ -115,7 +119,6 @@ def _shift(date_str, days):
 
 
 def _candidate_dates(rec_date, row_date):
-    """Dates to try, best guess first. See the DATE-WINDOW note above."""
     out = []
     for base in (rec_date, row_date):
         if not base:
@@ -128,57 +131,37 @@ def _candidate_dates(rec_date, row_date):
 
 
 def _played_in_game(stats, player_name):
-    """Did this player appear in the final box score at all?
+    """Did this player log ANY line in the final box score?
 
-    True  -> he played (a TD prop miss is a real loss)
-    False -> no line in a FINAL box score, i.e. inactive (void the prop)
-    None  -> we can't tell, so the caller should leave the pick pending
-
-    Written defensively about the shape of `stats` because guessing wrong here
-    would mean voiding real losses, which flatters the record -- the opposite
-    of the honesty this fix exists to protect. Anything unrecognised returns
-    None rather than a confident answer."""
-    if not stats:
+    stats is {market_key: {normalized_name: value}} (data/player_settle).
+    True  -> he appears under at least one market: he played
+    False -> the box score is populated and he's in none of it: inactive
+    None  -> no usable box score, so the caller must not guess"""
+    if not stats or not isinstance(stats, dict):
         return None
     target = _norm_name(player_name)
     if not target:
         return None
-
-    # Shape A: {normalized_name: {...stats...}}
-    if isinstance(stats, dict):
-        for key in stats.keys():
-            if _norm_name(str(key)) == target:
-                return True
-        # A populated box score that doesn't contain him means he didn't play.
-        return False if len(stats) > 0 else None
-
-    # Shape B: iterable of records carrying a name field.
-    if isinstance(stats, (list, tuple, set)):
-        found_any = False
-        for row in stats:
-            found_any = True
-            if isinstance(row, dict):
-                for field in ("player", "name", "player_name", "athlete"):
-                    if field in row and _norm_name(str(row[field])) == target:
-                        return True
-            elif _norm_name(str(row)) == target:
-                return True
-        return False if found_any else None
-
-    return None
+    any_rows = False
+    for player_map in stats.values():
+        if not isinstance(player_map, dict):
+            continue
+        if player_map:
+            any_rows = True
+        if target in player_map:
+            return True
+    return False if any_rows else None
 
 
-# "Bijan Robinson Over 68.5 Rushing Yards" -> name / side / line / market label
 _PROP_RE = re.compile(r"^(?P<name>.+?)\s+(?P<side>Over|Under)\s+(?P<line>[\d.]+)\s+(?P<label>.+)$",
                       re.IGNORECASE)
 
 
 def _parse_prop_label(label):
     """(name, market_key, side, line) or None. Handles the stored human format
-    and the legacy pipe form, so nothing already on the ledger is stranded."""
+    and the legacy pipe form."""
     if not label:
         return None
-
     if "|" in label:
         parts = label.split("|")
         if len(parts) == 4:
@@ -188,7 +171,6 @@ def _parse_prop_label(label):
             except (TypeError, ValueError):
                 return None
         return None
-
     m = _PROP_RE.match(label.strip())
     if not m:
         return None
@@ -203,55 +185,118 @@ def _parse_prop_label(label):
     return m.group("name").strip(), market, m.group("side").lower(), line
 
 
+def _final_for(db, game_id, sport, rec_date, cache, unresolved=None):
+    """(scores, date_found_under) or (None, None). Cached per game."""
+    if game_id in cache:
+        return cache[game_id]
+    result = None
+    used_date = None
+    if sport and sport != "MLB":
+        row = db.get_game(game_id) or {}
+        for candidate in _candidate_dates(rec_date, row.get("date")):
+            found = get_final_score_espn(sport, candidate,
+                                         row.get("home_team"), row.get("away_team"))
+            if found:
+                result, used_date = found, candidate
+                if candidate != row.get("date"):
+                    logger.info("Settled %s under %s (stored game row said %s) -- "
+                                "date drift handled.", game_id, candidate, row.get("date"))
+                break
+        if result is None and unresolved is not None:
+            unresolved.append(f"{sport} {game_id} ({row.get('away_team')}@{row.get('home_team')})")
+    else:
+        result = _get_final_score_mlb(game_id)
+        used_date = rec_date
+    cache[game_id] = (result, used_date)
+    return result, used_date
+
+
+def _repair_false_td_voids(db):
+    """One-time: re-grade TD-prop pushes written by the broken participation
+    check. Genuine voids stay pushes; wrongly-voided losses become losses."""
+    try:
+        with db.cursor() as cur:
+            cur.execute("SELECT 1 FROM stats_cache WHERE key=?", (TD_VOID_REPAIR_MARKER,))
+            if cur.fetchone():
+                return 0
+            cur.execute("SELECT * FROM recommendations WHERE kind='td_prop' AND status='push'")
+            rows = [dict(r) for r in cur.fetchall()]
+    except Exception as exc:
+        logger.warning("TD void repair skipped (couldn't read rows): %s", exc)
+        return 0
+
+    if not rows:
+        _mark_repair_done(db, 0, 0)
+        return 0
+
+    final_cache, scorer_cache, box_cache = {}, {}, {}
+    to_lost = to_won = kept = unknown = 0
+    for rec in rows:
+        gid = rec.get("game_id")
+        if not gid:
+            kept += 1
+            continue
+        scores, used_date = _final_for(db, gid, rec.get("sport") or "NFL",
+                                       rec.get("date"), final_cache)
+        if scores is None:
+            unknown += 1
+            continue
+        row = db.get_game(gid) or {}
+        day = used_date or rec.get("date")
+        if gid not in scorer_cache:
+            scorer_cache[gid] = get_td_scorers(day, row.get("home_team"), row.get("away_team"))
+        if gid not in box_cache:
+            box_cache[gid] = get_player_stats(day, row.get("home_team"), row.get("away_team"))
+        scorers = scorer_cache[gid]
+        if scorers is None:
+            unknown += 1
+            continue
+        player = rec["side_or_player"]
+        if _norm_name(player) in {_norm_name(n) for n in scorers}:
+            db.set_recommendation_status(rec["id"], "won")
+            to_won += 1
+            continue
+        played = _played_in_game(box_cache[gid], player)
+        if played is True:
+            db.set_recommendation_status(rec["id"], "lost")
+            to_lost += 1
+        elif played is False:
+            kept += 1
+        else:
+            unknown += 1
+
+    if unknown == 0:
+        _mark_repair_done(db, to_lost, to_won)
+    logger.warning("TD VOID REPAIR: re-graded %d wrongly-voided TD prop(s) -> %d lost, %d won; "
+                   "%d genuine void(s) kept; %d unreadable%s.",
+                   to_lost + to_won, to_lost, to_won, kept, unknown,
+                   " (will retry next run)" if unknown else "")
+    return to_lost + to_won
+
+
+def _mark_repair_done(db, lost, won):
+    try:
+        with db.cursor() as cur:
+            cur.execute("INSERT OR REPLACE INTO stats_cache (key, payload, cached_at) VALUES (?, ?, ?)",
+                        (TD_VOID_REPAIR_MARKER, json.dumps({"lost": lost, "won": won}), time.time()))
+    except Exception as exc:
+        logger.debug("Couldn't write TD void repair marker: %s", exc)
+
+
 def grade_pending(db):
+    repaired = _repair_false_td_voids(db)
+
     pending = db.get_pending_recommendations()
     if not pending:
         return {"graded": 0, "td_graded": 0, "totals_graded": 0,
-                "props_graded": 0, "voided": 0}
+                "props_graded": 0, "voided": 0, "repaired": repaired}
 
-    graded_count = 0
-    td_graded = 0
-    totals_graded = 0
-    props_graded = 0
-    voided = 0
-    final_cache = {}      # game_id -> (scores, date_that_worked)
-    td_cache = {}
-    player_cache = {}
+    graded_count = td_graded = totals_graded = props_graded = voided = 0
+    final_cache, td_cache, player_cache = {}, {}, {}
     by_date = {}
     unresolved = []
 
-    def _final(game_id, sport, rec_date):
-        """(home, away) final score plus the date it was found under, or
-        (None, None). Tries several candidate dates -- see _candidate_dates."""
-        if game_id in final_cache:
-            return final_cache[game_id]
-
-        result = None
-        used_date = None
-
-        if sport and sport != "MLB":
-            row = db.get_game(game_id) or {}
-            for candidate in _candidate_dates(rec_date, row.get("date")):
-                found = get_final_score_espn(sport, candidate,
-                                             row.get("home_team"), row.get("away_team"))
-                if found:
-                    result, used_date = found, candidate
-                    if candidate != row.get("date"):
-                        logger.info("Settled %s under %s (stored game row said %s) -- "
-                                    "date drift handled.", game_id, candidate, row.get("date"))
-                    break
-            if result is None:
-                unresolved.append(f"{sport} {game_id} ({row.get('away_team')}@{row.get('home_team')})")
-        else:
-            result = _get_final_score_mlb(game_id)
-            used_date = rec_date
-
-        final_cache[game_id] = (result, used_date)
-        return result, used_date
-
     def _box_score(game_id, used_date, rec_date):
-        """Per-player box score for a game, cached. Shared by both prop paths
-        so the participation check and the yardage check agree."""
         if game_id not in player_cache:
             row = db.get_game(game_id) or {}
             player_cache[game_id] = get_player_stats(
@@ -263,9 +308,10 @@ def grade_pending(db):
         kind = rec["kind"]
         rec_date = rec.get("date")
 
-        # ---- Anytime-TD props (NFL) ----------------------------------------
+        # ---- Anytime-TD props ----------------------------------------------
         if kind == "td_prop" and rec["game_id"]:
-            scores, used_date = _final(rec["game_id"], sport, rec_date)
+            scores, used_date = _final_for(db, rec["game_id"], sport, rec_date,
+                                           final_cache, unresolved)
             if scores is None:
                 continue
             if rec["game_id"] not in td_cache:
@@ -275,59 +321,52 @@ def grade_pending(db):
             scorers = td_cache[rec["game_id"]]
             if scorers is None:
                 continue
-
             player = rec["side_or_player"]
-            scorers_norm = {_norm_name(n) for n in scorers}
-            if _norm_name(player) in scorers_norm:
+            if _norm_name(player) in {_norm_name(n) for n in scorers}:
                 db.set_recommendation_status(rec["id"], "won")
                 td_graded += 1
                 logger.info("TD prop graded %s: %s -> won", rec_date, player)
                 continue
-
-            # He isn't on the scorers list. Before calling that a loss, check
-            # he actually PLAYED -- an inactive player is absent for the same
-            # reason, and books void those. This is the Conner case.
             played = _played_in_game(_box_score(rec["game_id"], used_date, rec_date), player)
             if played is None:
-                logger.info("TD prop %s (%s): box score unreadable so participation is unknown "
-                            "-- leaving pending rather than guessing.", rec_date, player)
+                logger.info("TD prop %s (%s): box score unreadable -- leaving pending.",
+                            rec_date, player)
                 continue
             if played is False:
                 db.set_recommendation_status(rec["id"], "push")
                 voided += 1
-                logger.info("TD prop VOIDED %s: %s never appeared in the final box score "
-                            "(inactive) -- settled as a push, not a loss.", rec_date, player)
+                logger.info("TD prop VOIDED %s: %s logged no line in the final box score "
+                            "(inactive).", rec_date, player)
                 continue
-
             db.set_recommendation_status(rec["id"], "lost")
             td_graded += 1
             logger.info("TD prop graded %s: %s -> lost (played, did not score)", rec_date, player)
             continue
 
-        # ---- Player props (yards / receptions / pass TDs) ------------------
+        # ---- Player props ---------------------------------------------------
         if kind == "player_prop" and rec["game_id"]:
             parsed = _parse_prop_label(rec["side_or_player"])
             if not parsed:
                 logger.warning("Player prop %s has an unparseable label -- skipping: %s",
                                rec["id"], rec["side_or_player"])
                 continue
-            scores, used_date = _final(rec["game_id"], sport, rec_date)
+            scores, used_date = _final_for(db, rec["game_id"], sport, rec_date,
+                                           final_cache, unresolved)
             if scores is None:
                 continue
             stats = _box_score(rec["game_id"], used_date, rec_date)
             if stats is None:
-                # Box score not readable yet -- genuinely retry next run.
                 continue
             name, market, side, line = parsed
-            status = grade_player_prop(stats, market, name, side, line)
-            if status is None:
-                # Final game, box score loaded, no line for this player: he
-                # didn't play. Void it (see the module note).
+            # Void a player who logged nothing at all, before a missing value
+            # defaults to 0 and hands an inactive player's UNDER a free win.
+            if _played_in_game(stats, name) is False:
                 db.set_recommendation_status(rec["id"], "push")
                 voided += 1
-                logger.info("Player prop VOIDED %s: %s did not appear in the final box score "
-                            "(inactive) -- settled as a push, excluded from the record.",
-                            rec_date, name)
+                logger.info("Player prop VOIDED %s: %s logged no line (inactive).", rec_date, name)
+                continue
+            status = grade_player_prop(stats, market, name, side, line)
+            if status is None:
                 continue
             db.set_recommendation_status(rec["id"], status)
             props_graded += 1
@@ -335,13 +374,12 @@ def grade_pending(db):
                         rec_date, name, side, line, market, status)
             continue
 
-        # ---- Totals (over/under on the game) -------------------------------
+        # ---- Totals ---------------------------------------------------------
         if kind == "total" and rec["game_id"]:
-            scores, _ = _final(rec["game_id"], sport, rec_date)
+            scores, _ = _final_for(db, rec["game_id"], sport, rec_date, final_cache, unresolved)
             if scores is None:
                 continue
-            home_score, away_score = scores
-            combined = home_score + away_score
+            combined = scores[0] + scores[1]
             label = rec["side_or_player"] or ""
             m = re.search(r"(over|under)\s+([\d.]+)", label, re.I)
             if not m:
@@ -366,14 +404,12 @@ def grade_pending(db):
         # ---- Moneyline ------------------------------------------------------
         if kind != "moneyline" or not rec["game_id"]:
             continue
-        scores, _ = _final(rec["game_id"], sport, rec_date)
+        scores, _ = _final_for(db, rec["game_id"], sport, rec_date, final_cache, unresolved)
         if scores is None:
             continue
-
         clv = _compute_clv(db, rec)
         if clv is not None:
             db.set_recommendation_clv(rec["id"], clv)
-
         home_score, away_score = scores
         if home_score == away_score:
             status = "push"
@@ -412,8 +448,8 @@ def grade_pending(db):
             bets_graded=totals["graded"], wins=totals["wins"],
         )
 
-    logger.info("Grading pass complete: %d ML, %d TD, %d totals, %d player props settled"
-                "%s.", graded_count, td_graded, totals_graded, props_graded,
+    logger.info("Grading pass complete: %d ML, %d TD, %d totals, %d player props settled%s.",
+                graded_count, td_graded, totals_graded, props_graded,
                 f", {voided} voided (player inactive)" if voided else "")
     if unresolved:
         logger.warning("Could NOT find a final score for %d game(s) on any candidate date "
@@ -421,7 +457,7 @@ def grade_pending(db):
                        len(unresolved), ", ".join(sorted(set(unresolved))[:10]))
     return {"graded": graded_count, "td_graded": td_graded,
             "totals_graded": totals_graded, "props_graded": props_graded,
-            "voided": voided}
+            "voided": voided, "repaired": repaired}
 
 
 def _get_final_score_mlb(game_id):
