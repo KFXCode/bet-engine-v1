@@ -5,19 +5,34 @@ Writes today's recommendations into the recommendations table, tagged by sport,
 and computes the rolling bankroll/P&L summary. Grading happens the NEXT run,
 in backtest/grader.py -- today's picks start "pending".
 
-WHAT GETS LOGGED (so History can show all of it):
-  moneyline / hr_prop  -- the day's picks, each tagged with its sport
-  parlay_leg           -- each sport's own Best Parlay legs (tagged that sport)
-  top_parlay_leg       -- the cross-sport TOP parlay legs (sport='TOP')
-  double_parlay_leg    -- the 2-leg "Double Your Money" ticket (sport='DOUBLE')
-                          ADDED Aug 21, 2026: this was being built and shown on
-                          the page but never written to the DB, so it never
-                          appeared in the History tab. Now it is recorded daily
-                          like every other ticket.
+WHAT GETS LOGGED:
+  moneyline          -- the day's picks, each tagged with its sport
+  parlay_leg         -- each sport's own Best Parlay legs
+  top_parlay_leg     -- the cross-sport TOP parlay legs (sport='TOP')
+  double_parlay_leg  -- the 2-leg "Double Your Money" ticket (sport='DOUBLE')
 
-Pre-lock change tracking: each time a pre-game re-run REPLACES the day's picks,
-we diff the new set against the previous set and append a plain-English note to
-data_store/pick_changes_<date>.json.
+=====================================================================
+A PUBLISHED PICK IS NEVER DELETED (Oct 3, 2026)
+=====================================================================
+The old rule was "latest pre-game run wins": every re-run before first pitch
+wiped the day's rows and re-inserted whatever that run picked. That quietly
+erased real bets. On Oct 1 the noon board published ATL ML -106 as the top
+MLB play; a 6:19 PM run, still before the 8 PM first pitch, saw moved odds,
+found nothing clearing the bar, and deleted ATL from the ledger. ATL won 6-2
+and the win never reached History -- a pick members could see and bet,
+recorded nowhere.
+
+Once a pick has been shown, someone may have bet it, so it belongs in the
+record. The rule is now APPEND-ONLY:
+  - later runs may ADD picks that weren't on the board yet
+  - they may NEVER remove or replace one that was already published
+  - the day's tickets (Best / Top / Double) keep the FIRST version published,
+    because those are the tickets people actually saw and played
+  - at/after first pitch the day is fully locked, same as before
+
+So the History tab is now the complete list of everything the engine ever put
+in front of you, graded honestly. The live page can still show the latest
+run's view; the ledger is the full record.
 """
 
 import json
@@ -26,6 +41,8 @@ from datetime import datetime, timezone
 import config
 
 LEDGER_CUTOFF = "2026-07-25"
+
+TICKET_KINDS = {"parlay_leg", "top_parlay_leg", "double_parlay_leg"}
 
 
 def _changes_path(date_str):
@@ -46,56 +63,18 @@ def _save_pick_changes(date_str, changes):
     _changes_path(date_str).write_text(json.dumps(changes))
 
 
-def _ml_labels(recs):
-    return [r["team"] for r in recs if r["kind"] == "moneyline" and r.get("team")]
-
-
-def _hr_labels(recs):
-    return [r["side_or_player"] for r in recs if r["kind"] == "hr_prop"]
-
-
-def _diff(old, new):
-    old_s, new_s = set(old), set(new)
-    return sorted(new_s - old_s), sorted(old_s - new_s)
-
-
-def _phrase(kind_label, added, removed):
-    bits = []
-    if added:
-        bits.append(f"now includes {', '.join(added)}")
-    if removed:
-        verb = "is" if len(removed) == 1 else "are"
-        bits.append(f"{', '.join(removed)} {verb} no longer a pick")
-    return f"{kind_label}: " + "; ".join(bits) + "."
-
-
-def _record_changes(date_str, existing, plays, hr_props):
-    if not existing:
-        return
-    old_ml, old_hr = _ml_labels(existing), _hr_labels(existing)
-    new_ml = [p.team for p in plays]
-    new_hr = [h["player_name"] for h in hr_props]
-
-    parts = []
-    add_ml, drop_ml = _diff(old_ml, new_ml)
-    if add_ml or drop_ml:
-        parts.append(_phrase("Moneyline", add_ml, drop_ml))
-    add_hr, drop_hr = _diff(old_hr, new_hr)
-    if add_hr or drop_hr:
-        parts.append(_phrase("Home run", add_hr, drop_hr))
-
-    if not parts:
+def _note_additions(date_str, added):
+    if not added:
         return
     changes = get_pick_changes(date_str)
     changes.append({
         "time": datetime.now(timezone.utc).astimezone().strftime("%-I:%M %p"),
-        "text": " ".join(parts),
+        "text": f"Moneyline: added {', '.join(added)} (earlier picks stay on the record).",
     })
     _save_pick_changes(date_str, changes)
 
 
 def _log_parlay_legs(db, date_str, parlay, kind, sport, now_iso):
-    """Write one row per leg of a parlay ticket so it lands in History."""
     for leg in (parlay or {}).get("legs", []):
         db.insert_recommendation(
             date=date_str, game_id=None, kind=kind,
@@ -106,67 +85,66 @@ def _log_parlay_legs(db, date_str, parlay, kind, sport, now_iso):
         )
 
 
-def log_recommendations(db, date_str, plays, hr_props, top_parlay=None,
+def _insert_play(db, date_str, play, now_iso):
+    db.insert_recommendation(
+        date=date_str, game_id=play.game.game_id, kind="moneyline",
+        side_or_player=play.side, team=play.team, sport=play.sport,
+        odds_american=play.odds_american,
+        edge_pct=play.edge_pct, model_prob=play.model_prob, market_prob=play.market_prob,
+        stake_units=play.stake_units, stake_dollars=play.stake_dollars,
+        reasoning=play.reasoning,
+        factor_scores=[{"key": fs.key, "signal": fs.signal, "weight": fs.weight,
+                        "reasoning": fs.reasoning, "data_quality": fs.data_quality}
+                       for fs in play.factor_scores],
+        created_at=now_iso,
+    )
+
+
+def log_recommendations(db, date_str, plays, hr_props=None, top_parlay=None,
                         sport_parlays=None, double_parlay=None, first_pitch_utc=None):
     now = datetime.now(timezone.utc)
     now_iso = now.isoformat()
     sport_parlays = sport_parlays or {}
 
-    # Slate-locking rule: before first pitch each re-run REPLACES the day's
-    # picks (latest pre-game state wins); at/after first pitch it LOCKS.
     existing = db.get_recommendations_for_date(date_str)
-    if existing:
-        locked = True
-        if first_pitch_utc:
-            try:
-                fp = datetime.fromisoformat(str(first_pitch_utc).replace("Z", "+00:00"))
-                locked = now >= fp
-            except Exception:
-                locked = True
-        if locked:
+
+    if existing and first_pitch_utc:
+        try:
+            fp = datetime.fromisoformat(str(first_pitch_utc).replace("Z", "+00:00"))
+            if now >= fp:
+                return          # day is locked
+        except Exception:
             return
-        _record_changes(date_str, existing, plays, hr_props)
-        # Pre-lock replace: wipe ALL of today's rows (not just pending). A
-        # pending-only delete would leave an already-graded row behind and the
-        # re-insert would DUPLICATE the slate. Pre-lock means no legit result
-        # exists yet, so a full wipe of today is safe.
-        with db.cursor() as cur:
-            cur.execute("DELETE FROM recommendations WHERE date=?", (date_str,))
 
+    # Moneylines: append any NEW pick; never touch a published one.
+    have = {(r.get("game_id"), r.get("side_or_player"))
+            for r in existing if r["kind"] == "moneyline"}
+    added = []
     for play in plays:
-        db.insert_recommendation(
-            date=date_str, game_id=play.game.game_id, kind="moneyline",
-            side_or_player=play.side, team=play.team, sport=play.sport,
-            odds_american=play.odds_american,
-            edge_pct=play.edge_pct, model_prob=play.model_prob, market_prob=play.market_prob,
-            stake_units=play.stake_units, stake_dollars=play.stake_dollars,
-            reasoning=play.reasoning,
-            factor_scores=[{"key": fs.key, "signal": fs.signal, "weight": fs.weight,
-                            "reasoning": fs.reasoning, "data_quality": fs.data_quality}
-                           for fs in play.factor_scores],
-            created_at=now_iso,
-        )
-    for prop in hr_props:
-        db.insert_recommendation(
-            date=date_str, game_id=prop.get("game_id"), kind="hr_prop",
-            side_or_player=prop["player_name"], team=prop["team"], sport="MLB",
-            odds_american=prop.get("odds_american"),
-            edge_pct=None, model_prob=None, market_prob=None,
-            stake_units=1.0, stake_dollars=0.0, reasoning=prop["reasoning"], factor_scores=[],
-            created_at=now_iso,
-        )
+        key = (play.game.game_id, play.side)
+        if key in have:
+            continue
+        _insert_play(db, date_str, play, now_iso)
+        have.add(key)
+        added.append(play.team)
+    if existing:
+        _note_additions(date_str, added)
 
+    # Tickets: keep the FIRST version shown -- only write a ticket type that
+    # hasn't been recorded today yet.
+    have_kinds = {(r["kind"], r.get("sport")) for r in existing if r["kind"] in TICKET_KINDS}
     for sport, par in sport_parlays.items():
-        _log_parlay_legs(db, date_str, par, "parlay_leg", sport, now_iso)
-
-    _log_parlay_legs(db, date_str, top_parlay, "top_parlay_leg", "TOP", now_iso)
-    _log_parlay_legs(db, date_str, double_parlay, "double_parlay_leg", "DOUBLE", now_iso)
+        if ("parlay_leg", sport) not in have_kinds:
+            _log_parlay_legs(db, date_str, par, "parlay_leg", sport, now_iso)
+    if ("top_parlay_leg", "TOP") not in have_kinds:
+        _log_parlay_legs(db, date_str, top_parlay, "top_parlay_leg", "TOP", now_iso)
+    if ("double_parlay_leg", "DOUBLE") not in have_kinds:
+        _log_parlay_legs(db, date_str, double_parlay, "double_parlay_leg", "DOUBLE", now_iso)
 
 
 def bankroll_summary(db, history_days=None):
     """Top-line records are the EXACT sum of the per-day history shown in the
-    History tab (deduped + seed-pinned), so the big number can never drift
-    from the day-by-day rows again. CLV still comes from the DB."""
+    History tab, so the big number can never drift from the day-by-day rows."""
     clv = db.get_clv_summary("moneyline")
     base = {
         "wins": 0, "losses": 0, "hr_wins": 0, "hr_losses": 0,
@@ -174,20 +152,15 @@ def bankroll_summary(db, history_days=None):
         "clv_n": clv["n"], "clv_avg": clv["avg_clv_pct"], "clv_beat": clv["beat_pct"],
         "units_net": 0.0, "dollars_net": 0.0, "running_bankroll": 0.0,
     }
-    ml_dates, hr_dates = [], []
+    ml_dates = []
     for day in (history_days or []):
         for pick in day.get("picks", []):
             if pick.get("status") not in ("won", "lost"):
                 continue
-            won = pick["status"] == "won"
             if pick.get("kind") == "moneyline":
-                base["wins" if won else "losses"] += 1
+                base["wins" if pick["status"] == "won" else "losses"] += 1
                 ml_dates.append(day["date"])
-            elif pick.get("kind") == "hr_prop":
-                base["hr_wins" if won else "hr_losses"] += 1
-                hr_dates.append(day["date"])
     base["ml_since"] = min(ml_dates) if ml_dates else None
-    base["hr_since"] = min(hr_dates) if hr_dates else None
 
     history = db.get_bankroll_history(limit=10000)
     if history:
