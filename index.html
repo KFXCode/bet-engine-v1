@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="icon-192.png">
-<title>Daily Betting Report — 2026-10-02</title>
+<title>Daily Betting Report — 2026-10-03</title>
 <style>
   :root {
     --bg: oklch(0.16 0.012 250);
@@ -185,12 +185,12 @@
 
   <div class="header">
     <h1>Daily Betting Report</h1>
-    <p class="date">2026-10-02</p>
-    <p class="updated"><span class="dot"></span>Updated Oct 2, 2026 - 5:09 PM EDT</p>
+    <p class="date">2026-10-03</p>
+    <p class="updated"><span class="dot"></span>Updated Oct 3, 2026 - 9:13 AM EDT</p>
     <div class="strip">
-      <div class="item">Slate: <b>8 games</b></div>
-      <div class="item">Moon: <b>Waning Gibbous</b> in <b>Gemini</b></div>
-      <div class="item">Numerology: <b>4</b></div>
+      <div class="item">Slate: <b>72 games</b></div>
+      <div class="item">Moon: <b>Last Quarter</b> in <b>Cancer</b></div>
+      <div class="item">Numerology: <b>5</b></div>
     </div>
 
     
@@ -202,21 +202,21 @@
       <summary>Why today's moon &amp; numbers matter <svg class="cx-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg></summary>
       <div class="cx-body">
         <div class="cx-row">
-          <div class="cx-h">🌙 Waning Gibbous &middot; 62% lit</div>
-          <div class="cx-t">Release and letdown after the peak. Hot win-streak teams are prime fade spots here.</div>
+          <div class="cx-h">🌙 Last Quarter &middot; 51% lit</div>
+          <div class="cx-t">Clearing out, re-evaluation. Energy is neutral and unsettled.</div>
           
-          <span class="cx-lean lean-dog">Leans underdog</span>
-          <div class="cx-t" style="margin-top:8px; color:var(--warn);"><b>Fade phase active:</b> lunar weight is DOUBLED today (0.06, same as the public/sharp factor), so hyped and tired favorites get pushed down and value sides get pushed up.</div>
+          <span class="cx-lean" style="color:var(--muted); background:rgba(255,255,255,0.06);">Neutral / coin-flip</span>
+          
         </div>
         <div class="cx-row">
-          <div class="cx-h">♒ Moon in Gemini</div>
+          <div class="cx-h">♒ Moon in Cancer</div>
           <div class="cx-t">The sign the Moon is transiting colors the daily tone.</div>
           
           <span class="cx-lean" style="color:var(--muted); background:rgba(255,255,255,0.06);">Neutral</span>
         </div>
         <div class="cx-row">
-          <div class="cx-h">🔢 Numerology 4</div>
-          <div class="cx-t">Structure disrupted -- foundations shaky, lean underdog.</div>
+          <div class="cx-h">🔢 Numerology 5</div>
+          <div class="cx-t">Change &amp; chaos -- volatile, unpredictable day.</div>
         </div>
         <div class="cx-row">
           <div class="cx-t" style="font-size:12px;">These are weighted <b style="color:var(--fg);">nudges</b> -- they tip close calls, and on fade phases they carry real weight, but they never override talent, pitching, and the money/sharp read.</div>
@@ -229,7 +229,7 @@
   <div class="warnbox">
     <b>Data quality warnings</b>
     <ul>
-      <li>NO OUTPUT: NHL had games today but produced no picks and no 'considered and dropped' notes. Either nothing cleared the edge bar (fine) or that sport's odds/stats path is failing silently -- check the log for that league.</li>
+      <li>1 MLB game(s) have no probable pitcher posted yet -- pitching-matchup grading is skipped for those: ATL@LAD</li><li>4 game(s) had no real market price and were left out of the slate entirely. The engine never invents a price -- fewer picks is the correct outcome.</li>
     </ul>
   </div>
   
@@ -255,6 +255,8 @@
     
     <button class="tab-btn" data-target="view-NHL" onclick="showView(this)">NHL</button>
     
+    <button class="tab-btn" data-target="view-NBA" onclick="showView(this)">NBA</button>
+    
     <button class="tab-btn" data-target="view-top" onclick="showView(this)">TOP PARLAY</button>
   </div>
 
@@ -269,9 +271,40 @@
   
   <div class="view-panel" id="view-MLB" style="display:none;">
 
-    <div class="section-title"><span>MLB &middot; Today's Moneyline Picks</span></div>
+    <div class="section-title"><span>MLB &middot; Today's Moneyline Picks</span><span class="expand-all" onclick="toggleAll(this)">Expand all</span></div>
     
-      <div class="dropped">No MLB games on today's schedule. Past results are in the record below.</div>
+      
+      
+      <details class="pick top-pick" open>
+        <summary>
+          <div class="s-main">
+            <div class="top-badge">★ Top MLB ML Today</div>
+            <div class="s-team">CWS <span class="sport-tag">MLB</span> ML</div>
+            <div class="s-sub">Rank #1 &middot; Confidence 10/10 &middot; <span class="odds">+130</span></div>
+          </div>
+          <div class="s-right">
+            <div class="s-edge"><div class="n">8.2%</div><div class="l">Edge</div></div>
+            <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+        </summary>
+        <div class="body">
+          <div class="metrics">
+            <div class="metric"><div class="num">49.9%</div><div class="lbl">Model win%</div></div>
+            <div class="metric"><div class="num">41.8%</div><div class="lbl">Market win%</div></div>
+          </div>
+          <div class="flags">
+            
+            
+          </div>
+          <div class="why">
+            <div class="why-title">Why this clears every layer:</div>
+            <ul>
+              <li>[Strongest MLB read today] Highest edge on the MLB slate at 8.2%.</li><li>EDGE SOURCE: data factors +7.6%, astrology/numerology +0.5% (of the 8.2% total edge).</li><li>Pythagorean win%: CLE 0.516 vs CWS 0.534 (CWS the deeper team)</li><li>Starter ERA: CLE Parker Messick 2.56 vs CWS Hagen Smith 1.29 -> edge to CWS's starter</li><li>team OPS: CLE 0.696 vs CWS 0.726; HR/9 allowed: CLE SP 0.82 vs CWS SP 0.32; K%: CLE SP 25.8 vs CWS SP 37.3</li><li>Underdog value on CWS: CWS's run differential (0.534) nearly matches the favorite (0.516)</li><li>games back: CLE 19.5 vs CWS 1.0; streak: CLE +2 vs CWS +1</li><li>Last Quarter (51% illuminated), Moon in Cancer (water sign) -> underdog lean</li><li>Date reduces to 5 -> underdog lean</li><li>Not a football game -- factor not applicable.</li><li>Tickets 50% CLE / Handle 50% CLE -> no split</li><li>— Counter-signals we weighed (leaned toward the other side but didn't outweigh the pick):</li><li>Bullpen load (last 3d): CLE 0g/0 extra-inn (fatigue 0.00) vs CWS 1g/0 extra-inn (fatigue 0.33) -> fresher pen: CLE</li><li>park run factor 97; rest: CLE 6d, CWS 3d</li>
+            </ul>
+          </div>
+        </div>
+      </details>
+      
     
 
     
@@ -295,6 +328,9 @@
         </span>
       </summary>
       <div class="r-body">
+        
+        
+        
         
         
         
@@ -3889,6 +3925,9 @@
         
         
         
+        
+        
+        
           
           
           
@@ -5364,9 +5403,40 @@
   
   <div class="view-panel" id="view-NCAAF" style="display:none;">
 
-    <div class="section-title"><span>NCAAF &middot; Today's Moneyline Picks</span></div>
+    <div class="section-title"><span>NCAAF &middot; Today's Moneyline Picks</span><span class="expand-all" onclick="toggleAll(this)">Expand all</span></div>
     
-      <div class="dropped">No NCAAF moneyline play cleared a real edge today.</div>
+      
+      
+      <details class="pick top-pick" open>
+        <summary>
+          <div class="s-main">
+            <div class="top-badge">★ Top NCAAF ML Today</div>
+            <div class="s-team">UConn Huskies <span class="sport-tag">NCAAF</span> ML</div>
+            <div class="s-sub">Rank #1 &middot; Confidence 10/10 &middot; <span class="odds">+198</span></div>
+          </div>
+          <div class="s-right">
+            <div class="s-edge"><div class="n">9.6%</div><div class="l">Edge</div></div>
+            <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+        </summary>
+        <div class="body">
+          <div class="metrics">
+            <div class="metric"><div class="num">41.7%</div><div class="lbl">Model win%</div></div>
+            <div class="metric"><div class="num">32.1%</div><div class="lbl">Market win%</div></div>
+          </div>
+          <div class="flags">
+            
+            
+          </div>
+          <div class="why">
+            <div class="why-title">Why this clears every layer:</div>
+            <ul>
+              <li>[Strongest NCAAF read today] Highest edge on the NCAAF slate at 9.6%.</li><li>EDGE SOURCE: data factors +9.0%, astrology/numerology +0.5% (of the 9.6% total edge).</li><li>Pythagorean win%: UConn Huskies 0.666 vs Syracuse Orange 0.355 (UConn Huskies the deeper team)</li><li>rest: UConn Huskies -50d vs Syracuse Orange -57d; UConn Huskies on a short week; form trend (last 3 vs season): UConn Huskies -6.1 vs Syracuse Orange -28.9; venue split: UConn Huskies at home +18.8 vs Syracuse Orange on road -21.3</li><li>Underdog value on UConn Huskies: UConn Huskies is a home dog at +198 (+120-or-longer home dogs are historically underpriced); UConn Huskies's run differential (0.666) nearly matches the favorite (0.355)</li><li>games back: UConn Huskies 5.5 vs Syracuse Orange 12.0; streak: UConn Huskies +4 vs Syracuse Orange -8</li><li>Last Quarter (51% illuminated), Moon in Cancer (water sign) -> underdog lean</li><li>Date reduces to 5 -> underdog lean</li><li>Probable starters' ERA unavailable -- neutral until confirmed.</li><li>No advanced data available today (team OPS + pitcher stats both missing) -- neutral.</li><li>Recent bullpen workload unavailable -- neutral.</li><li>Tickets 50% UConn Huskies / Handle 50% UConn Huskies -> no split</li><li>park run factor 100</li><li>[Cleared the long-dog bar] +198 with a 9.6% edge -- above the 7% bar NCAAF long dogs need.</li>
+            </ul>
+          </div>
+        </div>
+      </details>
+      
     
 
     
@@ -5376,24 +5446,24 @@
         <summary>
           <div class="s-main">
             <div class="top-badge">★ Top NCAAF Total Today</div>
-            <div class="s-team">Over 51.5</div>
-            <div class="s-sub">Liberty Flames @ Delaware Blue Hens &middot; projected <b style="color:var(--fg);">55.0</b> &middot; <span class="odds">-110</span></div>
+            <div class="s-team">Over 45.5</div>
+            <div class="s-sub">Navy Midshipmen @ Air Force Falcons &middot; projected <b style="color:var(--fg);">59.2</b> &middot; <span class="odds">-110</span></div>
           </div>
           <div class="s-right">
-            <div class="s-edge"><div class="n">7.8%</div><div class="l">Edge</div></div>
+            <div class="s-edge"><div class="n">32.1%</div><div class="l">Edge</div></div>
             <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
           </div>
         </summary>
         <div class="body">
           <div class="metrics">
-            <div class="metric"><div class="num">60.2%</div><div class="lbl">Model over%</div></div>
+            <div class="metric"><div class="num">84.5%</div><div class="lbl">Model over%</div></div>
             <div class="metric"><div class="num">52.4%</div><div class="lbl">Market implied</div></div>
-            <div class="metric"><div class="num">+3.5</div><div class="lbl">Pts vs line</div></div>
+            <div class="metric"><div class="num">+13.7</div><div class="lbl">Pts vs line</div></div>
           </div>
           <div class="why">
             <div class="why-title">How this total was projected:</div>
             <ul>
-              <li>Projected total 55.0 vs the market's 51.5 (+3.5 points).</li><li>Delaware Blue Hens: scoring 28.1/gm, allowing 30.5/gm (16 games stored).</li><li>Liberty Flames: scoring 26.8/gm, allowing 24.6/gm (16 games stored).</li><li>Matchup projection -- Delaware Blue Hens 26.3, Liberty Flames 28.7.</li><li>Converted with a 13.5-point spread of outcomes (how much NCAAF totals actually scatter), giving OVER a 60.2% chance.</li><li>Market at -110 implies 52.4%, so the edge is +7.8 points of probability -- not the raw 3.5-point gap.</li>
+              <li>Projected total 59.2 vs the market's 45.5 (+13.7 points).</li><li>Air Force Falcons: scoring 30.7/gm, allowing 29.0/gm (15 games stored).</li><li>Navy Midshipmen: scoring 32.1/gm, allowing 26.6/gm (14 games stored).</li><li>Matchup projection -- Air Force Falcons 28.7, Navy Midshipmen 30.5.</li><li>Converted with a 13.5-point spread of outcomes (how much NCAAF totals actually scatter), giving OVER a 84.5% chance.</li><li>Market at -110 implies 52.4%, so the edge is +32.1 points of probability -- not the raw 13.7-point gap.</li>
             </ul>
           </div>
         </div>
@@ -5403,24 +5473,51 @@
         <summary>
           <div class="s-main">
             
-            <div class="s-team">Over 46.5</div>
-            <div class="s-sub">Penn State Nittany Lions @ Northwestern Wildcats &middot; projected <b style="color:var(--fg);">48.4</b> &middot; <span class="odds">-110</span></div>
+            <div class="s-team">Over 48.5</div>
+            <div class="s-sub">Temple Owls @ South Florida Bulls &middot; projected <b style="color:var(--fg);">58.9</b> &middot; <span class="odds">-110</span></div>
           </div>
           <div class="s-right">
-            <div class="s-edge"><div class="n">3.2%</div><div class="l">Edge</div></div>
+            <div class="s-edge"><div class="n">25.6%</div><div class="l">Edge</div></div>
             <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
           </div>
         </summary>
         <div class="body">
           <div class="metrics">
-            <div class="metric"><div class="num">55.6%</div><div class="lbl">Model over%</div></div>
+            <div class="metric"><div class="num">78.0%</div><div class="lbl">Model over%</div></div>
             <div class="metric"><div class="num">52.4%</div><div class="lbl">Market implied</div></div>
-            <div class="metric"><div class="num">+1.9</div><div class="lbl">Pts vs line</div></div>
+            <div class="metric"><div class="num">+10.4</div><div class="lbl">Pts vs line</div></div>
           </div>
           <div class="why">
             <div class="why-title">How this total was projected:</div>
             <ul>
-              <li>Projected total 48.4 vs the market's 46.5 (+1.9 points).</li><li>Northwestern Wildcats: scoring 24.5/gm, allowing 20.3/gm (15 games stored).</li><li>Penn State Nittany Lions: scoring 33.0/gm, allowing 18.9/gm (16 games stored).</li><li>Matchup projection -- Northwestern Wildcats 21.7, Penn State Nittany Lions 26.7.</li><li>Converted with a 13.5-point spread of outcomes (how much NCAAF totals actually scatter), giving OVER a 55.6% chance.</li><li>Market at -110 implies 52.4%, so the edge is +3.2 points of probability -- not the raw 1.9-point gap.</li>
+              <li>Projected total 58.9 vs the market's 48.5 (+10.4 points).</li><li>South Florida Bulls: scoring 39.8/gm, allowing 21.0/gm (16 games stored).</li><li>Temple Owls: scoring 27.9/gm, allowing 29.2/gm (16 games stored).</li><li>Matchup projection -- South Florida Bulls 34.5, Temple Owls 24.4.</li><li>Converted with a 13.5-point spread of outcomes (how much NCAAF totals actually scatter), giving OVER a 78.0% chance.</li><li>Market at -110 implies 52.4%, so the edge is +25.6 points of probability -- not the raw 10.4-point gap.</li>
+            </ul>
+          </div>
+        </div>
+      </details>
+      
+      <details class="pick">
+        <summary>
+          <div class="s-main">
+            
+            <div class="s-team">Under 62.5</div>
+            <div class="s-sub">Oregon State Beavers @ Colorado State Rams &middot; projected <b style="color:var(--fg);">52.6</b> &middot; <span class="odds">-110</span></div>
+          </div>
+          <div class="s-right">
+            <div class="s-edge"><div class="n">24.5%</div><div class="l">Edge</div></div>
+            <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+        </summary>
+        <div class="body">
+          <div class="metrics">
+            <div class="metric"><div class="num">76.9%</div><div class="lbl">Model under%</div></div>
+            <div class="metric"><div class="num">52.4%</div><div class="lbl">Market implied</div></div>
+            <div class="metric"><div class="num">-9.9</div><div class="lbl">Pts vs line</div></div>
+          </div>
+          <div class="why">
+            <div class="why-title">How this total was projected:</div>
+            <ul>
+              <li>Projected total 52.6 vs the market's 62.5 (-9.9 points).</li><li>Colorado State Rams: scoring 23.9/gm, allowing 31.7/gm (16 games stored).</li><li>Oregon State Beavers: scoring 21.7/gm, allowing 27.8/gm (16 games stored).</li><li>Matchup projection -- Colorado State Rams 25.9, Oregon State Beavers 26.7.</li><li>Converted with a 13.5-point spread of outcomes (how much NCAAF totals actually scatter), giving UNDER a 76.9% chance.</li><li>Market at -110 implies 52.4%, so the edge is +24.5 points of probability -- not the raw 9.9-point gap.</li>
             </ul>
           </div>
         </div>
@@ -5441,7 +5538,7 @@
         <span class="r-title">NCAAF Record &amp; History</span>
         <span class="r-sum">
           <span class="r-stat"><span class="v">9-18</span><div class="k">Moneyline</div></span>
-          <span class="r-stat"><span class="v">14-13</span><div class="k">Props/Totals</div></span>
+          <span class="r-stat"><span class="v">15-14</span><div class="k">Props/Totals</div></span>
           <span class="r-stat"><span class="v" style="color:var(--warn);">43%</span><div class="k">Win rate</div></span>
           <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
         </span>
@@ -5660,6 +5757,34 @@
         
         
         
+        
+        
+        
+          
+          
+          
+          
+          
+          <div class="rec-day">
+            <div class="d-head">
+              <span class="d-date">2026-10-02</span>
+              <span class="d-rec">ML <b>0-0</b> &middot; Props/Totals <b>1-1</b></span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#e5484d;">&#10007;</span>
+              <span class="lb">Over 51.5 (Liberty Flames @ Delaware Blue Hens)</span>
+              <span class="kind-tag">O/U</span>
+            </div>
+            
+            <div class="rec-row">
+              <span class="mk" style="color:#2fd07a;">&#10003;</span>
+              <span class="lb">Over 46.5 (Penn State Nittany Lions @ Northwestern Wildcats)</span>
+              <span class="kind-tag">O/U</span>
+            </div>
+            
+            
+          </div>
           
           
           
@@ -6492,6 +6617,9 @@
         
         
         
+        
+        
+        
           
           
           
@@ -6595,13 +6723,296 @@
 
   </div>
   
+  
+  
+  
+  
+  
+  
+  
+  
+  <div class="view-panel" id="view-NBA" style="display:none;">
+
+    <div class="section-title"><span>NBA &middot; Today's Moneyline Picks</span></div>
+    
+      <div class="dropped">No NBA moneyline play cleared a real edge today.</div>
+    
+
+    
+
+    
+
+    <div class="section-title"><span>NBA &middot; Best Parlay</span></div>
+    
+    
+    <div class="dropped">No NBA parlay today &mdash; fewer than 2 NBA legs cleared the confidence bar.</div>
+    
+
+    <details class="rec">
+      <summary>
+        <span class="r-title">NBA Record &amp; History</span>
+        <span class="r-sum">
+          <span class="r-stat"><span class="v">0-0</span><div class="k">Moneyline</div></span>
+          
+          <span class="r-stat"><span class="v" style="color:var(--fg);">--</span><div class="k">Win rate</div></span>
+          <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+        </span>
+      </summary>
+      <div class="r-body">
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+          <div style="color:var(--muted); font-size:13px; padding:12px 0;">No graded NBA picks yet. Results appear here once games go final.</div>
+        
+      </div>
+    </details>
+
+  </div>
+  
 
   <div class="view-panel" id="view-top" style="display:none;">
+    
+    <div class="section-title"><span>Double Your Money &middot; 2 ML picks</span></div>
+    <div class="double">
+      <div class="dh">💵 ~2x payout &middot; combined +585</div>
+      <div style="margin-top:6px;">
+        
+        <div class="leg-row"><span class="n">Leg 1</span><span class="lbl">UConn Huskies ML (+198)</span><span class="kind-tag">NCAAF</span></div>
+        
+        <div class="leg-row"><span class="n">Leg 2</span><span class="lbl">CWS ML (+130)</span><span class="kind-tag">MLB</span></div>
+        
+      </div>
+      <div class="note" style="color:var(--muted); font-size:13px; margin-top:8px;">The two safest ML picks across all sports that combine to roughly double a 1-unit stake. Flat 1 unit.</div>
+    </div>
     
 
     <div class="section-title"><span>Top Parlay of the Day &middot; all sports combined</span></div>
     
-    <div class="dropped">No top parlay today &mdash; fewer than 2 legs cleared the confidence bar across all sports. Discipline over action.</div>
+    <div class="parlay">
+      <div class="legs">2-Leg Top Parlay</div>
+      <div class="odds">Combined: +585 &middot; 20.8% est. win probability</div>
+      <div style="margin-top:14px;">
+        
+        <div class="leg-row"><span class="n">Leg 1</span><span class="lbl">UConn Huskies ML (+198)</span><span class="kind-tag">ML</span></div>
+        
+        <div class="leg-row"><span class="n">Leg 2</span><span class="lbl">CWS ML (+130)</span><span class="kind-tag">ML</span></div>
+        
+      </div>
+      <div class="note">Flat 1 unit. The single strongest ticket across every active sport &mdash; any mix of leagues and props the system rates highest today.</div>
+    </div>
     
   </div>
 
