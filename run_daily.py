@@ -10,19 +10,16 @@ NFL RUNS TWO SEPARATE PROP BOARDS, ranked and capped INDEPENDENTLY:
   - yards / receptions / pass TD (engine/player_props.py)   cap 10
 Both caps are ceilings, not quotas: a thin slate publishing four is correct.
 
-DEPTH FILTERING (Sep 14, 2026) -- the backup-QB bug. The prop boards were
-built from every Active skill player, so KC@DEN published Patrick Mahomes AND
-Justin Fields, his backup, and Fields' +700 anytime-TD landed in the Top
-Parlay. He is genuinely rostered and genuinely Active, so no roster check
-caught it -- he just won't take a snap, and his stat profile came from
-starting elsewhere. data/nfl_players.filter_to_contributors now cuts each
-roster to one QB (the passing-volume leader) plus players clearing
-per-position volume floors, and it runs BEFORE either board is built.
+DEPTH FILTERING (Sep 14, 2026) -- the backup-QB bug. data/nfl_players.
+filter_to_contributors cuts each roster to one QB plus players clearing
+per-position volume floors, BEFORE either board is built.
 
-That filter also repairs an already-published board without touching the
-database: _locked_props reinstates today's picks by matching stored names
-against the freshly built pool, so a player who is no longer in the pool
-simply cannot come back.
+CLOSING LINES (Oct 5, 2026): the hourly checks that used to stop at the
+auto-gate now call data/closing_lines.capture_closing_lines, which takes one
+fresh price on each picked game shortly before it starts. That gives every
+pick a real closing line, so the overnight grader's CLV is real instead of
+"same price as publish." History then marks each graded moneyline with
+↑ (line moved your way) or ↓ (moved against you). No new workflows.
 """
 
 import argparse
@@ -55,6 +52,7 @@ from data.nfl_players import (get_skill_players, get_player_profile,
 from data.td_odds import fetch_td_odds
 from data.prop_odds import fetch_player_prop_odds
 from data.self_check import run_self_check
+from data.closing_lines import capture_closing_lines
 import re as _re
 import unicodedata as _ud
 
@@ -97,6 +95,9 @@ SPORT_ORDER = ["MLB", "WNBA", "NFL", "NCAAF", "NCAAB", "NHL", "NBA"]
 RECORD_SPORTS = {"MLB", "WNBA", "NFL", "NCAAF", "NCAAB", "NHL", "NBA"}
 SCORES_RECORD_SPORTS = {"WNBA", "NFL", "NCAAF", "NCAAB", "NHL", "NBA"}
 RETIRED_KINDS = {"hr_prop"}
+
+# CLV must move at least this many probability points to earn an arrow.
+CLV_ARROW_MIN = 0.05
 
 _ESPN_SCHEDULE_PROVIDERS = {
     "NFL": get_todays_nfl_games,
@@ -239,7 +240,6 @@ def _nfl_player_pool(nfl_games):
                 pid = p["player_id"]
                 if pid not in profiles:
                     profiles[pid] = get_player_profile(pid, p["name"])
-    # One QB per team + per-position volume floors. See the module docstring.
     rosters_by_team = filter_to_contributors(rosters_by_team, profiles)
     return rosters_by_team, profiles
 
@@ -313,8 +313,7 @@ def _build_player_props(db, nfl_games, rosters_by_team, profiles, odds_by_game,
 
 def _injury_status_map(nfl_games):
     """{player_name: status} from ESPN's per-game injury block, used to skip
-    UNDERS on questionable players -- a scratch voids the bet at most books but
-    grades UNDER at a few, so settlement rules are unreliable."""
+    UNDERS on questionable players."""
     from data.espn_fetch import fetch_scoreboard_events
     out = {}
     for date_str in {g.date for g in nfl_games}:
@@ -385,6 +384,12 @@ def main(argv=None):
         should_run, reason = auto_gate.should_run_now(run_date, date_str, games)
         logger.info("Auto-run check: %s", reason)
         if not should_run:
+            # Idle hourly check: use it to take a closing price on any picked
+            # game that starts within the hour. See data/closing_lines.py.
+            try:
+                capture_closing_lines(Database(), date_str)
+            except Exception as exc:
+                logger.warning("Closing-line capture skipped: %s", exc)
             return
 
     db = Database()
@@ -568,13 +573,38 @@ def main(argv=None):
         auto_gate.mark_published(date_str)
 
 
-def _label_for(row):
+def _clv_map(db):
+    """{(date, team): clv_pct} for graded moneylines that have a real CLV."""
+    out = {}
+    try:
+        with db.cursor() as cur:
+            cur.execute("SELECT date, team, clv_pct FROM recommendations "
+                        "WHERE kind='moneyline' AND clv_pct IS NOT NULL")
+            for r in cur.fetchall():
+                out[(r["date"], r["team"])] = r["clv_pct"]
+    except Exception as exc:
+        logger.debug("CLV map unavailable: %s", exc)
+    return out
+
+
+def _clv_arrow(clv):
+    if clv is None:
+        return ""
+    if clv > CLV_ARROW_MIN:
+        return " ↑ line moved your way"
+    if clv < -CLV_ARROW_MIN:
+        return " ↓ line moved against"
+    return ""
+
+
+def _label_for(row, clv=None):
     kind = row["kind"]
     if kind in RETIRED_KINDS:
         return None
     odds = row["odds_american"]
     if kind == "moneyline":
-        return f"{row['team']} ML ({odds:+d})" if odds is not None else f"{row['team']} ML"
+        base = f"{row['team']} ML ({odds:+d})" if odds is not None else f"{row['team']} ML"
+        return base + _clv_arrow(clv)
     if kind == "td_prop":
         return (f"{row['side_or_player']} anytime TD ({odds:+d})" if odds is not None
                 else f"{row['side_or_player']} anytime TD")
@@ -636,13 +666,14 @@ def _build_history(db, today_str):
             {"label": "MIN ML (-144)", "status": "lost", "kind": "moneyline", "sport": "MLB"},
         ]},
     ]
+    clv = _clv_map(db)
     by_date = {}
     order = []
     for r in db.get_graded_history(after=LEDGER_CUTOFF):
         d = r["date"]
         if d >= today_str or d in SEED_OVERRIDE_DATES:
             continue
-        label = _label_for(r)
+        label = _label_for(r, clv.get((d, r.get("team"))))
         if label is None:
             continue
         if d not in by_date:
@@ -667,11 +698,12 @@ def _build_results_recap(db, date_str):
     recap_date = db.get_last_slate_date(date_str)
     if not recap_date:
         return {}
+    clv = _clv_map(db)
     items = []
     for r in db.get_recommendations_for_date(recap_date):
         if r["status"] not in ("won", "lost", "push"):
             continue
-        label = _label_for(r)
+        label = _label_for(r, clv.get((recap_date, r.get("team"))))
         if label is None:
             continue
         items.append({"label": label, "status": r["status"], "kind": r["kind"],
