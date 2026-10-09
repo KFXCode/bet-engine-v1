@@ -24,11 +24,31 @@ Note the CDN host nests its payload differently:
     site hosts -> {"events": [...]}
     cdn core   -> {"content": {"sbData": {"events": [...]}}}
 Both shapes are unwrapped here so callers always just get a list of events.
+
+=====================================================================
+DATE FILTER (Oct 9, 2026) -- the "9-0 on a Tuesday" bug.
+=====================================================================
+On a day with no games for a league, ESPN does NOT return an empty board. It
+quietly falls back to the CURRENT WEEK's games. The Oct 6 run (a Tuesday) asked
+for that day's NFL slate, got Sunday and Monday's already-finished games back,
+picked them as if they were upcoming, and graded them on the spot. The player
+stats feeding the picks already included those games, so it "picked" players
+who had already scored and went a perfect 9-0 on bets nobody could have made.
+
+Every event is now checked against the requested date in the engine's
+timezone (config.TIMEZONE), and anything from another day is dropped. A 10:30
+PM ET kickoff is 02:30 UTC the next day, which is why the comparison uses local
+time and not the UTC date. Events with no parseable start time are kept, so a
+data quirk can't silently empty a real slate.
 """
 
 import logging
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import requests
+
+import config
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +71,25 @@ CDN_CORE_SLUG = {
 }
 
 
+def _tz():
+    try:
+        return ZoneInfo(config.TIMEZONE)
+    except Exception:
+        return ZoneInfo("America/New_York")
+
+
+def _local_date(event, tz):
+    """The event's start date in the engine's timezone, or None if unknown."""
+    raw = event.get("date")
+    if not raw:
+        return None
+    try:
+        dt = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+        return dt.astimezone(tz).strftime("%Y-%m-%d")
+    except Exception:
+        return None
+
+
 def _extract_events(payload):
     if not isinstance(payload, dict):
         return []
@@ -62,16 +101,22 @@ def _extract_events(payload):
     return events if isinstance(events, list) else []
 
 
-def fetch_scoreboard_events(league_path, date_str, season_types=(None,), referer=None):
+def fetch_scoreboard_events(league_path, date_str, season_types=(None,), referer=None,
+                            same_day_only=True):
     """Events for `league_path` (e.g. 'basketball/wnba') on `date_str`
     ('YYYY-MM-DD'), trying every known ESPN host. season_types lets callers
     sweep pre/regular/post (NFL preseason lives under seasontype=1); pass
-    (None,) to let ESPN decide. Returns [] on total failure -- never raises."""
+    (None,) to let ESPN decide.
+
+    same_day_only (default True) drops any event whose local start date isn't
+    date_str -- see the DATE FILTER note above. Returns [] on total failure --
+    never raises."""
     day = date_str.replace("-", "")
     slug = CDN_CORE_SLUG.get(league_path)
     headers = dict(BROWSER_HEADERS)
     if referer:
         headers["Referer"] = referer
+    tz = _tz()
 
     hosts = [
         f"https://site.api.espn.com/apis/site/v2/sports/{league_path}/scoreboard",
@@ -82,6 +127,7 @@ def fetch_scoreboard_events(league_path, date_str, season_types=(None,), referer
 
     seen_ids = set()
     collected = []
+    dropped_other_days = 0
     for url in hosts:
         for stype in season_types:
             params = {"dates": day, "limit": 400}
@@ -101,11 +147,21 @@ def fetch_scoreboard_events(league_path, date_str, season_types=(None,), referer
                 if eid in seen_ids:
                     continue
                 seen_ids.add(eid)
+                if same_day_only:
+                    local = _local_date(ev, tz)
+                    if local is not None and local != date_str:
+                        dropped_other_days += 1
+                        continue
                 collected.append(ev)
         if collected:
-            logger.info("ESPN scoreboard %s %s: %d event(s) via %s.",
-                        league_path, date_str, len(collected), url.split("/")[2])
+            logger.info("ESPN scoreboard %s %s: %d event(s) via %s%s.",
+                        league_path, date_str, len(collected), url.split("/")[2],
+                        f" ({dropped_other_days} from other days dropped)" if dropped_other_days else "")
             return collected
 
-    logger.info("ESPN scoreboard %s %s: no events from any host.", league_path, date_str)
+    if dropped_other_days:
+        logger.info("ESPN scoreboard %s %s: no games that day (ignored %d event(s) ESPN returned "
+                    "from other days).", league_path, date_str, dropped_other_days)
+    else:
+        logger.info("ESPN scoreboard %s %s: no events from any host.", league_path, date_str)
     return []
