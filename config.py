@@ -104,6 +104,27 @@ def min_edge_for(sport):
     return MIN_EDGE_BY_SPORT.get(sport, MIN_EDGE)
 
 
+# SHARP-PRICE SPORTS (Oct 28, 2026).
+# NBA and NHL had no real inputs -- only records and generic factors, which
+# moved the number 1-2% and lost ~10% when they were bet. So for these sports
+# the model's number is no longer built from those factors. It is the price at
+# the sharpest books (Pinnacle, then LowVig, then BetOnline) with the vig taken
+# out. A pick is made only when FanDuel pays at least SHARP_MIN_EV more than
+# that fair price -- the same test Bank Mode uses, and the one that has been
+# winning there. Asking the API for these extra books costs 0 extra credits
+# (up to 10 books cost the same as 1).
+SHARP_PRICE_SPORTS = ["NBA", "NHL"]
+SHARP_BOOKS = ["pinnacle", "lowvig", "betonlineag"]
+SHARP_BOOK_NAMES = {"pinnacle": "Pinnacle", "lowvig": "LowVig", "betonlineag": "BetOnline"}
+SHARP_MIN_EV = 0.02        # FanDuel must pay 2%+ more than the sharp fair price
+SHARP_MAX_EV = 0.10        # more than 10% better is almost always a bad/stale price
+SHARP_MAX_AGE_MIN = 90     # sharp price older than FanDuel's by more than this is ignored
+
+
+def uses_sharp_price(sport):
+    return sport in SHARP_PRICE_SPORTS
+
+
 MAX_PLAYS_PER_DAY = 5
 SECOND_PLAY_TOLERANCE = 0.0
 TARGET_EDGE_MIN = 0.045
