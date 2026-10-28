@@ -27,6 +27,43 @@ from data.celestial import celestial_signal_for, moon_phase_for
 from data.numerology import numerology_signal_for
 from engine.grading_factors import GradingContext, score_all_factors
 from engine.models import SideEvaluation
+import config
+
+
+def american_to_decimal(odds):
+    odds = float(odds)
+    return 1.0 + (odds / 100.0 if odds > 0 else 100.0 / -odds)
+
+
+def _evaluate_vs_sharp(game, odds, factor_scores, fair_home, fair_away):
+    """NBA/NHL: the model's chance IS the sharp books' fair chance. Pick the
+    side FanDuel overpays, only if it pays SHARP_MIN_EV more than fair."""
+    sharp_home = getattr(odds, "sharp_home_prob", None)
+    if sharp_home is None:
+        return SideEvaluation(game=game, odds=odds, factor_scores=factor_scores,
+                              market_prob_home=fair_home, market_prob_away=fair_away,
+                              model_prob_home=fair_home, model_prob_away=fair_away,
+                              recommended_side=None, edge_pct=0.0,
+                              dropped_reason="No sharp-book price for this game -- no pick.")
+    sharp_away = 1.0 - sharp_home
+    ev_home = sharp_home * american_to_decimal(odds.home_ml) - 1.0
+    ev_away = sharp_away * american_to_decimal(odds.away_ml) - 1.0
+    side, ev = ("home", ev_home) if ev_home >= ev_away else ("away", ev_away)
+    edge = (sharp_home - fair_home) if side == "home" else (sharp_away - fair_away)
+    reason = None
+    if ev < config.SHARP_MIN_EV:
+        reason = (f"FanDuel's best side pays only {ev:+.1%} vs the {odds.sharp_source} fair price "
+                  f"(needs +{config.SHARP_MIN_EV:.0%}).")
+    elif ev > config.SHARP_MAX_EV:
+        reason = (f"FanDuel looks {ev:+.1%} better than {odds.sharp_source} -- too good to be real "
+                  f"(likely a stale price). Skipped.")
+    return SideEvaluation(
+        game=game, odds=odds, factor_scores=factor_scores,
+        market_prob_home=fair_home, market_prob_away=fair_away,
+        model_prob_home=sharp_home, model_prob_away=sharp_away,
+        recommended_side=None if reason else side, edge_pct=0.0 if reason else edge,
+        dropped_reason=reason, sharp_ev=ev,
+    )
 
 
 def american_to_implied_prob(odds):
@@ -96,6 +133,9 @@ def evaluate_game(game, odds, home_pitcher_profile, away_pitcher_profile,
                                model_prob_home=fair_home, model_prob_away=fair_away,
                                recommended_side=None, edge_pct=0.0,
                                dropped_reason="No usable market odds today.")
+
+    if config.uses_sharp_price(game.sport):
+        return _evaluate_vs_sharp(game, odds, factor_scores, fair_home, fair_away)
 
     weighted_nudge = sum(fs.signal * fs.weight for fs in factor_scores)
     model_home = min(0.98, max(0.02, fair_home + weighted_nudge))

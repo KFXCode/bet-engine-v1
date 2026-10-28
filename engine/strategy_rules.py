@@ -70,7 +70,7 @@ def _odds_for(ev):
     return ev.odds.home_ml if ev.recommended_side == "home" else ev.odds.away_ml
 
 
-def _price_check(odds, edge_pct, sport=None):
+def _price_check(odds, edge_pct, sport=None, sharp=False):
     """(ok, note). Applies the graded price policy to one candidate."""
     if odds is None:
         return True, None
@@ -78,6 +78,10 @@ def _price_check(odds, edge_pct, sport=None):
         return False, (f"priced {odds:+d} -- heavy favourites ({MAX_FAV:+d} or worse) have gone "
                        f"21-6 for +0.1 units (ROI +0.4%), and 80%+ model favourites grade at "
                        f"ROI -8%. A high win rate that earns nothing isn't a bet.")
+    if sharp:
+        # The dog rules below exist because the OLD model overrated dogs. A
+        # sharp-price pick is judged on price alone; it already passed the EV test.
+        return True, None
 
     dog_first = sport in DOG_FIRST_SPORTS
 
@@ -119,6 +123,8 @@ def _conviction_check(ev, sport_top_edge):
             return False, (f"{ev.edge_pct:.1%} edge is below {STRONG_PICK_RATIO:.0%} of today's best "
                            f"{ev.game.sport} edge ({sport_top_edge:.1%}) -- cleared the floor but "
                            f"isn't close to the day's strongest read, so it doesn't publish.")
+    if ev.sharp_ev is not None:
+        return True, None          # factors don't drive a sharp-price pick
     data, astro = _edge_split(ev)
     positive = max(data, 0.0) + max(astro, 0.0)
     if positive > 0 and astro > 0 and astro / positive > MAX_ASTRO_SHARE:
@@ -147,6 +153,13 @@ def _build_reasoning(ev, dh_note=None):
     reasoning = []
     if dh_note:
         reasoning.append(dh_note)
+    if ev.sharp_ev is not None:
+        fair = ev.model_prob_home if side == "home" else ev.model_prob_away
+        reasoning.append(
+            f"SHARP PRICE: {ev.odds.sharp_source} (the sharpest book) gives this side a {fair:.1%} "
+            f"chance. At FanDuel's price that is {ev.sharp_ev:+.1%} expected profit per bet -- "
+            f"FanDuel is paying more than the game is worth.")
+        return reasoning, ev.edge_pct * 100, 0.0
     reasoning.append(
         f"EDGE SOURCE: data factors {edge_data_pct:+.1f}%, astrology/numerology "
         f"{edge_astro_pct:+.1f}% (of the {ev.edge_pct * 100:.1f}% total edge).")
@@ -164,7 +177,7 @@ def _sport_top_edges(candidates):
     publish can't set a bar nobody else can reach."""
     tops = {}
     for ev in candidates:
-        ok, _ = _price_check(_odds_for(ev), ev.edge_pct, ev.game.sport)
+        ok, _ = _price_check(_odds_for(ev), ev.edge_pct, ev.game.sport, ev.sharp_ev is not None)
         if not ok:
             continue
         s = ev.game.sport
@@ -175,7 +188,7 @@ def _sport_top_edges(candidates):
 
 def select_daily_plays(evaluations, db, public_splits, run_date_str):
     candidates = [e for e in evaluations
-                  if e.recommended_side and e.edge_pct >= config.min_edge_for(e.game.sport)]
+                  if e.recommended_side and (e.sharp_ev is not None or e.edge_pct >= config.min_edge_for(e.game.sport))]
     candidates.sort(key=_rank_key)
     top_edges = _sport_top_edges(candidates)
 
@@ -195,7 +208,7 @@ def select_daily_plays(evaluations, db, public_splits, run_date_str):
         matchup = f"{ev.game.away_team} @ {ev.game.home_team}{ev.game.dh_label()}"
         odds_american = _odds_for(ev)
 
-        price_ok, price_note = _price_check(odds_american, ev.edge_pct, sport)
+        price_ok, price_note = _price_check(odds_american, ev.edge_pct, sport, ev.sharp_ev is not None)
         if not price_ok:
             dropped_notes.append(f"{label} ({matchup}): {price_note}")
             continue
@@ -215,7 +228,15 @@ def select_daily_plays(evaluations, db, public_splits, run_date_str):
         if team in recent_picks:
             strong_factors = sum(1 for fs in ev.factor_scores if abs(fs.signal) >= 0.5)
             required_edge = config.min_edge_for(sport) + config.DIVERSIFICATION_EXTRA_EDGE
-            if ev.edge_pct < required_edge or strong_factors < config.DIVERSIFICATION_MIN_STRONG_FACTORS:
+            if ev.sharp_ev is not None:
+                # sharp pick: same team again only if FanDuel's overpay is bigger
+                need = config.SHARP_MIN_EV + 0.01
+                fails = ev.sharp_ev < need
+                required_edge, strong_factors = need, config.DIVERSIFICATION_MIN_STRONG_FACTORS
+            else:
+                fails = (ev.edge_pct < required_edge
+                         or strong_factors < config.DIVERSIFICATION_MIN_STRONG_FACTORS)
+            if fails:
                 dropped_notes.append(
                     f"{label} ({matchup}): skipped -- played in the last {config.DIVERSIFICATION_LOOKBACK_DAYS} "
                     f"day(s) and didn't clear the stricter re-confirmation bar.")
@@ -316,7 +337,7 @@ def get_parlay_pool(evaluations):
     sorted by edge desc -- so the optional green-light parlay can't use a pick
     the board itself rejected."""
     candidates = [e for e in evaluations
-                  if e.recommended_side and e.edge_pct >= config.min_edge_for(e.game.sport)]
+                  if e.recommended_side and (e.sharp_ev is not None or e.edge_pct >= config.min_edge_for(e.game.sport))]
     candidates.sort(key=lambda e: e.edge_pct, reverse=True)
     top_edges = _sport_top_edges(candidates)
     pool = []

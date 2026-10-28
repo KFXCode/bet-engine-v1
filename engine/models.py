@@ -56,6 +56,10 @@ class MoneylineOdds:
     home_spread: Optional[float] = None
     away_spread: Optional[float] = None
     total: Optional[float] = None
+    # Sharp-book fair chance for the home team (vig removed), and which book
+    # it came from. Only filled for config.SHARP_PRICE_SPORTS.
+    sharp_home_prob: Optional[float] = None
+    sharp_source: Optional[str] = None
 
 
 @dataclass
@@ -80,6 +84,8 @@ class SideEvaluation:
     recommended_side: Optional[str]
     edge_pct: float
     dropped_reason: Optional[str] = None
+    # Set when the pick was judged against the sharp-book price (NBA/NHL).
+    sharp_ev: Optional[float] = None
 
 
 @dataclass
