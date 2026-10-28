@@ -194,15 +194,26 @@ class TheOddsApiProvider(OddsProvider):
     def _markets(self):
         return MARKETS_BY_SPORT.get(self.sport, "h2h")
 
+    def _bookmakers(self):
+        # Sharp books ride along for free (up to 10 books cost the same as 1).
+        if config.uses_sharp_price(self.sport):
+            return ",".join([self.bookmaker] + list(config.SHARP_BOOKS))
+        return self.bookmaker
+
+    def _cache_key(self, sport_key):
+        # Separate cache so an old FanDuel-only response is never reused for
+        # a sport that now needs the sharp prices too.
+        return sport_key + "_sharp" if config.uses_sharp_price(self.sport) else sport_key
+
     def _fetch_events(self, sport_key):
         global _QUOTA_EXHAUSTED
 
-        cached = _cache_read(sport_key)
+        cached = _cache_read(self._cache_key(sport_key))
         if cached is not None:
             return cached
 
         if _QUOTA_EXHAUSTED:
-            stale = _cache_read(sport_key, allow_stale=True)
+            stale = _cache_read(self._cache_key(sport_key), allow_stale=True)
             return stale if stale is not None else []
 
         markets = self._markets()
@@ -211,7 +222,7 @@ class TheOddsApiProvider(OddsProvider):
             "apiKey": self.api_key,
             "regions": "us",
             "markets": markets,
-            "bookmakers": self.bookmaker,
+            "bookmakers": self._bookmakers(),
             "oddsFormat": "american",
         }
         try:
@@ -222,11 +233,11 @@ class TheOddsApiProvider(OddsProvider):
                 logger.error("ODDS API 401 on %s -- key rejected or quota gone. No further paid "
                              "calls this run. Check https://the-odds-api.com/account/",
                              sport_key)
-                stale = _cache_read(sport_key, allow_stale=True)
+                stale = _cache_read(self._cache_key(sport_key), allow_stale=True)
                 return stale if stale is not None else []
             if resp.status_code == 429:
                 logger.error("ODDS API rate-limited (429) on %s -- backing off this run.", sport_key)
-                stale = _cache_read(sport_key, allow_stale=True)
+                stale = _cache_read(self._cache_key(sport_key), allow_stale=True)
                 return stale if stale is not None else []
             if resp.status_code in (404, 422):
                 logger.debug("Odds API key %s not currently active (%s).", sport_key, resp.status_code)
@@ -256,11 +267,11 @@ class TheOddsApiProvider(OddsProvider):
                              LAST_CREDITS["remaining"], CREDIT_RESERVE)
 
             if events:
-                _cache_write(sport_key, events)
+                _cache_write(self._cache_key(sport_key), events)
             return events
         except Exception as exc:
             logger.warning("The Odds API request failed for %s (%s).", sport_key, exc)
-            stale = _cache_read(sport_key, allow_stale=True)
+            stale = _cache_read(self._cache_key(sport_key), allow_stale=True)
             return stale if stale is not None else []
 
     def get_odds(self, games):
@@ -392,10 +403,55 @@ def _parse_odds_event(event, bookmaker, game, captured_at, sport):
             elif market["key"] == "totals":
                 if market["outcomes"]:
                     total = market["outcomes"][0].get("point")
+    sharp_home_prob = sharp_source = None
+    if config.uses_sharp_price(sport) and home_ml is not None and away_ml is not None:
+        sharp_home_prob, sharp_source = _sharp_fair_home(event, bookmaker, game, sport)
     return MoneylineOdds(
         book=bookmaker, home_ml=home_ml, away_ml=away_ml, captured_at=captured_at,
         home_spread=home_spread, away_spread=away_spread, total=total,
+        sharp_home_prob=sharp_home_prob, sharp_source=sharp_source,
     )
+
+
+def _implied(price):
+    price = float(price)
+    return 100.0 / (price + 100.0) if price > 0 else -price / (-price + 100.0)
+
+
+def _sharp_fair_home(event, pick_book, game, sport):
+    """Home team's fair chance at the sharpest book that priced this game
+    (Pinnacle, then LowVig, then BetOnline), vig removed. A sharp price that
+    is much older than the pick book's is skipped -- it may have moved."""
+    books = {bm.get("key"): bm for bm in event.get("bookmakers", [])}
+    pick_seen = books.get(pick_book, {}).get("last_update")
+    for key in config.SHARP_BOOKS:
+        bm = books.get(key)
+        if not bm:
+            continue
+        if pick_seen and bm.get("last_update"):
+            try:
+                lag = (_parse_iso(pick_seen) - _parse_iso(bm["last_update"])).total_seconds() / 60.0
+                if lag > config.SHARP_MAX_AGE_MIN:
+                    continue
+            except Exception:
+                pass
+        home = away = None
+        for market in bm.get("markets", []):
+            if market.get("key") != "h2h":
+                continue
+            for o in market.get("outcomes", []):
+                team = _normalize_for_sport(o.get("name", ""), sport)
+                if team == game.home_team:
+                    home = o.get("price")
+                elif team == game.away_team:
+                    away = o.get("price")
+        if home is None or away is None:
+            continue
+        ph, pa = _implied(home), _implied(away)
+        if ph + pa <= 0:
+            continue
+        return ph / (ph + pa), config.SHARP_BOOK_NAMES.get(key, key)
+    return None, None
 
 
 def _prob_to_american(p):
